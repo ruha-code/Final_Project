@@ -227,7 +227,7 @@ function Dashboard() {
       <div className="w-80 space-y-6">
         {/* CALENDAR */}
         <div className="bg-white/90 backdrop-blur p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition">
-          <h2 className="text-sm font-semibold mb-4">March 2025</h2>
+          <h2 className="text-sm font-semibold mb-4">March 2026</h2>
 
           <div className="grid grid-cols-7 text-xs text-center gap-2 text-gray-400 mb-2">
             {["S", "M", "T", "W", "T", "F", "S"].map((d) => (

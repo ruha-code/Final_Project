@@ -48,7 +48,7 @@ function Login() {
           </p>
         </div>
 
-        <p className="text-sm text-gray-500">© 2025 Medlink</p>
+        <p className="text-sm text-gray-500">© 2026 Medlink</p>
       </div>
 
       {/* RIGHT SIDE */}
