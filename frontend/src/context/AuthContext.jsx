@@ -1,6 +1,5 @@
 // src/context/AuthContext.jsx
-import { createContext, useContext, useState, useEffect } from 'react';
-import { api } from '../services/api';
+import { createContext, useContext, useState, useEffect } from "react";
 
 const AuthContext = createContext();
 
@@ -9,53 +8,86 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is logged in on app start
-    const token = api.getToken();
-    if (token) {
-      // TODO: Validate token with backend
-      // For now, assume user is logged in
-      setUser({ name: 'Ruslan', role: 'Admin' }); // eslint-disable-line react-hooks/set-state-in-effect
+    const savedUser = localStorage.getItem("user");
+
+    if (savedUser) {
+      setUser(JSON.parse(savedUser));
     }
+
     setLoading(false);
   }, []);
 
-  const login = async (credentials) => {
-    try {
-      setLoading(true);
-      const response = await api.login(credentials);
-      setUser(response.user);
-      return response;
-    } catch (error) {
-      setLoading(false);
-      throw error;
-    }
+  // LOGIN
+  const login = async ({ email, password }) => {
+    setLoading(true);
+
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        const savedUser = JSON.parse(localStorage.getItem("user"));
+
+        if (
+          savedUser &&
+          savedUser.email === email &&
+          savedUser.password === password
+        ) {
+          setUser(savedUser);
+          setLoading(false);
+          resolve(savedUser);
+        } else {
+          setLoading(false);
+          reject(new Error("Invalid credentials"));
+        }
+      }, 500);
+    });
   };
 
+  // REGISTER
+  const register = async ({ name, email, password }) => {
+    setLoading(true);
+
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        const newUser = {
+          name,
+          email,
+          password,
+          role: "Admin",
+        };
+
+        localStorage.setItem("user", JSON.stringify(newUser));
+        setUser(newUser);
+        setLoading(false);
+
+        resolve(newUser);
+      }, 500);
+    });
+  };
+
+  // LOGOUT
   const logout = () => {
-    api.logout();
+    localStorage.removeItem("user");
     setUser(null);
   };
 
   const value = {
     user,
     login,
+    register,
     logout,
     loading,
     isAuthenticated: !!user,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
+// HOOK
 export const useAuth = () => {
   const context = useContext(AuthContext);
+
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within AuthProvider");
   }
+
   return context;
 };

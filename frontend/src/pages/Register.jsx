@@ -1,7 +1,53 @@
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { useAuth } from "../context/AuthContext";
 
 function Register() {
   const navigate = useNavigate();
+  const { register } = useAuth();
+
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+  });
+
+  const [error, setError] = useState("");
+
+  const handleChange = (e) => {
+    setForm({
+      ...form,
+      [e.target.type === "text"
+        ? "name"
+        : e.target.type === "email"
+          ? "email"
+          : e.target.placeholder.includes("Confirm")
+            ? "confirmPassword"
+            : "password"]: e.target.value,
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+
+    if (form.password !== form.confirmPassword) {
+      return setError("Passwords do not match");
+    }
+
+    try {
+      await register({
+        name: form.name,
+        email: form.email,
+        password: form.password,
+      });
+
+      navigate("/dashboard");
+    } catch (err) {
+      setError("Something went wrong");
+    }
+  };
 
   return (
     <div className="flex h-screen">
@@ -34,47 +80,59 @@ function Register() {
             Register to access hospital dashboard
           </p>
 
-          {/* NAME */}
-          <input
-            type="text"
-            placeholder="Full Name"
-            className="w-full p-3 mb-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-400"
-          />
+          {error && (
+            <div className="bg-red-100 text-red-700 p-3 mb-4 rounded-lg">
+              {error}
+            </div>
+          )}
 
-          {/* EMAIL */}
-          <input
-            type="email"
-            placeholder="Email Address"
-            className="w-full p-3 mb-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-400"
-          />
+          <form onSubmit={handleSubmit}>
+            {/* NAME */}
+            <input
+              type="text"
+              placeholder="Full Name"
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              className="w-full p-3 mb-4 border rounded-lg"
+              required
+            />
 
-          {/* PASSWORD */}
-          <input
-            type="password"
-            placeholder="Password"
-            className="w-full p-3 mb-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-400"
-          />
+            {/* EMAIL */}
+            <input
+              type="email"
+              placeholder="Email Address"
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              className="w-full p-3 mb-4 border rounded-lg"
+              required
+            />
 
-          {/* CONFIRM PASSWORD */}
-          <input
-            type="password"
-            placeholder="Confirm Password"
-            className="w-full p-3 mb-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-400"
-          />
+            {/* PASSWORD */}
+            <input
+              type="password"
+              placeholder="Password"
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              className="w-full p-3 mb-4 border rounded-lg"
+              required
+            />
 
-          {/* CHECKBOX */}
-          <div className="flex items-center mb-4 text-sm">
-            <input type="checkbox" className="mr-2" />
-            <span>I agree to the Terms & Conditions</span>
-          </div>
+            {/* CONFIRM PASSWORD */}
+            <input
+              type="password"
+              placeholder="Confirm Password"
+              onChange={(e) =>
+                setForm({ ...form, confirmPassword: e.target.value })
+              }
+              className="w-full p-3 mb-4 border rounded-lg"
+              required
+            />
 
-          {/* BUTTON */}
-          <button
-            onClick={() => navigate("/")}
-            className="w-full bg-teal-500 hover:bg-teal-600 text-white p-3 rounded-lg transition"
-          >
-            Create Account
-          </button>
+            {/* BUTTON */}
+            <button
+              type="submit"
+              className="w-full bg-teal-500 hover:bg-teal-600 text-white p-3 rounded-lg transition"
+            >
+              Create Account
+            </button>
+          </form>
 
           {/* LOGIN LINK */}
           <p className="text-sm mt-4 text-center">
