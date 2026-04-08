@@ -11,6 +11,7 @@ import Patients from "../pages/Patients";
 import PatientDetails from "../pages/PatientDetails";
 import Doctors from "../pages/Doctors";
 import DoctorDetails from "../pages/DoctorDetails";
+import Inventory from "../pages/Inventory";
 
 function AppRoutes() {
   return (
@@ -88,6 +89,15 @@ function AppRoutes() {
         element={
           <MainLayout>
             <DoctorDetails />
+          </MainLayout>
+        }
+      />
+
+      <Route
+        path="/inventory"
+        element={
+          <MainLayout>
+            <Inventory />
           </MainLayout>
         }
       />
