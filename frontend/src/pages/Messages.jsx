@@ -1,7 +1,8 @@
 import { useState } from "react";
+import MessageBubble from "../components/MessageBubble";
+import ChatItem from "../components/ChatItem";
 
 import amanda from "../assets/avatars/doctor-amanda.png";
-import daniel from "../assets/avatars/doctor-daniel.png";
 import ruslan from "../assets/avatars/patient-ruslan.jpg";
 import petya from "../assets/avatars/patient-petya.jpg";
 
@@ -96,31 +97,12 @@ function Messages() {
 
         <div className="space-y-2 max-h-[400px]">
           {chats.map((chat, i) => (
-            <div
+            <ChatItem
               key={i}
+              chat={chat}
+              isActive={activeChat === i}
               onClick={() => setActiveChat(i)}
-              className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition ${
-                activeChat === i
-                  ? "bg-teal-50 border border-teal-200 scale-[1.01]"
-                  : "hover:bg-gray-50 hover:scale-[1.01]"
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <img
-                  src={chat.avatar}
-                  className="w-10 h-10 rounded-full object-cover"
-                />
-
-                <div>
-                  <p className="text-sm font-medium">{chat.name}</p>
-                  <p className="text-xs text-gray-400 truncate w-36">
-                    {chat.text}
-                  </p>
-                </div>
-              </div>
-
-              <span className="text-xs text-gray-400">{chat.time}</span>
-            </div>
+            />
           ))}
         </div>
       </div>
@@ -143,25 +125,7 @@ function Messages() {
         {/* MESSAGES */}
         <div className="flex-1 p-4 space-y-3 overflow-auto">
           {messages[activeChat]?.map((msg, i) => (
-            <div
-              key={i}
-              className={`flex transition-all duration-300 ${msg.fromMe ? "justify-end" : "justify-start"}`}
-            >
-              <div
-                className={`p-3 rounded-2xl max-w-[70%] text-sm transition-all duration-300 ${
-                  msg.fromMe
-                    ? "bg-teal-500 text-white"
-                    : "bg-gray-100 text-gray-700"
-                }`}
-              >
-                <p>{msg.text}</p>
-
-                <div className="flex justify-end items-center gap-1 mt-1 text-xs opacity-70">
-                  <span>{msg.time}</span>
-                  {msg.fromMe && <span>✔</span>}
-                </div>
-              </div>
-            </div>
+            <MessageBubble key={i} msg={msg} />
           ))}
         </div>
 
