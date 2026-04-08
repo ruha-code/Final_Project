@@ -9,6 +9,7 @@ import Register from "../pages/Register";
 import Calendar from "../pages/Calendar";
 import Patients from "../pages/Patients";
 import PatientDetails from "../pages/PatientDetails";
+import Doctors from "../pages/Doctors";
 
 function AppRoutes() {
   return (
@@ -71,7 +72,15 @@ function AppRoutes() {
           </MainLayout>
         }
       />
-      
+
+      <Route
+        path="/doctors"
+        element={
+          <MainLayout>
+            <Doctors />
+          </MainLayout>
+        }
+      />
     </Routes>
   );
 }
