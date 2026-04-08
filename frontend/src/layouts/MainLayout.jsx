@@ -6,13 +6,12 @@ function MainLayout({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // STATE
   const [search, setSearch] = useState("");
-  const [open, setOpen] = useState(null); // "notifications" | "settings" | "profile"
+  const [open, setOpen] = useState(null);
 
   const dropdownRef = useRef();
 
-  // CLOSE ON OUTSIDE CLICK
+  // CLOSE DROPDOWNS
   useEffect(() => {
     const handleClick = (e) => {
       if (!dropdownRef.current?.contains(e.target)) {
@@ -25,14 +24,14 @@ function MainLayout({ children }) {
 
   // MENU
   const menuItem = (path, name) => {
-    const isActive = location.pathname === path;
+    const isActive = location.pathname.startsWith(path);
 
     return (
       <li
         onClick={() => navigate(path)}
-        className={`px-4 py-2.5 rounded-xl cursor-pointer text-sm transition ${
+        className={`px-4 py-2.5 rounded-xl cursor-pointer text-sm transition-all duration-200 ${
           isActive
-            ? "bg-teal-500 text-white"
+            ? "bg-teal-500 text-white shadow-sm"
             : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
         }`}
       >
@@ -43,28 +42,40 @@ function MainLayout({ children }) {
 
   // TITLE
   const getTitle = () => {
-    const map = {
-      "/dashboard": "Dashboard",
-      "/appointments": "Appointments",
-      "/patients": "Patients",
-      "/doctors": "Doctors",
-      "/departments": "Departments",
-      "/calendar": "Calendar",
-      "/inventory": "Inventory",
-      "/messages": "Messages",
-    };
-    return map[location.pathname] || "Dashboard";
+    const path = location.pathname;
+
+    if (path.includes("dashboard")) return "Dashboard";
+    if (path.includes("appointments")) return "Appointments";
+    if (path.includes("patients")) return "Patients";
+    if (path.includes("doctors")) return "Doctors";
+    if (path.includes("departments")) return "Departments";
+    if (path.includes("calendar")) return "Calendar";
+    if (path.includes("inventory")) return "Inventory";
+    if (path.includes("messages")) return "Messages";
+
+    return "Dashboard";
   };
 
-  const getSubtitle = () =>
-    location.pathname === "/dashboard"
-      ? "Hello Ruslan, welcome back!"
-      : "Manage your data easily";
+  // SUBTITLE
+  const getSubtitle = () => {
+    const path = location.pathname;
+
+    if (path.includes("dashboard")) return "Hello Ruslan, welcome back 👋";
+
+    if (path.includes("patients") && path !== "/patients")
+      return "Patient profile & medical data";
+
+    if (path.includes("appointments")) return "Manage and track appointments";
+
+    if (path.includes("calendar")) return "Schedule and plan events";
+
+    return "Manage your data easily";
+  };
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gradient-to-br from-[#f8fafc] to-[#eef2f7]">
       {/* SIDEBAR */}
-      <div className="w-64 bg-white border-r flex flex-col justify-between px-6 py-7">
+      <div className="w-64 bg-white border-r flex flex-col justify-between px-6 py-7 shadow-sm">
         <div>
           <div className="mb-10 flex items-center gap-2">
             <div className="w-2 h-2 bg-teal-500 rounded-full"></div>
@@ -83,7 +94,8 @@ function MainLayout({ children }) {
           </ul>
         </div>
 
-        <div className="bg-gray-50 p-4 rounded-xl border">
+        {/* UPGRADE */}
+        <div className="bg-teal-50 p-4 rounded-xl border">
           <p className="text-sm text-gray-600 mb-3">Upgrade to Pro</p>
           <button className="w-full bg-teal-500 text-white py-2 rounded-lg text-sm hover:bg-teal-600 transition">
             Upgrade
@@ -112,7 +124,6 @@ function MainLayout({ children }) {
                 className="absolute left-3 top-2.5 text-gray-400"
               />
               <input
-                type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search anything..."
@@ -127,7 +138,7 @@ function MainLayout({ children }) {
                 onClick={() =>
                   setOpen(open === "notifications" ? null : "notifications")
                 }
-                className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200"
+                className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition"
               >
                 <Bell size={16} />
               </button>
@@ -144,7 +155,7 @@ function MainLayout({ children }) {
             <div className="relative">
               <button
                 onClick={() => setOpen(open === "settings" ? null : "settings")}
-                className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200"
+                className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition"
               >
                 <Settings size={16} />
               </button>

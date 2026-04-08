@@ -7,6 +7,8 @@ import Appointments from "../pages/Appointments";
 import Login from "../pages/Login";
 import Register from "../pages/Register";
 import Calendar from "../pages/Calendar";
+import Patients from "../pages/Patients";
+import PatientDetails from "../pages/PatientDetails";
 
 function AppRoutes() {
   return (
@@ -51,6 +53,25 @@ function AppRoutes() {
           </MainLayout>
         }
       />
+
+      <Route
+        path="/patients"
+        element={
+          <MainLayout>
+            <Patients />
+          </MainLayout>
+        }
+      />
+
+      <Route
+        path="/patients/:id"
+        element={
+          <MainLayout>
+            <PatientDetails />
+          </MainLayout>
+        }
+      />
+      
     </Routes>
   );
 }
