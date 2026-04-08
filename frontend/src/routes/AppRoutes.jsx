@@ -6,6 +6,7 @@ import Messages from "../pages/Messages";
 import Appointments from "../pages/Appointments";
 import Login from "../pages/Login";
 import Register from "../pages/Register";
+import Calendar from "../pages/Calendar";
 
 function AppRoutes() {
   return (
@@ -38,6 +39,15 @@ function AppRoutes() {
         element={
           <MainLayout>
             <Appointments />
+          </MainLayout>
+        }
+      />
+
+      <Route
+        path="/calendar"
+        element={
+          <MainLayout>
+            <Calendar />
           </MainLayout>
         }
       />
