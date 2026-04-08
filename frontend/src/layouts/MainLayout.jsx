@@ -21,6 +21,36 @@ function MainLayout({ children }) {
     );
   };
 
+  const getTitle = () => {
+    switch (location.pathname) {
+      case "/dashboard":
+        return "Dashboard";
+      case "/appointments":
+        return "Appointments";
+      case "/patients":
+        return "Patients";
+      case "/doctors":
+        return "Doctors";
+      case "/departments":
+        return "Departments";
+      case "/calendar":
+        return "Calendar";
+      case "/inventory":
+        return "Inventory";
+      case "/messages":
+        return "Messages";
+      default:
+        return "Dashboard";
+    }
+  };
+
+  const getSubtitle = () => {
+    if (location.pathname === "/dashboard") {
+      return "Hello Ruslan, welcome back!";
+    }
+    return "Manage your data easily";
+  };
+
   return (
     <div className="flex h-screen bg-gradient-to-br from-[#f8fafc] to-[#eef2f7]">
       {/* SIDEBAR */}
@@ -58,15 +88,17 @@ function MainLayout({ children }) {
         {/* NAVBAR */}
         <div className="bg-white border-b px-8 py-4 flex justify-between items-center">
           <div>
-            <h1 className="text-base font-semibold text-gray-700">Dashboard</h1>
-            <p className="text-xs text-gray-400">Hello Ruslan, welcome back!</p>
+            <h1 className="text-base font-semibold text-gray-700">
+              {getTitle()}
+            </h1>
+            <p className="text-xs text-gray-400">{getSubtitle()}</p>
           </div>
 
           <div className="flex items-center gap-4">
             <input
               type="text"
               placeholder="Search..."
-              className="bg-gray-100 px-4 py-2 rounded-lg text-sm outline-none focus:ring-2 focus:ring-teal-400"
+              className="bg-gray-100 px-4 py-2 rounded-lg text-sm outline-none focus:ring-2 focus:ring-teal-400 transition"
             />
 
             <div className="w-9 h-9 bg-teal-500 text-white flex items-center justify-center rounded-full text-sm font-medium">
