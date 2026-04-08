@@ -204,37 +204,43 @@ function Dashboard() {
         </div>
 
         {/* AGENDA */}
-        <div className="bg-white p-5 rounded-xl border shadow-sm">
+        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
           <h2 className="text-sm font-semibold mb-4">Agenda</h2>
 
           <div className="space-y-3">
-            <div className="flex items-center gap-3 bg-teal-50 p-3 rounded-lg">
-              <div className="text-center">
-                <p className="text-sm font-semibold">17</p>
+            {/* ITEM */}
+            <div className="flex gap-3 bg-teal-50 p-3 rounded-xl">
+              <div className="text-center w-10">
+                <p className="text-sm font-semibold text-gray-800">17</p>
                 <p className="text-xs text-gray-400">Fri</p>
               </div>
+
               <div>
-                <p className="text-sm font-medium">Monthly Staff Meeting</p>
+                <p className="text-sm font-medium text-gray-800">
+                  Monthly Staff Meeting
+                </p>
                 <p className="text-xs text-gray-400">09:00 - 10:30</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-lg">
-              <div className="text-center">
+            <div className="flex gap-3 bg-gray-50 p-3 rounded-xl">
+              <div className="text-center w-10">
                 <p className="text-sm font-semibold">20</p>
                 <p className="text-xs text-gray-400">Mon</p>
               </div>
+
               <div>
                 <p className="text-sm font-medium">Networking Event</p>
                 <p className="text-xs text-gray-400">14:00 - 16:00</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-lg">
-              <div className="text-center">
+            <div className="flex gap-3 bg-gray-50 p-3 rounded-xl">
+              <div className="text-center w-10">
                 <p className="text-sm font-semibold">28</p>
                 <p className="text-xs text-gray-400">Tue</p>
               </div>
+
               <div>
                 <p className="text-sm font-medium">Policy Review</p>
                 <p className="text-xs text-gray-400">10:00 - 11:30</p>
@@ -244,10 +250,10 @@ function Dashboard() {
         </div>
 
         {/* DOCTORS */}
-        <div className="bg-white p-5 rounded-xl border shadow-sm">
+        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
           <h2 className="text-sm font-semibold mb-4">Doctors’ Schedule</h2>
 
-          <div className="space-y-3">
+          <div className="space-y-4">
             {[
               { name: "Dr. Amelia Hart", status: "Available" },
               { name: "Dr. Rizky Pratama", status: "Unavailable" },
@@ -255,14 +261,16 @@ function Dashboard() {
             ].map((doc, i) => (
               <div key={i} className="flex justify-between items-center">
                 <div>
-                  <p className="text-sm font-medium">{doc.name}</p>
+                  <p className="text-sm font-medium text-gray-800">
+                    {doc.name}
+                  </p>
                   <p className="text-xs text-gray-400">Cardiology</p>
                 </div>
 
                 <span
-                  className={`text-xs px-3 py-1 rounded-full ${
+                  className={`text-xs px-3 py-1 rounded-full font-medium ${
                     doc.status === "Available"
-                      ? "bg-green-100 text-green-700 font-medium shadow-sm"
+                      ? "bg-green-100 text-green-700"
                       : "bg-red-100 text-red-500"
                   }`}
                 >
