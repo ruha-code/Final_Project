@@ -1,10 +1,12 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { Search, Bell, Settings } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
+import { useAuth } from "../context/AuthContext";
 
 function MainLayout({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { logout } = useAuth();
 
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(null);
@@ -196,7 +198,13 @@ function MainLayout({ children }) {
                   <p className="px-3 py-2 hover:bg-gray-100 rounded-lg cursor-pointer">
                     Settings
                   </p>
-                  <p className="px-3 py-2 hover:bg-red-100 text-red-500 rounded-lg cursor-pointer">
+                  <p
+                    onClick={() => {
+                      logout();
+                      navigate("/");
+                    }}
+                    className="px-3 py-2 hover:bg-red-100 text-red-500 rounded-lg cursor-pointer"
+                  >
                     Logout
                   </p>
                 </div>

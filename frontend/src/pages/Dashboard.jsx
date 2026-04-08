@@ -9,6 +9,8 @@ import {
   Bar,
   CartesianGrid,
 } from "recharts";
+import { useState, useEffect } from "react";
+import { api } from "../services/api";
 
 const barData = [
   { name: "Mon", a: 30, b: 45, c: 20 },
@@ -31,6 +33,54 @@ const lineData = [
 ];
 
 function Dashboard() {
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        // TODO: Replace with actual API calls when backend is ready
+        // const patients = await api.getPatients();
+        // const doctors = await api.getDoctors();
+        // const appointments = await api.getAppointments();
+
+        // For now, simulate API delay
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Mock data - will be replaced with real API data
+        setStats({
+          totalPatients: 8340,
+          appointments: 1275,
+          doctors: 24
+        });
+      } catch (err) {
+        setError('Failed to load dashboard data');
+        console.error('Dashboard error:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-500"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-100 text-red-700 p-4 rounded-lg">
+        {error}
+      </div>
+    );
+  }
+
   return (
     <div className="flex gap-6">
       {/* LEFT */}
@@ -40,17 +90,17 @@ function Dashboard() {
           {[
             {
               title: "Total Patients",
-              value: "8,340",
+              value: stats?.totalPatients?.toLocaleString() || "8,340",
               info: "+1.5% vs last week",
             },
             {
               title: "Appointments",
-              value: "1,275",
+              value: stats?.appointments?.toLocaleString() || "1,275",
               info: "+8% vs yesterday",
             },
             {
               title: "Doctors",
-              value: "24",
+              value: stats?.doctors || "24",
               info: "Active staff",
             },
           ].map((item, i) => (

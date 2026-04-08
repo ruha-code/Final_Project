@@ -12,7 +12,7 @@ import InventoryTable from "../components/inventory/InventoryTable";
 import InventoryChart from "../components/inventory/InventoryChart";
 import InventoryFilters from "../components/inventory/InventoryFilters";
 
-function StatCard({ title, value, icon: Icon, color }) {
+function StatCard({ title, value, icon: Icon, color }) { // eslint-disable-line no-unused-vars
   return (
     <div className="bg-white rounded-2xl p-5 border flex justify-between items-center">
       <div>

@@ -45,7 +45,7 @@ const data = [
   },
 ];
 
-function StatCard({ title, value, icon: Icon }) {
+function StatCard({ title, value, icon: Icon }) { // eslint-disable-line no-unused-vars
   return (
     <div className="bg-white rounded-2xl p-5 border flex justify-between items-center">
       <div>

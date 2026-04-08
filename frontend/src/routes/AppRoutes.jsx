@@ -14,6 +14,7 @@ import DoctorDetails from "../pages/DoctorDetails";
 import Inventory from "../pages/Inventory";
 import Departments from "../pages/Departments";
 import DepartmentDetails from "../pages/DepartmentDetails";
+import { ProtectedRoute } from "../components/ProtectedRoute";
 
 function AppRoutes() {
   return (
@@ -22,103 +23,125 @@ function AppRoutes() {
       <Route path="/" element={<Login />} />
       <Route path="/register" element={<Register />} />
 
-      {/* APP */}
+      {/* APP - Protected Routes */}
       <Route
         path="/dashboard"
         element={
-          <MainLayout>
-            <Dashboard />
-          </MainLayout>
+          <ProtectedRoute>
+            <MainLayout>
+              <Dashboard />
+            </MainLayout>
+          </ProtectedRoute>
         }
       />
 
       <Route
         path="/messages"
         element={
-          <MainLayout>
-            <Messages />
-          </MainLayout>
+          <ProtectedRoute>
+            <MainLayout>
+              <Messages />
+            </MainLayout>
+          </ProtectedRoute>
         }
       />
 
       <Route
         path="/appointments"
         element={
-          <MainLayout>
-            <Appointments />
-          </MainLayout>
+          <ProtectedRoute>
+            <MainLayout>
+              <Appointments />
+            </MainLayout>
+          </ProtectedRoute>
         }
       />
 
       <Route
         path="/calendar"
         element={
-          <MainLayout>
-            <Calendar />
-          </MainLayout>
+          <ProtectedRoute>
+            <MainLayout>
+              <Calendar />
+            </MainLayout>
+          </ProtectedRoute>
         }
       />
 
       <Route
         path="/patients"
         element={
-          <MainLayout>
-            <Patients />
-          </MainLayout>
+          <ProtectedRoute>
+            <MainLayout>
+              <Patients />
+            </MainLayout>
+          </ProtectedRoute>
         }
       />
 
       <Route
         path="/patients/:id"
         element={
-          <MainLayout>
-            <PatientDetails />
-          </MainLayout>
+          <ProtectedRoute>
+            <MainLayout>
+              <PatientDetails />
+            </MainLayout>
+          </ProtectedRoute>
         }
       />
 
       <Route
         path="/doctors"
         element={
-          <MainLayout>
-            <Doctors />
-          </MainLayout>
+          <ProtectedRoute>
+            <MainLayout>
+              <Doctors />
+            </MainLayout>
+          </ProtectedRoute>
         }
       />
 
       <Route
         path="/doctors/:id"
         element={
-          <MainLayout>
-            <DoctorDetails />
-          </MainLayout>
+          <ProtectedRoute>
+            <MainLayout>
+              <DoctorDetails />
+            </MainLayout>
+          </ProtectedRoute>
         }
       />
 
       <Route
         path="/inventory"
         element={
-          <MainLayout>
-            <Inventory />
-          </MainLayout>
+          <ProtectedRoute>
+            <MainLayout>
+              <Inventory />
+            </MainLayout>
+          </ProtectedRoute>
         }
       />
 
       <Route
         path="/departments"
         element={
-          <MainLayout>
-            <Departments />
-          </MainLayout>
+          <ProtectedRoute>
+            <MainLayout>
+              <Departments />
+            </MainLayout>
+          </ProtectedRoute>
         }
       />
 
       <Route
         path="/departments/:id"
         element={
-          <MainLayout>
-            <DepartmentDetails />
-          </MainLayout>
+          <ProtectedRoute>
+            <MainLayout>
+              <DepartmentDetails />
+            </MainLayout>
+          </ProtectedRoute>
         }
       />
     </Routes>

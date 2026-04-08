@@ -1,7 +1,29 @@
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { useAuth } from "../context/AuthContext";
 
 function Login() {
   const navigate = useNavigate();
+  const { login } = useAuth();
+  const [credentials, setCredentials] = useState({ email: "", password: "" });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+
+    try {
+      await login(credentials);
+      navigate("/dashboard");
+    } catch (err) {
+      // eslint-disable-line no-unused-vars
+      setError("Invalid credentials");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="flex h-screen">
@@ -29,39 +51,58 @@ function Login() {
 
           <p className="text-gray-500 mb-6">Sign in to continue</p>
 
-          {/* EMAIL */}
-          <input
-            type="text"
-            placeholder="Email or Username"
-            className="w-full p-3 mb-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-400"
-          />
+          {error && (
+            <div className="bg-red-100 text-red-700 p-3 rounded-lg mb-4">
+              {error}
+            </div>
+          )}
 
-          {/* PASSWORD */}
-          <input
-            type="password"
-            placeholder="Password"
-            className="w-full p-3 mb-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-400"
-          />
+          <form onSubmit={handleSubmit}>
+            {/* EMAIL */}
+            <input
+              type="text"
+              placeholder="Email or Username"
+              value={credentials.email}
+              onChange={(e) =>
+                setCredentials({ ...credentials, email: e.target.value })
+              }
+              className="w-full p-3 mb-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-400"
+              required
+            />
 
-          {/* REMEMBER + FORGOT */}
-          <div className="flex justify-between items-center mb-4 text-sm">
-            <label className="flex items-center">
-              <input type="checkbox" className="mr-2" />
-              Remember me
-            </label>
+            {/* PASSWORD */}
+            <input
+              type="password"
+              placeholder="Password"
+              value={credentials.password}
+              onChange={(e) =>
+                setCredentials({ ...credentials, password: e.target.value })
+              }
+              className="w-full p-3 mb-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-400"
+              required
+            />
 
-            <span className="text-teal-500 cursor-pointer">
-              Forgot Password?
-            </span>
-          </div>
+            {/* REMEMBER + FORGOT */}
+            <div className="flex justify-between items-center mb-4 text-sm">
+              <label className="flex items-center">
+                <input type="checkbox" className="mr-2" />
+                Remember me
+              </label>
 
-          {/* BUTTON */}
-          <button
-            onClick={() => navigate("/dashboard")}
-            className="w-full bg-teal-500 hover:bg-teal-600 text-white p-3 rounded-lg transition"
-          >
-            Login
-          </button>
+              <span className="text-teal-500 cursor-pointer">
+                Forgot Password?
+              </span>
+            </div>
+
+            {/* BUTTON */}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-teal-500 hover:bg-teal-600 disabled:bg-teal-300 text-white p-3 rounded-lg transition"
+            >
+              {loading ? "Signing in..." : "Login"}
+            </button>
+          </form>
 
           {/* REGISTER */}
           <p className="text-sm mt-4 text-center">

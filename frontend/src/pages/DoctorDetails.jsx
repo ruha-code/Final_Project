@@ -191,7 +191,7 @@ export default function DoctorDetails() {
             "Erica Smith – 13:30",
             "Johan Greece – 14:00",
             "Maya Patel – 15:00",
-          ].map((s, i) => (
+          ].map((s) => (
             <div className="flex justify-between items-center p-3 rounded-xl bg-gray-50 hover:bg-gray-100">
               <span>{s}</span>
               <button className="text-xs text-teal-600">View</button>
