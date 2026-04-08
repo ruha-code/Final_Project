@@ -31,10 +31,10 @@ function MainLayout({ children }) {
     return (
       <li
         onClick={() => navigate(path)}
-        className={`px-4 py-2.5 rounded-xl cursor-pointer text-sm transition-all duration-200 ${
+        className={`px-4 py-2.5 rounded-xl cursor-pointer text-sm transition ${
           isActive
-            ? "bg-teal-500 text-white shadow-sm"
-            : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+            ? "bg-teal-500 text-white"
+            : "text-gray-500 hover:bg-gray-100"
         }`}
       >
         {name}
@@ -63,21 +63,16 @@ function MainLayout({ children }) {
     const path = location.pathname;
 
     if (path.includes("dashboard")) return "Hello Ruslan, welcome back 👋";
+    if (path.includes("appointments")) return "Manage appointments";
+    if (path.includes("patients")) return "Patient data & profiles";
 
-    if (path.includes("patients") && path !== "/patients")
-      return "Patient profile & medical data";
-
-    if (path.includes("appointments")) return "Manage and track appointments";
-
-    if (path.includes("calendar")) return "Schedule and plan events";
-
-    return "Manage your data easily";
+    return "Manage your system";
   };
 
   return (
     <div className="flex h-screen bg-gradient-to-br from-[#f8fafc] to-[#eef2f7]">
       {/* SIDEBAR */}
-      <div className="w-64 bg-white border-r flex flex-col justify-between px-6 py-7 shadow-sm">
+      <div className="w-64 bg-white border-r flex flex-col justify-between px-6 py-7">
         <div>
           <div className="mb-10 flex items-center gap-2">
             <div className="w-2 h-2 bg-teal-500 rounded-full"></div>
@@ -96,19 +91,18 @@ function MainLayout({ children }) {
           </ul>
         </div>
 
-        {/* UPGRADE */}
-        <div className="bg-teal-50 p-4 rounded-xl border">
+        <div className="bg-teal-50 p-4 rounded-xl">
           <p className="text-sm text-gray-600 mb-3">Upgrade to Pro</p>
-          <button className="w-full bg-teal-500 text-white py-2 rounded-lg text-sm hover:bg-teal-600 transition">
+          <button className="w-full bg-teal-500 text-white py-2 rounded-lg text-sm">
             Upgrade
           </button>
         </div>
       </div>
 
       {/* MAIN */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col overflow-hidden">
         {/* NAVBAR */}
-        <div className="bg-white border-b px-8 py-4 flex justify-between items-center">
+        <div className="bg-white border-b px-8 py-4 flex justify-between items-center relative z-50">
           {/* LEFT */}
           <div>
             <h1 className="text-base font-semibold text-gray-700">
@@ -118,7 +112,7 @@ function MainLayout({ children }) {
           </div>
 
           {/* RIGHT */}
-          <div className="flex items-center gap-4" ref={dropdownRef}>
+          <div className="flex items-center gap-4 relative" ref={dropdownRef}>
             {/* SEARCH */}
             <div className="relative">
               <Search
@@ -128,9 +122,8 @@ function MainLayout({ children }) {
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search anything..."
-                className="bg-gray-100 pl-9 pr-4 py-2 rounded-xl text-sm outline-none 
-                           focus:ring-2 focus:ring-teal-400 transition w-64"
+                placeholder="Search..."
+                className="bg-gray-100 pl-9 pr-4 py-2 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400 w-64"
               />
             </div>
 
@@ -140,13 +133,13 @@ function MainLayout({ children }) {
                 onClick={() =>
                   setOpen(open === "notifications" ? null : "notifications")
                 }
-                className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition"
+                className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100"
               >
                 <Bell size={16} />
               </button>
 
               {open === "notifications" && (
-                <div className="absolute right-0 mt-2 w-64 bg-white border rounded-xl shadow-lg p-3 text-sm">
+                <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-lg p-3 z-50">
                   <p className="font-medium mb-2">Notifications</p>
                   <p className="text-gray-500">No new notifications</p>
                 </div>
@@ -157,18 +150,15 @@ function MainLayout({ children }) {
             <div className="relative">
               <button
                 onClick={() => setOpen(open === "settings" ? null : "settings")}
-                className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition"
+                className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100"
               >
                 <Settings size={16} />
               </button>
 
               {open === "settings" && (
-                <div className="absolute right-0 mt-2 w-48 bg-white border rounded-xl shadow-lg p-2 text-sm">
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg p-2 z-50">
                   <p className="px-3 py-2 hover:bg-gray-100 rounded-lg cursor-pointer">
                     Preferences
-                  </p>
-                  <p className="px-3 py-2 hover:bg-gray-100 rounded-lg cursor-pointer">
-                    Theme
                   </p>
                 </div>
               )}
@@ -180,7 +170,7 @@ function MainLayout({ children }) {
                 onClick={() => setOpen(open === "profile" ? null : "profile")}
                 className="flex items-center gap-3 pl-3 border-l cursor-pointer"
               >
-                <div className="w-9 h-9 bg-teal-500 text-white flex items-center justify-center rounded-full text-sm font-medium">
+                <div className="w-9 h-9 bg-teal-500 text-white flex items-center justify-center rounded-full">
                   R
                 </div>
 
@@ -191,7 +181,7 @@ function MainLayout({ children }) {
               </div>
 
               {open === "profile" && (
-                <div className="absolute right-0 mt-2 w-48 bg-white border rounded-xl shadow-lg p-2 text-sm">
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg p-2 z-50">
                   <p className="px-3 py-2 hover:bg-gray-100 rounded-lg cursor-pointer">
                     Profile
                   </p>
@@ -214,7 +204,9 @@ function MainLayout({ children }) {
         </div>
 
         {/* CONTENT */}
-        <div className="p-8 overflow-auto flex-1">{children}</div>
+        <div className="flex-1 overflow-hidden">
+          <div className="h-full overflow-auto p-8">{children}</div>
+        </div>
       </div>
     </div>
   );
