@@ -10,6 +10,7 @@ import Calendar from "../pages/Calendar";
 import Patients from "../pages/Patients";
 import PatientDetails from "../pages/PatientDetails";
 import Doctors from "../pages/Doctors";
+import DoctorDetails from "../pages/DoctorDetails";
 
 function AppRoutes() {
   return (
@@ -78,6 +79,15 @@ function AppRoutes() {
         element={
           <MainLayout>
             <Doctors />
+          </MainLayout>
+        }
+      />
+
+      <Route
+        path="/doctors/:id"
+        element={
+          <MainLayout>
+            <DoctorDetails />
           </MainLayout>
         }
       />
