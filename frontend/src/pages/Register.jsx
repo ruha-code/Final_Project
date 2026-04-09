@@ -8,6 +8,7 @@ function Register() {
 
   const [form, setForm] = useState({
     name: "",
+    username: "",
     email: "",
     password: "",
     confirmPassword: "",
@@ -16,16 +17,7 @@ function Register() {
   const [error, setError] = useState("");
 
   const handleChange = (e) => {
-    setForm({
-      ...form,
-      [e.target.type === "text"
-        ? "name"
-        : e.target.type === "email"
-          ? "email"
-          : e.target.placeholder.includes("Confirm")
-            ? "confirmPassword"
-            : "password"]: e.target.value,
-    });
+    setForm({ ...form, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async (e) => {
@@ -39,13 +31,14 @@ function Register() {
     try {
       await register({
         name: form.name,
+        username: form.username,
         email: form.email,
         password: form.password,
       });
 
       navigate("/dashboard");
     } catch (err) {
-      setError("Something went wrong");
+      setError(err.message || "Something went wrong");
     }
   };
 
@@ -90,8 +83,20 @@ function Register() {
             {/* NAME */}
             <input
               type="text"
+              name="name"
               placeholder="Full Name"
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              value={form.name}
+              onChange={handleChange}
+              className="w-full p-3 mb-4 border rounded-lg"
+              required
+            />
+
+            <input
+              type="text"
+              name="username"
+              placeholder="Username (min. 3 characters)"
+              value={form.username}
+              onChange={handleChange}
               className="w-full p-3 mb-4 border rounded-lg"
               required
             />
@@ -99,8 +104,10 @@ function Register() {
             {/* EMAIL */}
             <input
               type="email"
+              name="email"
               placeholder="Email Address"
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              value={form.email}
+              onChange={handleChange}
               className="w-full p-3 mb-4 border rounded-lg"
               required
             />
@@ -108,8 +115,10 @@ function Register() {
             {/* PASSWORD */}
             <input
               type="password"
-              placeholder="Password"
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              name="password"
+              placeholder="Password (min. 8 chars, include a digit)"
+              value={form.password}
+              onChange={handleChange}
               className="w-full p-3 mb-4 border rounded-lg"
               required
             />
@@ -117,10 +126,10 @@ function Register() {
             {/* CONFIRM PASSWORD */}
             <input
               type="password"
+              name="confirmPassword"
               placeholder="Confirm Password"
-              onChange={(e) =>
-                setForm({ ...form, confirmPassword: e.target.value })
-              }
+              value={form.confirmPassword}
+              onChange={handleChange}
               className="w-full p-3 mb-4 border rounded-lg"
               required
             />
