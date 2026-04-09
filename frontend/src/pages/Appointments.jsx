@@ -1,84 +1,113 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { api } from "../services/api";
 
-const initialData = [
-  {
-    id: 1,
-    name: "Erica Smith",
-    phone: "+7 777 123 4567",
-    doctor: "Dr. Nina",
-    type: "Consultation",
-    date: "12 March",
-    time: "08:30 - 09:00",
-    status: "Completed",
-  },
-  {
-    id: 2,
-    name: "John Doe",
-    phone: "+7 701 555 8899",
-    doctor: "Dr. Alex",
-    type: "Follow-up",
-    date: "13 March",
-    time: "09:00 - 09:30",
-    status: "Ongoing",
-  },
-  {
-    id: 3,
-    name: "Petya Smith",
-    phone: "+7 705 333 1122",
-    doctor: "Dr. Amanda",
-    type: "Surgery",
-    date: "14 March",
-    time: "10:00 - 11:30",
-    status: "Canceled",
-  },
-];
+const STATUS_STYLES = {
+  COMPLETED: "text-green-600 bg-green-50",
+  ONGOING: "text-blue-600 bg-blue-50",
+  SCHEDULED: "text-purple-600 bg-purple-50",
+  CANCELLED: "text-red-500 bg-red-50",
+};
+
+const STATUS_LABELS = {
+  COMPLETED: "Completed",
+  ONGOING: "Ongoing",
+  SCHEDULED: "Scheduled",
+  CANCELLED: "Canceled",
+};
 
 function StatusBadge({ status }) {
-  const styles = {
-    Completed: "text-green-600 bg-green-50",
-    Ongoing: "text-blue-600 bg-blue-50",
-    Scheduled: "text-purple-600 bg-purple-50",
-    Canceled: "text-red-500 bg-red-50",
-  };
-
   return (
     <span
-      className={`text-xs px-2.5 py-1 rounded-md font-medium ${styles[status]}`}
+      className={`text-xs px-2.5 py-1 rounded-md font-medium ${STATUS_STYLES[status] || "bg-gray-100 text-gray-500"}`}
     >
-      {status}
+      {STATUS_LABELS[status] || status}
     </span>
   );
 }
 
 function StatCard({ title, value, change, desc, color }) {
   return (
-    <div
-      className="bg-white rounded-xl border px-4 py-3 
-                    hover:shadow-md hover:-translate-y-1 
-                    transition-all duration-200"
-    >
+    <div className="bg-white rounded-xl border px-4 py-3 hover:shadow-md hover:-translate-y-1 transition-all duration-200">
       <p className="text-xs text-gray-400">{title}</p>
-
       <div className="flex items-end justify-between mt-1">
         <h3 className="text-xl font-semibold">{value}</h3>
         <span className={`text-xs font-medium ${color}`}>{change}</span>
       </div>
-
       <p className="text-xs text-gray-400 mt-1">{desc}</p>
     </div>
   );
 }
 
+function formatDateTime(isoString) {
+  if (!isoString) return "—";
+  const d = new Date(isoString);
+  const date = d.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+  });
+  const time = d.toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return { date, time };
+}
+
 function Appointments() {
-  const [appointments] = useState(initialData);
+  const [appointments, setAppointments] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
 
-  const filteredData = appointments.filter((item) => {
-    const matchFilter = filter === "All" ? true : item.status === filter;
-    const matchSearch = item.name.toLowerCase().includes(search.toLowerCase());
+  useEffect(() => {
+    const fetchAppointments = async () => {
+      try {
+        setLoading(true);
+        const data = await api.get(
+          "/appointments/admin/all?page=1&page_size=100",
+        );
+        setAppointments(data.items || []);
+      } catch (err) {
+        console.error("Failed to fetch appointments:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAppointments();
+  }, []);
+
+  const today = new Date().toDateString();
+
+  const todayCount = appointments.filter(
+    (a) => new Date(a.appointment_time).toDateString() === today,
+  ).length;
+  const completedCount = appointments.filter(
+    (a) => a.status === "COMPLETED",
+  ).length;
+  const ongoingCount = appointments.filter(
+    (a) => a.status === "ONGOING",
+  ).length;
+  const cancelledCount = appointments.filter(
+    (a) => a.status === "CANCELLED",
+  ).length;
+
+  const filtered = appointments.filter((item) => {
+    const matchFilter =
+      filter === "All"
+        ? true
+        : item.status === filter.toUpperCase().replace("CANCELED", "CANCELLED");
+    const matchSearch = item.patient_name
+      ?.toLowerCase()
+      .includes(search.toLowerCase());
     return matchFilter && matchSearch;
   });
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -95,8 +124,7 @@ function Appointments() {
             placeholder="Search patient..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="bg-white border px-4 py-2 rounded-xl text-sm outline-none 
-                       focus:ring-2 focus:ring-teal-400 transition"
+            className="bg-white border px-4 py-2 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400 transition"
           />
         </div>
 
@@ -104,29 +132,29 @@ function Appointments() {
         <div className="grid grid-cols-4 gap-3">
           <StatCard
             title="Today"
-            value="52"
-            change="+2.45%"
+            value={todayCount}
+            change=""
             desc="Appointments"
             color="text-green-500"
           />
           <StatCard
             title="Completed"
-            value="28"
-            change="+0.5%"
+            value={completedCount}
+            change=""
             desc="Finished"
             color="text-green-500"
           />
           <StatCard
             title="Ongoing"
-            value="18"
-            change="-0.25%"
+            value={ongoingCount}
+            change=""
             desc="In progress"
-            color="text-red-400"
+            color="text-blue-500"
           />
           <StatCard
             title="Canceled"
-            value="6"
-            change="+1.3%"
+            value={cancelledCount}
+            change=""
             desc="Missed"
             color="text-red-400"
           />
@@ -151,46 +179,47 @@ function Appointments() {
 
         {/* TABLE */}
         <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
-          {/* HEADER */}
           <div className="grid grid-cols-6 px-6 py-3 text-xs text-gray-400 border-b">
             <span>Patient</span>
-            <span>Phone</span>
             <span>Doctor</span>
             <span>Type</span>
             <span>Date</span>
+            <span>Time</span>
             <span>Status</span>
           </div>
 
-          {/* ROWS */}
-          {filteredData.map((item) => (
-            <div
-              key={item.id}
-              className="grid grid-cols-6 px-6 py-4 items-center 
-                         hover:bg-gray-50 hover:shadow-sm 
-                         transition-all duration-200 cursor-pointer 
-                         border-b last:border-none"
-            >
-              <div className="flex items-center gap-3">
-                <div
-                  className="w-9 h-9 rounded-full bg-teal-100 text-teal-600 
-                                flex items-center justify-center font-semibold"
-                >
-                  {item.name.charAt(0)}
-                </div>
-                <div>
-                  <p className="font-medium">{item.name}</p>
-                  <p className="text-xs text-gray-400">{item.time}</p>
-                </div>
-              </div>
-
-              <span className="text-gray-500 text-sm">{item.phone}</span>
-              <span className="text-gray-500 text-sm">{item.doctor}</span>
-              <span className="text-gray-500 text-sm">{item.type}</span>
-              <span className="text-gray-500 text-sm">{item.date}</span>
-
-              <StatusBadge status={item.status} />
+          {filtered.length === 0 ? (
+            <div className="text-center py-10 text-gray-400 text-sm">
+              No appointments found
             </div>
-          ))}
+          ) : (
+            filtered.map((item) => {
+              const { date, time } = formatDateTime(item.appointment_time);
+              return (
+                <div
+                  key={item.id}
+                  className="grid grid-cols-6 px-6 py-4 items-center hover:bg-gray-50 transition-all duration-200 border-b last:border-none"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-teal-100 text-teal-600 flex items-center justify-center font-semibold">
+                      {item.patient_name?.charAt(0) || "?"}
+                    </div>
+                    <p className="font-medium">{item.patient_name}</p>
+                  </div>
+
+                  <span className="text-gray-500 text-sm">
+                    {item.doctor_name}
+                  </span>
+                  <span className="text-gray-500 text-sm capitalize">
+                    {item.appointment_type?.toLowerCase()}
+                  </span>
+                  <span className="text-gray-500 text-sm">{date}</span>
+                  <span className="text-gray-500 text-sm">{time}</span>
+                  <StatusBadge status={item.status} />
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
     </div>
