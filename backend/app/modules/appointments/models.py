@@ -40,8 +40,8 @@ class Appointment(Base):
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    h3_index: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
-    
+    h3_index: Mapped[str | None] = mapped_column(String(20),index=True, nullable=True)
+
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     cancelled_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
