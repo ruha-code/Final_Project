@@ -124,10 +124,11 @@ async def create_doctor_account(
         raise ConflictException("Username already taken")
 
     user = User(
+        full_name=dto.full_name,
         username=dto.username,
         email=dto.email,
         password_hash=hash_password(dto.password),
-        role="DOCTOR",      # ← hardcoded
+        role="DOCTOR",   
         is_active=True,
     )
     db.add(user)
@@ -170,10 +171,11 @@ async def create_admin_account(
         raise ConflictException("Username already taken")
 
     user = User(
+        full_name=dto.full_name,
         username=dto.username,
         email=dto.email,
         password_hash=hash_password(dto.password),
-        role="ADMIN",       # ← hardcoded
+        role="ADMIN",       
         is_active=True,
     )
     db.add(user)
