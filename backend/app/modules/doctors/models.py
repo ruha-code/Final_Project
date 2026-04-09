@@ -4,11 +4,10 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
-from datetime import datetime, time  
+from datetime import datetime, time
 import enum
 
 from app.core.database import Base
-
 
 
 class LicenseStatus(str, enum.Enum):
@@ -18,46 +17,49 @@ class LicenseStatus(str, enum.Enum):
     EXPIRED = "EXPIRED"
 
 
-
-class Specialty(Base):
-    __tablename__ = "specialties"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
-
-    doctors = relationship("Doctor", back_populates="specialty")
-
-
-
 class Doctor(Base):
     __tablename__ = "doctors"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True, nullable=False)
-    specialty_id: Mapped[int] = mapped_column(Integer, ForeignKey("specialties.id"), nullable=False)
+    department_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("departments.id"), nullable=True
+    )
 
+    # Professional info
+    specialty: Mapped[str | None] = mapped_column(String(100), nullable=True)  # e.g. "Cardiologist"
     bio: Mapped[str | None] = mapped_column(Text, nullable=True)
     years_of_experience: Mapped[int] = mapped_column(Integer, default=0)
     consultation_duration_minutes: Mapped[int] = mapped_column(Integer, default=30, nullable=False)
 
-    license_number: Mapped[str] = mapped_column(String(50), unique=True, index=True)
-    license_status: Mapped[LicenseStatus] = mapped_column(Enum(LicenseStatus), default=LicenseStatus.PENDING)
+    # Availability & rating
+    is_available: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    rating: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+
+    # License
+    license_number: Mapped[str | None] = mapped_column(String(50), unique=True, index=True, nullable=True)
+    license_status: Mapped[LicenseStatus] = mapped_column(
+        Enum(LicenseStatus), default=LicenseStatus.PENDING
+    )
     license_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    # Location
     latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     h3_index: Mapped[str | None] = mapped_column(String(20), index=True, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True),server_default=func.now(),onupdate=func.now())
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
-
-
-    # user = relationship("User", back_populates="doctor")
-    specialty = relationship("Specialty", back_populates="doctors")
-    # appointments = relationship("Appointment", back_populates="doctor")
-
+    # Relationships
+    user = relationship("User")
+    department = relationship(
+        "Department", back_populates="doctors", foreign_keys=[department_id]
+    )
+    schedules = relationship("DoctorSchedule", back_populates="doctor", cascade="all, delete-orphan")
+    appointments = relationship("Appointment", back_populates="doctor")
 
 
 class DoctorSchedule(Base):
@@ -65,12 +67,13 @@ class DoctorSchedule(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     doctor_id: Mapped[int] = mapped_column(Integer, ForeignKey("doctors.id"), nullable=False)
-    day_of_week: Mapped[int] = mapped_column(Integer, nullable=False)
-    start_time: Mapped[time] = mapped_column(Time, nullable=False)   
-    end_time: Mapped[time] = mapped_column(Time, nullable=False)    
+    day_of_week: Mapped[int] = mapped_column(Integer, nullable=False)  # 0=Mon, 6=Sun
+    start_time: Mapped[time] = mapped_column(Time, nullable=False)
+    end_time: Mapped[time] = mapped_column(Time, nullable=False)
     is_available: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
+    doctor = relationship("Doctor", back_populates="schedules")
 
     __table_args__ = (
         UniqueConstraint("doctor_id", "day_of_week", name="uq_doctor_day"),
