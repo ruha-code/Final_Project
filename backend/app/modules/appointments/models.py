@@ -23,7 +23,7 @@ class Appointment(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     patient_id: Mapped[int] = mapped_column(Integer, ForeignKey("patients.id"), nullable=False)
-    doctor_id: Mapped[int] = mapped_column(Integer, ForeignKey("doctors.id"), nullable=False)\
+    doctor_id: Mapped[int] = mapped_column(Integer, ForeignKey("doctors.id"), nullable=False)
     
 
     appointment_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
@@ -40,7 +40,7 @@ class Appointment(Base):
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    h3_index: Mapped[str | None] = mapped_column(String(20),index=True, nullable=True)
+    h3_index: Mapped[str | None] = mapped_column(String(20), index=True, nullable=True)
 
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
