@@ -60,7 +60,7 @@ function Dashboard() {
             api.get("/patients"),
             api.get("/doctors"),
             api.get("/appointments/admin/all?page=1&page_size=5"),
-            api.get("/calendar?page_size=5"),
+            api.get("/calendar"),
           ]);
 
         const patientCount =
