@@ -32,39 +32,69 @@ const lineData = [
   { name: "Jul", income: 1300, expense: 750 },
 ];
 
+function formatAppointmentDate(isoString) {
+  if (!isoString) return "—";
+  const d = new Date(isoString);
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}
+
 function Dashboard() {
-  const [stats, setStats] = useState(null);
+  const [stats, setStats] = useState({
+    totalPatients: 0,
+    doctors: 0,
+    appointments: 0,
+  });
+  const [recentAppointments, setRecentAppointments] = useState([]);
+  const [agendaItems, setAgendaItems] = useState([]);
+  const [topDoctors, setTopDoctors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
+    const fetchAll = async () => {
       try {
         setLoading(true);
-        // TODO: Replace with actual API calls when backend is ready
-        // const patients = await api.getPatients();
-        // const doctors = await api.getDoctors();
-        // const appointments = await api.getAppointments();
 
-        // For now, simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 500));
+        const [patients, doctors, apptPage, calendar] =
+          await Promise.allSettled([
+            api.get("/patients"),
+            api.get("/doctors"),
+            api.get("/appointments/admin/all?page=1&page_size=5"),
+            api.get("/calendar?page_size=5"),
+          ]);
 
-        // Mock data - will be replaced with real API data
+        const patientCount =
+          patients.status === "fulfilled" ? patients.value.length : 0;
+        const doctorList = doctors.status === "fulfilled" ? doctors.value : [];
+        const apptData =
+          apptPage.status === "fulfilled"
+            ? apptPage.value
+            : { items: [], total: 0 };
+        const calendarData =
+          calendar.status === "fulfilled" ? calendar.value : [];
+
         setStats({
-          totalPatients: 8340,
-          appointments: 1275,
-          doctors: 24
+          totalPatients: patientCount,
+          doctors: doctorList.length,
+          appointments: apptData.total ?? apptData.items?.length ?? 0,
         });
+
+        setRecentAppointments(apptData.items || []);
+        setTopDoctors(doctorList.slice(0, 3));
+        setAgendaItems(
+          Array.isArray(calendarData) ? calendarData.slice(0, 3) : [],
+        );
       } catch (err) {
-        setError('Failed to load dashboard data');
-        console.error('Dashboard error:', err);
+        setError("Failed to load dashboard data");
+        console.error("Dashboard error:", err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchDashboardData();
+    fetchAll();
   }, []);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -75,9 +105,7 @@ function Dashboard() {
 
   if (error) {
     return (
-      <div className="bg-red-100 text-red-700 p-4 rounded-lg">
-        {error}
-      </div>
+      <div className="bg-red-100 text-red-700 p-4 rounded-lg">{error}</div>
     );
   }
 
@@ -90,17 +118,17 @@ function Dashboard() {
           {[
             {
               title: "Total Patients",
-              value: stats?.totalPatients?.toLocaleString() || "8,340",
-              info: "+1.5% vs last week",
+              value: stats.totalPatients.toLocaleString(),
+              info: "Registered patients",
             },
             {
               title: "Appointments",
-              value: stats?.appointments?.toLocaleString() || "1,275",
-              info: "+8% vs yesterday",
+              value: stats.appointments.toLocaleString(),
+              info: "Total in system",
             },
             {
               title: "Doctors",
-              value: stats?.doctors || "24",
+              value: stats.doctors,
               info: "Active staff",
             },
           ].map((item, i) => (
@@ -109,11 +137,9 @@ function Dashboard() {
               className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
             >
               <p className="text-xs text-gray-400">{item.title}</p>
-
               <h2 className="text-2xl font-semibold mt-2 text-gray-800">
                 {item.value}
               </h2>
-
               <div className="mt-3 bg-teal-50 text-teal-600 text-xs px-3 py-1 rounded-full w-fit">
                 {item.info}
               </div>
@@ -127,7 +153,6 @@ function Dashboard() {
             <h2 className="text-sm font-semibold mb-4">
               Patient by Age Stages
             </h2>
-
             <div className="h-56">
               <ResponsiveContainer>
                 <BarChart data={barData}>
@@ -145,7 +170,6 @@ function Dashboard() {
 
           <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition">
             <h2 className="text-sm font-semibold mb-4">Revenue</h2>
-
             <div className="h-56">
               <ResponsiveContainer>
                 <LineChart data={lineData}>
@@ -161,64 +185,59 @@ function Dashboard() {
           </div>
         </div>
 
-        {/* TABLE */}
+        {/* RECENT APPOINTMENTS TABLE */}
         <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-sm font-semibold text-gray-700">
-              Patient Appointment
+              Recent Appointments
             </h2>
-
-            <button className="text-xs bg-gray-100 px-3 py-1 rounded-lg hover:bg-gray-200">
-              This Week
-            </button>
           </div>
 
           <div className="space-y-2">
             <div className="grid grid-cols-5 text-xs text-gray-400 px-4 mb-2">
-              <span>Name</span>
+              <span>Patient</span>
               <span>Doctor</span>
               <span>Type</span>
               <span>Date</span>
               <span>Status</span>
             </div>
 
-            {[
-              {
-                name: "Erica Smith",
-                doctor: "Dr. Nina",
-                type: "Consultation",
-                date: "20 March",
-                status: "Completed",
-              },
-              {
-                name: "John Doe",
-                doctor: "Dr. Alex",
-                type: "Follow-up",
-                date: "22 March",
-                status: "Pending",
-              },
-            ].map((item, i) => (
-              <div
-                key={i}
-                className="grid grid-cols-5 items-center bg-gray-50 px-4 py-3 rounded-xl hover:bg-gray-100 transition"
-              >
-                <span className="font-medium text-gray-700">{item.name}</span>
-
-                <span className="text-gray-500">{item.doctor}</span>
-                <span className="text-gray-500">{item.type}</span>
-                <span className="text-gray-500">{item.date}</span>
-
-                <span
-                  className={`text-xs px-3 py-1 rounded-full w-fit ${
-                    item.status === "Completed"
-                      ? "bg-green-100 text-green-700 font-medium shadow-sm"
-                      : "bg-yellow-100 text-yellow-600"
-                  }`}
+            {recentAppointments.length === 0 ? (
+              <p className="text-sm text-gray-400 px-4 py-3">
+                No appointments yet
+              </p>
+            ) : (
+              recentAppointments.map((item) => (
+                <div
+                  key={item.id}
+                  className="grid grid-cols-5 items-center bg-gray-50 px-4 py-3 rounded-xl hover:bg-gray-100 transition"
                 >
-                  {item.status}
-                </span>
-              </div>
-            ))}
+                  <span className="font-medium text-gray-700">
+                    {item.patient_name}
+                  </span>
+                  <span className="text-gray-500">{item.doctor_name}</span>
+                  <span className="text-gray-500 capitalize">
+                    {item.appointment_type?.toLowerCase()}
+                  </span>
+                  <span className="text-gray-500">
+                    {formatAppointmentDate(item.appointment_time)}
+                  </span>
+                  <span
+                    className={`text-xs px-3 py-1 rounded-full w-fit ${
+                      item.status === "COMPLETED"
+                        ? "bg-green-100 text-green-700 font-medium"
+                        : item.status === "SCHEDULED"
+                          ? "bg-purple-100 text-purple-600"
+                          : item.status === "ONGOING"
+                            ? "bg-blue-100 text-blue-600"
+                            : "bg-red-100 text-red-500"
+                    }`}
+                  >
+                    {item.status.charAt(0) + item.status.slice(1).toLowerCase()}
+                  </span>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -227,24 +246,33 @@ function Dashboard() {
       <div className="w-80 space-y-6">
         {/* CALENDAR */}
         <div className="bg-white/90 backdrop-blur p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition">
-          <h2 className="text-sm font-semibold mb-4">March 2026</h2>
-
+          <h2 className="text-sm font-semibold mb-4">
+            {new Date().toLocaleDateString("en-GB", {
+              month: "long",
+              year: "numeric",
+            })}
+          </h2>
           <div className="grid grid-cols-7 text-xs text-center gap-2 text-gray-400 mb-2">
-            {["S", "M", "T", "W", "T", "F", "S"].map((d) => (
-              <span key={d}>{d}</span>
+            {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
+              <span key={i}>{d}</span>
             ))}
           </div>
-
           <div className="grid grid-cols-7 text-sm text-center gap-2">
-            {[...Array(30)].map((_, i) => (
+            {[
+              ...Array(
+                new Date(
+                  new Date().getFullYear(),
+                  new Date().getMonth() + 1,
+                  0,
+                ).getDate(),
+              ),
+            ].map((_, i) => (
               <div
                 key={i}
                 className={`p-2 rounded-lg cursor-pointer ${
-                  i === 7
+                  i + 1 === new Date().getDate()
                     ? "bg-teal-500 text-white shadow-sm"
-                    : i === 16 || i === 19 || i === 27
-                      ? "bg-teal-100 text-teal-600"
-                      : "hover:bg-gray-100"
+                    : "hover:bg-gray-100"
                 }`}
               >
                 {i + 1}
@@ -256,101 +284,67 @@ function Dashboard() {
         {/* AGENDA */}
         <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
           <h2 className="text-sm font-semibold mb-4">Agenda</h2>
-
-          <div className="space-y-3">
-            {/* ITEM */}
-            <div className="flex gap-3 bg-teal-50 p-3 rounded-xl">
-              <div className="text-center w-10">
-                <p className="text-sm font-semibold text-gray-800">17</p>
-                <p className="text-xs text-gray-400">Fri</p>
-              </div>
-
-              <div>
-                <p className="text-sm font-medium text-gray-800">
-                  Monthly Staff Meeting
-                </p>
-                <p className="text-xs text-gray-400">09:00 - 10:30</p>
-              </div>
+          {agendaItems.length === 0 ? (
+            <p className="text-xs text-gray-400">No upcoming events</p>
+          ) : (
+            <div className="space-y-3">
+              {agendaItems.map((evt, i) => {
+                const d = new Date(evt.event_date);
+                return (
+                  <div key={i} className="flex gap-3 bg-teal-50 p-3 rounded-xl">
+                    <div className="text-center w-10">
+                      <p className="text-sm font-semibold text-gray-800">
+                        {d.getDate()}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {d.toLocaleDateString("en-GB", { weekday: "short" })}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-800">
+                        {evt.title}
+                      </p>
+                      <p className="text-xs text-gray-400 capitalize">
+                        {evt.category?.toLowerCase()}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-
-            <div className="flex gap-3 bg-gray-50 p-3 rounded-xl">
-              <div className="text-center w-10">
-                <p className="text-sm font-semibold">20</p>
-                <p className="text-xs text-gray-400">Mon</p>
-              </div>
-
-              <div>
-                <p className="text-sm font-medium">Networking Event</p>
-                <p className="text-xs text-gray-400">14:00 - 16:00</p>
-              </div>
-            </div>
-
-            <div className="flex gap-3 bg-gray-50 p-3 rounded-xl">
-              <div className="text-center w-10">
-                <p className="text-sm font-semibold">28</p>
-                <p className="text-xs text-gray-400">Tue</p>
-              </div>
-
-              <div>
-                <p className="text-sm font-medium">Policy Review</p>
-                <p className="text-xs text-gray-400">10:00 - 11:30</p>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
 
-        {/* DOCTORS */}
+        {/* DOCTORS SCHEDULE */}
         <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-          <h2 className="text-sm font-semibold mb-4">Doctors’ Schedule</h2>
-
-          <div className="space-y-4">
-            {[
-              { name: "Dr. Amelia Hart", status: "Available" },
-              { name: "Dr. Rizky Pratama", status: "Unavailable" },
-              { name: "Dr. Sophia Liang", status: "Available" },
-            ].map((doc, i) => (
-              <div key={i} className="flex justify-between items-center">
-                <div>
-                  <p className="text-sm font-medium text-gray-800">
-                    {doc.name}
-                  </p>
-                  <p className="text-xs text-gray-400">Cardiology</p>
+          <h2 className="text-sm font-semibold mb-4">Doctors' Schedule</h2>
+          {topDoctors.length === 0 ? (
+            <p className="text-xs text-gray-400">No doctors registered</p>
+          ) : (
+            <div className="space-y-4">
+              {topDoctors.map((doc) => (
+                <div key={doc.id} className="flex justify-between items-center">
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">
+                      {doc.full_name}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      {doc.department_name || doc.specialty || "—"}
+                    </p>
+                  </div>
+                  <span
+                    className={`text-xs px-3 py-1 rounded-full font-medium ${
+                      doc.is_available
+                        ? "bg-green-100 text-green-700"
+                        : "bg-red-100 text-red-500"
+                    }`}
+                  >
+                    {doc.is_available ? "Available" : "Unavailable"}
+                  </span>
                 </div>
-
-                <span
-                  className={`text-xs px-3 py-1 rounded-full font-medium ${
-                    doc.status === "Available"
-                      ? "bg-green-100 text-green-700"
-                      : "bg-red-100 text-red-500"
-                  }`}
-                >
-                  {doc.status}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* ACTIVITY */}
-        <div className="bg-white p-5 rounded-xl border shadow-sm">
-          <h2 className="text-sm font-semibold mb-4">Recent Activity</h2>
-
-          <div className="space-y-3 text-sm">
-            <div className="flex justify-between">
-              <p>New patient profile created</p>
-              <span className="text-gray-400 text-xs">3m ago</span>
+              ))}
             </div>
-
-            <div className="flex justify-between">
-              <p>Appointment rescheduled</p>
-              <span className="text-gray-400 text-xs">1h ago</span>
-            </div>
-
-            <div className="flex justify-between">
-              <p>Discharge summary updated</p>
-              <span className="text-gray-400 text-xs">4h ago</span>
-            </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
