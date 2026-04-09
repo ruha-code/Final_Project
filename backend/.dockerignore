@@ -1,0 +1,13 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+clinic.db
+.git/
+.gitignore
+README.md
+*.md
+.pytest_cache/
+.coverage
