@@ -48,12 +48,12 @@ async def register(
 
 @router.post("/login", response_model=TokenResponse)
 async def login(
+    dto: LoginSchema,
     request: Request,
-    form_data: OAuth2PasswordRequestForm = Depends(),  
     db: AsyncSession = Depends(get_db),
     auth_service: AuthService = Depends(get_auth_service),
 ):
-    result = await auth_service.login(form_data.username, form_data.password)
+    result = await auth_service.login(dto.email, dto.password)
     await log(
         db=db,
         user_id=result["user_id"],

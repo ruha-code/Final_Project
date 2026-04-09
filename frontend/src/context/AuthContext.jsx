@@ -36,7 +36,6 @@ export function AuthProvider({ children }) {
       username,
       email,
       password,
-      role: "ADMIN",
     });
     api.setToken(response.access_token);
     const me = await api.get("/auth/me");
