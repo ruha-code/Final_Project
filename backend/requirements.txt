@@ -11,3 +11,4 @@ pydantic-settings
 pwdlib[argon2]
 python-multipart
 redis[asyncio]
+alembic
