@@ -1,3 +1,5 @@
+from app.core.middleware import RequestLoggingMiddleware
+from app.core.logging import setup_logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -25,6 +27,7 @@ from app.modules.inventory.router import router as inventory_router
 from app.modules.messages.router import router as messages_router
 from app.modules.calendar.router import router as calendar_router
  
+setup_logging()
  
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -36,7 +39,7 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
- 
+app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
