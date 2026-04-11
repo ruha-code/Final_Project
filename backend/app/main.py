@@ -1,12 +1,13 @@
 from app.core.middleware import RequestLoggingMiddleware
 from app.core.logging import setup_logging
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
+import logging
  
 from app.core.database import init_db
  
-# Import all models so SQLAlchemy registers them before create_all
 from app.modules.auth.models import User                        
 from app.modules.departments.models import Department           
 from app.modules.doctors.models import Doctor, DoctorSchedule  
@@ -39,6 +40,20 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+logger = logging.getLogger("clinic.errors")
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    rid = getattr(request.state, "request_id", "unknown")
+    logger.exception(
+        f"Unhandled error [req={rid}] {request.method} {request.url.path}"
+    )
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error", "request_id": rid},
+    )
+
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(
     CORSMiddleware,
