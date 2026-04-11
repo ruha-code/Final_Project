@@ -4,11 +4,14 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from pydantic import BaseModel
+import uuid
+
 from app.core.database import get_db
 from app.core.dependencies import RoleChecker, get_current_user, oauth2_scheme
-from app.core.exceptions import ConflictException
+from app.core.exceptions import ConflictException, UnauthorizedException
 from app.core.pagination import paginate
-from app.core.security import decode_access_token, hash_password
+from app.core.security import decode_access_token, hash_password, create_access_token
 from app.core.cache import blacklist_token
 from app.modules.auth.schemas import RegisterSchema, LoginSchema, TokenResponse, UserResponse
 from app.modules.auth.service import AuthService
@@ -17,6 +20,9 @@ from app.modules.audit.router import log, Actions
 
 router = APIRouter(tags=["Auth"])
 
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
 
 
 def get_auth_service(db: AsyncSession = Depends(get_db)) -> AuthService:
@@ -63,6 +69,30 @@ async def login(
         request=request,
     )
     return result
+
+
+
+@router.post("/refresh", response_model=TokenResponse)
+async def refresh_access_token(body: RefreshRequest, db: AsyncSession = Depends(get_db)):
+    payload = decode_access_token(body.refresh_token)
+
+    if not payload or payload.get("type") != "refresh":
+        raise UnauthorizedException("Invalid refresh token")
+
+    user = await db.get(User, payload["user_id"])
+    if not user or not user.is_active:
+        raise UnauthorizedException("User not found or deactivated")
+
+    jti = str(uuid.uuid4())
+    new_access_token = create_access_token({"user_id": user.id, "role": user.role, "jti": jti})
+
+    return {
+        "access_token": new_access_token,
+        "refresh_token": body.refresh_token,  
+        "token_type": "bearer",
+        "user_id": user.id,
+        "role": user.role,
+    }
 
 
 

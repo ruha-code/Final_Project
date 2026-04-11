@@ -17,7 +17,7 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)],db: Asy
 
     payload = decode_access_token(token)
 
-    if not payload or "user_id" not in payload:
+    if not payload or "user_id" not in payload or payload.get("type") != "access":
         raise UnauthorizedException("Invalid or expired token")
     
     jti = payload.get("jti")

@@ -1,9 +1,10 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+import uuid
  
 from app.modules.auth.models import User
 from app.modules.auth.schemas import RegisterSchema, UserRole
-from app.core.security import hash_password, verify_password, create_access_token
+from app.core.security import hash_password, verify_password, create_access_token, create_refresh_token
 from app.core.exceptions import ConflictException, UnauthorizedException
  
  
@@ -32,10 +33,13 @@ class AuthService:
         await self.db.commit()
         await self.db.refresh(user)
  
-        token = create_access_token({"user_id": user.id, "role": user.role})
+        jti = str(uuid.uuid4())
+        access_token = create_access_token({"user_id": user.id, "role": user.role, "jti": jti})
+        refresh_token = create_refresh_token({"user_id": user.id, "role": user.role})
  
         return {
-            "access_token": token,
+            "access_token": access_token,
+            "refresh_token": refresh_token,
             "token_type": "bearer",
             "role": user.role,
             "user_id": user.id,
@@ -51,13 +55,16 @@ class AuthService:
         if not user.is_active:
             raise UnauthorizedException("Account is deactivated")
  
-        token = create_access_token({"user_id": user.id, "role": user.role})
+        jti = str(uuid.uuid4())
+        access_token = create_access_token({"user_id": user.id, "role": user.role, "jti": jti})
+        refresh_token = create_refresh_token({"user_id": user.id, "role": user.role})
  
         return {
-            "access_token": token,
+            "access_token": access_token,
+            "refresh_token": refresh_token,
             "token_type": "bearer",
-            "role": user.role,
             "user_id": user.id,
+            "role": user.role,
         }
  
     async def me(self, user: User):

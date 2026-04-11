@@ -6,8 +6,6 @@ from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 import logging
  
-from app.core.database import init_db
- 
 from app.modules.auth.models import User                        
 from app.modules.departments.models import Department           
 from app.modules.doctors.models import Doctor, DoctorSchedule  

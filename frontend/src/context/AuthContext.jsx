@@ -25,6 +25,7 @@ export function AuthProvider({ children }) {
   const login = async ({ email, password }) => {
     const response = await api.post("/auth/login", { email, password });
     api.setToken(response.access_token);
+    if (response.refresh_token) api.setRefreshToken(response.refresh_token);
     const me = await api.get("/auth/me");
     setUser(me);
     return me;
@@ -38,6 +39,7 @@ export function AuthProvider({ children }) {
       password,
     });
     api.setToken(response.access_token);
+    if (response.refresh_token) api.setRefreshToken(response.refresh_token);
     const me = await api.get("/auth/me");
     setUser(me);
     return me;
@@ -48,7 +50,7 @@ export function AuthProvider({ children }) {
       await api.post("/auth/logout", {});
     } catch {
     }
-    api.removeToken();
+    api.clearTokens();
     setUser(null);
   };
 
