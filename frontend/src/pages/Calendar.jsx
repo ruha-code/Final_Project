@@ -1,58 +1,83 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { api } from "../services/api";
 
-const initialEvents = [
-  {
-    id: 1,
-    title: "Department Meeting",
-    date: 11,
-    time: "08:30 - 09:30",
-    category: "admin",
-  },
-];
+const MONTH_NAMES = ["January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"];
 
 const categoryColors = {
-  admin: "bg-teal-500",
-  system: "bg-green-400",
-  training: "bg-gray-400",
+  ADMIN: "bg-teal-500",
+  SYSTEM: "bg-green-400",
+  TRAINING: "bg-gray-400",
 };
 
 function Calendar() {
-  const [events, setEvents] = useState(initialEvents);
+  const now = new Date();
+  const [currentYear, setCurrentYear] = useState(now.getFullYear());
+  const [currentMonth, setCurrentMonth] = useState(now.getMonth() + 1);
+  const [events, setEvents] = useState([]);
   const [selectedDay, setSelectedDay] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [filter, setFilter] = useState("all");
-
   const [showModal, setShowModal] = useState(false);
-  const [newEvent, setNewEvent] = useState({
-    title: "",
-    date: "",
-    time: "",
-    category: "admin",
-  });
+  const [newEvent, setNewEvent] = useState({ title: "", date: "", time: "", category: "ADMIN" });
 
-  const today = new Date().getDate();
-  const days = Array.from({ length: 31 }, (_, i) => i + 1);
+  const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+  const today = now.getDate();
+  const isCurrentMonth = currentYear === now.getFullYear() && currentMonth === (now.getMonth() + 1);
 
-  const getEvents = (day) => {
-    return events.filter(
-      (e) => e.date === day && (filter === "all" || e.category === filter),
-    );
+  const fetchEvents = () => {
+    api.get(`/calendar?month=${currentMonth}&year=${currentYear}`)
+      .then((data) => {
+        const converted = data.map((e) => ({
+          id: e.id,
+          title: e.title,
+          date: new Date(e.event_date).getDate(),
+          time: e.event_time || "",
+          category: e.category,
+        }));
+        setEvents(converted);
+      })
+      .catch(console.error);
   };
 
-  const handleAddEvent = () => {
-    if (!newEvent.title || !newEvent.date) return;
+  useEffect(() => {
+    fetchEvents();
+  }, [currentMonth, currentYear]);
 
-    setEvents([
-      ...events,
-      {
-        ...newEvent,
-        id: Date.now(),
-        date: Number(newEvent.date),
-      },
-    ]);
+  const getEvents = (day) =>
+    events.filter((e) => e.date === day && (filter === "all" || e.category === filter.toUpperCase()));
+
+  const handleAddEvent = async () => {
+    if (!newEvent.title || !newEvent.date) return;
+    const day = String(newEvent.date).padStart(2, "0");
+    const month = String(currentMonth).padStart(2, "0");
+    const event_date = `${currentYear}-${month}-${day}`;
+
+    try {
+      await api.post("/calendar", {
+        title: newEvent.title,
+        event_date,
+        event_time: newEvent.time || null,
+        category: newEvent.category,
+      });
+      fetchEvents();
+    } catch (err) {
+      console.error(err);
+    }
 
     setShowModal(false);
-    setNewEvent({ title: "", date: "", time: "", category: "admin" });
+    setNewEvent({ title: "", date: "", time: "", category: "ADMIN" });
+  };
+
+  const prevMonth = () => {
+    if (currentMonth === 1) { setCurrentMonth(12); setCurrentYear(y => y - 1); }
+    else setCurrentMonth(m => m - 1);
+  };
+
+  const nextMonth = () => {
+    if (currentMonth === 12) { setCurrentMonth(1); setCurrentYear(y => y + 1); }
+    else setCurrentMonth(m => m + 1);
   };
 
   return (
@@ -60,7 +85,13 @@ function Calendar() {
       <div className="grid grid-cols-6 gap-6">
         {/* LEFT */}
         <div className="bg-white p-5 rounded-2xl border space-y-5">
-          <h3 className="font-semibold text-lg">March 2026</h3>
+          <div className="flex items-center justify-between">
+            <button onClick={prevMonth} className="text-gray-400 hover:text-teal-500 text-lg">‹</button>
+            <h3 className="font-semibold text-sm text-center">
+              {MONTH_NAMES[currentMonth - 1]} {currentYear}
+            </h3>
+            <button onClick={nextMonth} className="text-gray-400 hover:text-teal-500 text-lg">›</button>
+          </div>
 
           <button
             onClick={() => setShowModal(true)}
@@ -74,11 +105,7 @@ function Calendar() {
               <div
                 key={c}
                 onClick={() => setFilter(c)}
-                className={`cursor-pointer px-3 py-2 rounded-lg transition ${
-                  filter === c
-                    ? "bg-teal-50 text-teal-600"
-                    : "hover:bg-gray-50 text-gray-600"
-                }`}
+                className={`cursor-pointer px-3 py-2 rounded-lg transition ${filter === c ? "bg-teal-50 text-teal-600" : "hover:bg-gray-50 text-gray-600"}`}
               >
                 {c.toUpperCase()}
               </div>
@@ -88,42 +115,28 @@ function Calendar() {
 
         {/* CALENDAR */}
         <div className="col-span-4 bg-white p-5 rounded-2xl border">
-          {/* DAYS HEADER */}
           <div className="grid grid-cols-7 text-xs text-gray-400 mb-2 px-2">
             {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
               <div key={d}>{d}</div>
             ))}
           </div>
-
-          {/* GRID */}
           <div className="grid grid-cols-7 border rounded-xl overflow-hidden">
             {days.map((day) => (
               <div
                 key={day}
-                onClick={() => {
-                  setSelectedDay(day);
-                  setSelectedEvent(null);
-                }}
+                onClick={() => { setSelectedDay(day); setSelectedEvent(null); }}
                 className={`h-28 border p-2 cursor-pointer transition-all
-                  ${day === today ? "bg-yellow-50 border-yellow-200" : ""}
+                  ${isCurrentMonth && day === today ? "bg-yellow-50 border-yellow-200" : ""}
                   ${selectedDay === day ? "bg-teal-50" : "hover:bg-gray-50"}
                 `}
               >
                 <p className="text-xs text-gray-400">{day}</p>
-
                 <div className="mt-1 space-y-1">
                   {getEvents(day).map((e) => (
                     <div
                       key={e.id}
-                      onClick={(ev) => {
-                        ev.stopPropagation();
-                        setSelectedEvent(e);
-                        setSelectedDay(day);
-                      }}
-                      className={`text-[11px] px-2 py-1.5 rounded-md text-white truncate
-                        shadow-sm hover:scale-[1.02] hover:shadow cursor-pointer
-                        ${categoryColors[e.category]}
-                      `}
+                      onClick={(ev) => { ev.stopPropagation(); setSelectedEvent(e); setSelectedDay(day); }}
+                      className={`text-[11px] px-2 py-1.5 rounded-md text-white truncate shadow-sm hover:scale-[1.02] hover:shadow cursor-pointer ${categoryColors[e.category] || "bg-gray-400"}`}
                     >
                       {e.title}
                     </div>
@@ -137,7 +150,6 @@ function Calendar() {
         {/* RIGHT */}
         <div className="bg-white p-5 rounded-2xl border">
           <h3 className="mb-4 font-medium">Schedule Details</h3>
-
           {selectedEvent ? (
             <div className="bg-teal-500 text-white p-4 rounded-xl space-y-2">
               <p className="font-semibold">{selectedEvent.title}</p>
@@ -147,7 +159,6 @@ function Calendar() {
           ) : selectedDay ? (
             <>
               <p className="text-sm text-gray-400 mb-3">Day {selectedDay}</p>
-
               {getEvents(selectedDay).length > 0 ? (
                 getEvents(selectedDay).map((e) => (
                   <div
@@ -174,42 +185,46 @@ function Calendar() {
         <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white w-[400px] rounded-2xl shadow-xl p-6 space-y-5">
             <h2 className="text-lg font-semibold">Create Event</h2>
-
             <input
               placeholder="Event title"
               value={newEvent.title}
-              onChange={(e) =>
-                setNewEvent({ ...newEvent, title: e.target.value })
-              }
+              onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
               className="w-full bg-gray-100 px-4 py-2 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
             />
-
             <div className="grid grid-cols-2 gap-3">
               <input
-                placeholder="Day"
+                placeholder="Day (1-31)"
+                type="number"
+                min="1"
+                max={daysInMonth}
                 value={newEvent.date}
-                onChange={(e) =>
-                  setNewEvent({ ...newEvent, date: e.target.value })
-                }
+                onChange={(e) => setNewEvent({ ...newEvent, date: e.target.value })}
                 className="bg-gray-100 px-4 py-2 rounded-xl text-sm"
               />
-
               <input
-                placeholder="Time"
+                placeholder="Time (HH:MM)"
                 value={newEvent.time}
-                onChange={(e) =>
-                  setNewEvent({ ...newEvent, time: e.target.value })
-                }
+                onChange={(e) => setNewEvent({ ...newEvent, time: e.target.value })}
                 className="bg-gray-100 px-4 py-2 rounded-xl text-sm"
               />
             </div>
-
-            <button
-              onClick={handleAddEvent}
-              className="w-full bg-teal-500 text-white py-2 rounded-xl"
+            <select
+              value={newEvent.category}
+              onChange={(e) => setNewEvent({ ...newEvent, category: e.target.value })}
+              className="w-full bg-gray-100 px-4 py-2 rounded-xl text-sm"
             >
-              Create
-            </button>
+              <option value="ADMIN">ADMIN</option>
+              <option value="SYSTEM">SYSTEM</option>
+              <option value="TRAINING">TRAINING</option>
+            </select>
+            <div className="flex gap-3">
+              <button onClick={() => setShowModal(false)} className="flex-1 bg-gray-100 py-2 rounded-xl text-sm">
+                Cancel
+              </button>
+              <button onClick={handleAddEvent} className="flex-1 bg-teal-500 text-white py-2 rounded-xl text-sm">
+                Create
+              </button>
+            </div>
           </div>
         </div>
       )}

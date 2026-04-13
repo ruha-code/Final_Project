@@ -45,7 +45,7 @@ function Register() {
   return (
     <div className="flex h-screen">
       {/* LEFT SIDE */}
-      <div className="w-1/2 bg-teal-100 flex flex-col justify-between p-10">
+      <div className="w-1/2 bg-[#e6f4f1] flex flex-col justify-between p-10">
         <div>
           <h1 className="text-xl font-bold text-teal-700 mb-10">Medlink</h1>
 
