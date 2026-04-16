@@ -330,7 +330,9 @@ async def get_all_appointments(
         query = query.where(Appointment.status == status.upper())
     if doctor_id:
         query = query.where(Appointment.doctor_id == doctor_id)
-    return await paginate(query, page, page_size, db)
+    result = await paginate(query, page, page_size, db)
+    result.items = [_build_detail(a) for a in result.items]
+    return result
 
 
 @router.put(
