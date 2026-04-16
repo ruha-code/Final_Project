@@ -13,7 +13,13 @@ from app.core.exceptions import ConflictException, UnauthorizedException
 from app.core.pagination import paginate
 from app.core.security import decode_access_token, hash_password, create_access_token
 from app.core.cache import blacklist_token
-from app.modules.auth.schemas import RegisterSchema, LoginSchema, TokenResponse, UserResponse
+from app.modules.auth.schemas import (
+    RegisterSchema,
+    LoginSchema,
+    TokenResponse,
+    UserResponse,
+    UserUpdateSchema,
+)
 from app.modules.auth.service import AuthService
 from app.modules.auth.models import User, UserRole
 from app.modules.audit.router import log, Actions
@@ -29,8 +35,9 @@ def get_auth_service(db: AsyncSession = Depends(get_db)) -> AuthService:
     return AuthService(db)
 
 
-
-@router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED
+)
 async def register(
     dto: RegisterSchema,
     request: Request,
@@ -39,17 +46,23 @@ async def register(
 ):
     result = await auth_service.register(dto)
 
+    if dto.role == UserRole.PATIENT:
+        from app.modules.patients.models import Patient
+
+        patient = Patient(user_id=result["user_id"])
+        db.add(patient)
+        await db.commit()
+
     await log(
         db=db,
-        user_id=result["user_id"],     
+        user_id=result["user_id"],
         action=Actions.REGISTER,
         entity_type="User",
-        entity_id=result["user_id"],   
+        entity_id=result["user_id"],
         request=request,
     )
 
     return result
-
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -71,9 +84,10 @@ async def login(
     return result
 
 
-
 @router.post("/refresh", response_model=TokenResponse)
-async def refresh_access_token(body: RefreshRequest, db: AsyncSession = Depends(get_db)):
+async def refresh_access_token(
+    body: RefreshRequest, db: AsyncSession = Depends(get_db)
+):
     payload = decode_access_token(body.refresh_token)
 
     if not payload or payload.get("type") != "refresh":
@@ -84,26 +98,43 @@ async def refresh_access_token(body: RefreshRequest, db: AsyncSession = Depends(
         raise UnauthorizedException("User not found or deactivated")
 
     jti = str(uuid.uuid4())
-    new_access_token = create_access_token({"user_id": user.id, "role": user.role, "jti": jti})
+    new_access_token = create_access_token(
+        {"user_id": user.id, "role": user.role, "jti": jti}
+    )
 
     return {
         "access_token": new_access_token,
-        "refresh_token": body.refresh_token,  
+        "refresh_token": body.refresh_token,
         "token_type": "bearer",
         "user_id": user.id,
         "role": user.role,
     }
 
 
-
 @router.get("/me", response_model=UserResponse)
-async def me(
+async def get_me(
     current_user: User = Depends(get_current_user),
     auth_service: AuthService = Depends(get_auth_service),
 ):
     return await auth_service.me(current_user)
 
 
+@router.put("/me", response_model=UserResponse)
+async def update_me(
+    dto: UserUpdateSchema,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if dto.full_name is not None:
+        current_user.full_name = dto.full_name
+    if dto.phone is not None:
+        current_user.phone = dto.phone
+    if dto.avatar_url is not None:
+        current_user.avatar_url = dto.avatar_url
+
+    await db.commit()
+    await db.refresh(current_user)
+    return current_user
 
 
 @router.post("/logout", summary="Logout — revoke current token")
@@ -121,13 +152,15 @@ async def logout(
         if remaining > 0:
             await blacklist_token(jti, remaining)
 
-    await log(db=db, user_id=current_user.id, action="LOGOUT",
-              entity_type="User", entity_id=current_user.id)
+    await log(
+        db=db,
+        user_id=current_user.id,
+        action="LOGOUT",
+        entity_type="User",
+        entity_id=current_user.id,
+    )
 
     return {"message": "Logged out successfully"}
-
-
-
 
 
 @router.post(
@@ -158,7 +191,7 @@ async def create_doctor_account(
         username=dto.username,
         email=dto.email,
         password_hash=hash_password(dto.password),
-        role="DOCTOR",   
+        role="DOCTOR",
         is_active=True,
     )
     db.add(user)
@@ -176,7 +209,6 @@ async def create_doctor_account(
     )
 
     return UserResponse.model_validate(user)
-
 
 
 @router.post(
@@ -205,7 +237,7 @@ async def create_admin_account(
         username=dto.username,
         email=dto.email,
         password_hash=hash_password(dto.password),
-        role="ADMIN",       
+        role="ADMIN",
         is_active=True,
     )
     db.add(user)
@@ -223,7 +255,6 @@ async def create_admin_account(
     )
 
     return UserResponse.model_validate(user)
-
 
 
 @router.get("/admin/users", dependencies=[Depends(RoleChecker(["ADMIN"]))])
@@ -248,8 +279,11 @@ async def get_users(
     return paged
 
 
-
-@router.get("/admin/users/{user_id}", response_model=UserResponse,dependencies=[Depends(RoleChecker(["ADMIN"]))])
+@router.get(
+    "/admin/users/{user_id}",
+    response_model=UserResponse,
+    dependencies=[Depends(RoleChecker(["ADMIN"]))],
+)
 async def get_user_by_id(user_id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
@@ -258,8 +292,9 @@ async def get_user_by_id(user_id: int, db: AsyncSession = Depends(get_db)):
     return user
 
 
-
-@router.put("/admin/users/{user_id}/deactivate",dependencies=[Depends(RoleChecker(["ADMIN"]))])
+@router.put(
+    "/admin/users/{user_id}/deactivate", dependencies=[Depends(RoleChecker(["ADMIN"]))]
+)
 async def deactivate_user(
     user_id: int,
     request: Request,
@@ -275,13 +310,19 @@ async def deactivate_user(
     user.is_active = False
     await db.commit()
     await db.refresh(user)
-    await log(db=db, user_id=current_user.id, action=Actions.DEACTIVATE_USER,
-              entity_type="User", entity_id=user.id)
+    await log(
+        db=db,
+        user_id=current_user.id,
+        action=Actions.DEACTIVATE_USER,
+        entity_type="User",
+        entity_id=user.id,
+    )
     return {"message": "User deactivated"}
 
 
-
-@router.put("/admin/users/{user_id}/activate",dependencies=[Depends(RoleChecker(["ADMIN"]))])
+@router.put(
+    "/admin/users/{user_id}/activate", dependencies=[Depends(RoleChecker(["ADMIN"]))]
+)
 async def activate_user(
     user_id: int,
     db: AsyncSession = Depends(get_db),
@@ -294,6 +335,11 @@ async def activate_user(
     user.is_active = True
     await db.commit()
     await db.refresh(user)
-    await log(db=db, user_id=current_user.id, action=Actions.ACTIVATE_USER,
-              entity_type="User", entity_id=user.id)
+    await log(
+        db=db,
+        user_id=current_user.id,
+        action=Actions.ACTIVATE_USER,
+        entity_type="User",
+        entity_id=user.id,
+    )
     return {"message": "User activated"}

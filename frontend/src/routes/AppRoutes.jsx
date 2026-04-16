@@ -13,6 +13,8 @@ import Doctors from "../pages/Doctors";
 import DoctorDetails from "../pages/DoctorDetails";
 import DoctorSchedule from "../pages/DoctorSchedule";
 import DoctorProfile from "../pages/DoctorProfile";
+import PatientProfile from "../pages/PatientProfile";
+import AdminProfile from "../pages/AdminProfile";
 import Inventory from "../pages/Inventory";
 import Departments from "../pages/Departments";
 import DepartmentDetails from "../pages/DepartmentDetails";
@@ -115,11 +117,35 @@ function AppRoutes() {
 
       {/* Doctor Profile - Doctor only */}
       <Route
-        path="/profile"
+        path="/doctor/profile"
         element={
           <ProtectedRoute allowedRoles={["DOCTOR"]}>
             <MainLayout>
               <DoctorProfile />
+            </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Patient Profile - Patient only */}
+      <Route
+        path="/patient/profile"
+        element={
+          <ProtectedRoute allowedRoles={["PATIENT"]}>
+            <MainLayout>
+              <PatientProfile />
+            </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Admin Profile - Admin only */}
+      <Route
+        path="/admin/profile"
+        element={
+          <ProtectedRoute allowedRoles={["ADMIN"]}>
+            <MainLayout>
+              <AdminProfile />
             </MainLayout>
           </ProtectedRoute>
         }

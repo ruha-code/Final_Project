@@ -6,7 +6,7 @@ import { useAuth } from "../context/AuthContext";
 function MainLayout({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { logout, user, isAdmin, isDoctor } = useAuth();
+  const { logout, user, isAdmin, isDoctor, isPatient } = useAuth();
 
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(null);
@@ -51,7 +51,9 @@ function MainLayout({ children }) {
     if (path.includes("doctors")) return "Doctors";
     if (path.includes("departments")) return "Departments";
     if (path.includes("schedule")) return "My Schedule";
-    if (path.includes("profile")) return "My Profile";
+    if (path.includes("/doctor/profile")) return "My Profile";
+    if (path.includes("/patient/profile")) return "My Profile";
+    if (path.includes("/admin/profile")) return "My Profile";
     if (path.includes("calendar")) return "Calendar";
     if (path.includes("inventory")) return "Inventory";
     if (path.includes("messages")) return "Messages";
@@ -59,19 +61,22 @@ function MainLayout({ children }) {
     return "Dashboard";
   };
 
-  const getSubtitle = () => {
+const getSubtitle = () => {
     const path = location.pathname;
 
     if (path.includes("admin/users")) return "Manage system users";
     if (path.includes("dashboard")) {
       if (isAdmin()) return "Admin dashboard overview";
       if (isDoctor()) return "Doctor dashboard overview";
+      if (isPatient()) return "Patient dashboard overview";
       return "Patient dashboard overview";
     }
     if (path.includes("appointments")) return "Manage appointments";
     if (path.includes("patients")) return "Patient data & profiles";
     if (path.includes("schedule")) return "Manage your weekly availability";
-    if (path.includes("profile")) return "Edit your doctor profile";
+    if (path.includes("/doctor/profile")) return "Edit your doctor profile";
+    if (path.includes("/patient/profile")) return "Edit your patient profile";
+    if (path.includes("/admin/profile")) return "Edit your admin profile";
 
     return "Manage your system";
   };
@@ -113,7 +118,8 @@ function MainLayout({ children }) {
             {menuItem("/doctors", "Doctors")}
             {menuItem("/departments", "Departments")}
             {isDoctor() && menuItem("/schedule", "My Schedule")}
-            {isDoctor() && menuItem("/profile", "My Profile")}
+            {isDoctor() && menuItem("/doctor/profile", "My Profile")}
+            {isPatient() && menuItem("/patient/profile", "My Profile")}
             {menuItem("/calendar", "Calendar")}
             {isAdmin() && menuItem("/inventory", "Inventory")}
             {menuItem("/messages", "Messages")}
@@ -235,7 +241,13 @@ function MainLayout({ children }) {
               {open === "profile" && (
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg p-2 z-50">
                   <p
-                    onClick={() => { navigate(isDoctor() ? "/profile" : "/dashboard"); setOpen(null); }}
+                    onClick={() => { 
+                      if (isAdmin()) navigate("/admin/profile");
+                      else if (isDoctor()) navigate("/doctor/profile");
+                      else if (isPatient()) navigate("/patient/profile");
+                      else navigate("/dashboard");
+                      setOpen(null); 
+                    }}
                     className="px-3 py-2 hover:bg-gray-100 rounded-lg cursor-pointer text-sm"
                   >
                     Profile
