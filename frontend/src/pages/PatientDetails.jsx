@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
-import { Phone, Mail, MapPin, HeartPulse } from "lucide-react";
+import { Phone, Mail, MapPin, HeartPulse, Plus, Activity, Thermometer, Scale } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { api } from "../services/api";
+import { useAuth } from "../context/AuthContext";
 
 function calcAge(dateOfBirth) {
   if (!dateOfBirth) return "—";
@@ -16,9 +17,19 @@ function getInitials(name) {
 
 export default function PatientDetails() {
   const { id } = useParams();
+  const { isDoctor } = useAuth();
   const [patient, setPatient] = useState(null);
   const [vitals, setVitals] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showVitalsForm, setShowVitalsForm] = useState(false);
+  const [vitalsForm, setVitalsForm] = useState({
+    blood_sugar: "",
+    weight: "",
+    temperature: "",
+    systolic_bp: "",
+    diastolic_bp: "",
+  });
+  const [savingVitals, setSavingVitals] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -110,17 +121,121 @@ export default function PatientDetails() {
       {/* VITALS STATS */}
       <div className="grid grid-cols-4 gap-4">
         {[
-          ["Blood Sugar", latest.blood_sugar ? `${latest.blood_sugar} mg/dL` : "—"],
-          ["Weight", latest.weight ? `${latest.weight} kg` : "—"],
-          ["Temperature", latest.temperature ? `${latest.temperature}°C` : "—"],
-          ["Blood Pressure", latest.systolic_bp ? `${latest.systolic_bp}/${latest.diastolic_bp}` : "—"],
-        ].map(([title, val]) => (
+          ["Blood Sugar", latest.blood_sugar ? `${latest.blood_sugar} mg/dL` : "—", "bg-orange-50 text-orange-600"],
+          ["Weight", latest.weight ? `${latest.weight} kg` : "—", "bg-blue-50 text-blue-600"],
+          ["Temperature", latest.temperature ? `${latest.temperature}°C` : "—", "bg-red-50 text-red-500"],
+          ["Blood Pressure", latest.systolic_bp ? `${latest.systolic_bp}/${latest.diastolic_bp}` : "—", "bg-purple-50 text-purple-600"],
+        ].map(([title, val, color]) => (
           <div key={title} className="bg-white border rounded-xl p-4">
             <p className="text-xs text-gray-400">{title}</p>
             <p className="font-semibold text-lg">{val}</p>
           </div>
         ))}
       </div>
+
+      {isDoctor() && (
+        <button
+          onClick={() => setShowVitalsForm(true)}
+          className="bg-teal-500 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 hover:bg-teal-600"
+        >
+          <Activity size={16} /> Add Vitals
+        </button>
+      )}
+
+      {showVitalsForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">Add Vitals for {patient?.full_name}</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs text-gray-500">Blood Sugar (mg/dL)</label>
+                <input
+                  type="number"
+                  value={vitalsForm.blood_sugar}
+                  onChange={(e) => setVitalsForm({ ...vitalsForm, blood_sugar: e.target.value })}
+                  className="w-full border px-3 py-2 rounded-lg text-sm"
+                  placeholder="100"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500">Weight (kg)</label>
+                <input
+                  type="number"
+                  value={vitalsForm.weight}
+                  onChange={(e) => setVitalsForm({ ...vitalsForm, weight: e.target.value })}
+                  className="w-full border px-3 py-2 rounded-lg text-sm"
+                  placeholder="70"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500">Temperature (°C)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={vitalsForm.temperature}
+                  onChange={(e) => setVitalsForm({ ...vitalsForm, temperature: e.target.value })}
+                  className="w-full border px-3 py-2 rounded-lg text-sm"
+                  placeholder="36.6"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500">Systolic BP</label>
+                <input
+                  type="number"
+                  value={vitalsForm.systolic_bp}
+                  onChange={(e) => setVitalsForm({ ...vitalsForm, systolic_bp: e.target.value })}
+                  className="w-full border px-3 py-2 rounded-lg text-sm"
+                  placeholder="120"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500">Diastolic BP</label>
+                <input
+                  type="number"
+                  value={vitalsForm.diastolic_bp}
+                  onChange={(e) => setVitalsForm({ ...vitalsForm, diastolic_bp: e.target.value })}
+                  className="w-full border px-3 py-2 rounded-lg text-sm"
+                  placeholder="80"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowVitalsForm(false)}
+                className="flex-1 border py-2 rounded-lg text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  setSavingVitals(true);
+                  try {
+                    await api.post(`/patients/${id}/vitals`, {
+                      blood_sugar: vitalsForm.blood_sugar ? parseFloat(vitalsForm.blood_sugar) : null,
+                      weight: vitalsForm.weight ? parseFloat(vitalsForm.weight) : null,
+                      temperature: vitalsForm.temperature ? parseFloat(vitalsForm.temperature) : null,
+                      systolic_bp: vitalsForm.systolic_bp ? parseInt(vitalsForm.systolic_bp) : null,
+                      diastolic_bp: vitalsForm.diastolic_bp ? parseInt(vitalsForm.diastolic_bp) : null,
+                    });
+                    const v = await api.get(`/patients/${id}/vitals`);
+                    setVitals(v || []);
+                    setShowVitalsForm(false);
+                    setVitalsForm({ blood_sugar: "", weight: "", temperature: "", systolic_bp: "", diastolic_bp: "" });
+                  } catch (err) {
+                    console.error("Failed to save vitals:", err);
+                  } finally {
+                    setSavingVitals(false);
+                  }
+                }}
+                disabled={savingVitals}
+                className="flex-1 bg-teal-500 text-white py-2 rounded-lg text-sm hover:bg-teal-600 disabled:opacity-50"
+              >
+                {savingVitals ? "Saving..." : "Save Vitals"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MAIN GRID */}
       <div className="grid grid-cols-3 gap-6">

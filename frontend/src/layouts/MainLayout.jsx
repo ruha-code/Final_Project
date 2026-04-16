@@ -66,6 +66,7 @@ const getSubtitle = () => {
     const path = location.pathname;
 
     if (path.includes("admin/users")) return "Manage system users";
+    if (path.includes("admin/audit-logs")) return "View activity logs for security";
     if (path.includes("dashboard")) {
       if (isAdmin()) return "Admin dashboard overview";
       if (isDoctor()) return "Doctor dashboard overview";
@@ -132,6 +133,7 @@ const getSubtitle = () => {
                   Admin
                 </li>
                 {menuItem("/admin/users", "Users")}
+                {menuItem("/admin/audit-logs", "Audit Logs")}
               </>
             )}
           </ul>

@@ -16,6 +16,7 @@ import DoctorProfile from "../pages/DoctorProfile";
 import PatientProfile from "../pages/PatientProfile";
 import AdminProfile from "../pages/AdminProfile";
 import MyPatients from "../pages/MyPatients";
+import AuditLogs from "../pages/AuditLogs";
 import Inventory from "../pages/Inventory";
 import Departments from "../pages/Departments";
 import DepartmentDetails from "../pages/DepartmentDetails";
@@ -229,6 +230,18 @@ function AppRoutes() {
           <AdminRoute>
             <MainLayout>
               <AdminUsers />
+            </MainLayout>
+          </AdminRoute>
+        }
+      />
+
+      {/* Audit Logs - ADMIN only */}
+      <Route
+        path="/admin/audit-logs"
+        element={
+          <AdminRoute>
+            <MainLayout>
+              <AuditLogs />
             </MainLayout>
           </AdminRoute>
         }
