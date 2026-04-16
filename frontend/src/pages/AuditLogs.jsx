@@ -75,7 +75,7 @@ export default function AuditLogs() {
         if (actionFilter) params.set("action", actionFilter);
         if (dateFilter) params.set("start_date", dateFilter);
         
-        const data = await api.get(`/audit-logs?${params.toString()}`);
+        const data = await api.get(`/audit/audit-logs?${params.toString()}`);
         setLogs(data.items || []);
       } catch (err) {
         console.error("Failed to fetch logs:", err);
