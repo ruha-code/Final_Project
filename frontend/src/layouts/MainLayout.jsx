@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { Search, Bell, Settings, LogOut } from "lucide-react";
+import { Search, Bell, Settings, LogOut, Users } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 
@@ -28,6 +28,7 @@ function MainLayout({ children }) {
 
     return (
       <li
+        key={path}
         onClick={() => navigate(path)}
         className={`px-4 py-2.5 rounded-xl cursor-pointer text-sm transition ${
           isActive
@@ -43,11 +44,13 @@ function MainLayout({ children }) {
   const getTitle = () => {
     const path = location.pathname;
 
+    if (path.includes("admin/users")) return "User Management";
     if (path.includes("dashboard")) return "Dashboard";
     if (path.includes("appointments")) return "Appointments";
     if (path.includes("patients")) return "Patients";
     if (path.includes("doctors")) return "Doctors";
     if (path.includes("departments")) return "Departments";
+    if (path.includes("schedule")) return "My Schedule";
     if (path.includes("calendar")) return "Calendar";
     if (path.includes("inventory")) return "Inventory";
     if (path.includes("messages")) return "Messages";
@@ -58,6 +61,7 @@ function MainLayout({ children }) {
   const getSubtitle = () => {
     const path = location.pathname;
 
+    if (path.includes("admin/users")) return "Manage system users";
     if (path.includes("dashboard")) {
       if (isAdmin()) return "Admin dashboard overview";
       if (isDoctor()) return "Doctor dashboard overview";
@@ -65,6 +69,7 @@ function MainLayout({ children }) {
     }
     if (path.includes("appointments")) return "Manage appointments";
     if (path.includes("patients")) return "Patient data & profiles";
+    if (path.includes("schedule")) return "Manage your weekly availability";
 
     return "Manage your system";
   };
@@ -105,18 +110,28 @@ function MainLayout({ children }) {
             {(isAdmin() || isDoctor()) && menuItem("/patients", "Patients")}
             {menuItem("/doctors", "Doctors")}
             {menuItem("/departments", "Departments")}
+            {isDoctor() && menuItem("/schedule", "My Schedule")}
             {menuItem("/calendar", "Calendar")}
             {isAdmin() && menuItem("/inventory", "Inventory")}
             {menuItem("/messages", "Messages")}
+            {isAdmin() && (
+              <>
+                <li className="pt-4 pb-1 px-4 text-xs text-gray-400 font-medium uppercase tracking-wide">
+                  Admin
+                </li>
+                {menuItem("/admin/users", "Users")}
+              </>
+            )}
           </ul>
         </div>
 
         {isAdmin() && (
           <div className="bg-teal-50 p-4 rounded-xl">
-            <p className="text-sm text-gray-600 mb-3">Upgrade to Pro</p>
-            <button className="w-full bg-teal-500 text-white py-2 rounded-lg text-sm">
-              Upgrade
-            </button>
+            <p className="text-sm text-gray-600 mb-3">System Admin</p>
+            <div className="flex items-center gap-2 text-xs text-teal-600">
+              <Users size={14} />
+              <span>Full access enabled</span>
+            </div>
           </div>
         )}
       </div>
@@ -163,7 +178,7 @@ function MainLayout({ children }) {
               {open === "notifications" && (
                 <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-lg p-3 z-50">
                   <p className="font-medium mb-2">Notifications</p>
-                  <p className="text-gray-500">No new notifications</p>
+                  <p className="text-gray-500 text-sm">No new notifications</p>
                 </div>
               )}
             </div>
@@ -180,7 +195,13 @@ function MainLayout({ children }) {
 
                 {open === "settings" && (
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg p-2 z-50">
-                    <p className="px-3 py-2 hover:bg-gray-100 rounded-lg cursor-pointer">
+                    <p
+                      onClick={() => { navigate("/admin/users"); setOpen(null); }}
+                      className="px-3 py-2 hover:bg-gray-100 rounded-lg cursor-pointer text-sm"
+                    >
+                      User Management
+                    </p>
+                    <p className="px-3 py-2 hover:bg-gray-100 rounded-lg cursor-pointer text-sm">
                       Preferences
                     </p>
                   </div>
@@ -210,11 +231,14 @@ function MainLayout({ children }) {
 
               {open === "profile" && (
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg p-2 z-50">
-                  <p className="px-3 py-2 hover:bg-gray-100 rounded-lg cursor-pointer">
+                  <p className="px-3 py-2 hover:bg-gray-100 rounded-lg cursor-pointer text-sm">
                     Profile
                   </p>
                   {isAdmin() && (
-                    <p className="px-3 py-2 hover:bg-gray-100 rounded-lg cursor-pointer">
+                    <p
+                      onClick={() => { navigate("/admin/users"); setOpen(null); }}
+                      className="px-3 py-2 hover:bg-gray-100 rounded-lg cursor-pointer text-sm"
+                    >
                       Settings
                     </p>
                   )}
@@ -223,7 +247,7 @@ function MainLayout({ children }) {
                       logout();
                       navigate("/");
                     }}
-                    className="px-3 py-2 hover:bg-red-100 text-red-500 rounded-lg cursor-pointer flex items-center gap-2"
+                    className="px-3 py-2 hover:bg-red-100 text-red-500 rounded-lg cursor-pointer flex items-center gap-2 text-sm"
                   >
                     <LogOut size={14} /> Logout
                   </p>

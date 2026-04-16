@@ -11,9 +11,11 @@ import Patients from "../pages/Patients";
 import PatientDetails from "../pages/PatientDetails";
 import Doctors from "../pages/Doctors";
 import DoctorDetails from "../pages/DoctorDetails";
+import DoctorSchedule from "../pages/DoctorSchedule";
 import Inventory from "../pages/Inventory";
 import Departments from "../pages/Departments";
 import DepartmentDetails from "../pages/DepartmentDetails";
+import AdminUsers from "../pages/AdminUsers";
 import {
   ProtectedRoute,
   AdminRoute,
@@ -26,8 +28,6 @@ function AppRoutes() {
       {/* AUTH */}
       <Route path="/" element={<Login />} />
       <Route path="/register" element={<Register />} />
-
-      {/* APP - Protected Routes */}
 
       {/* Dashboard - All authenticated users */}
       <Route
@@ -100,6 +100,18 @@ function AppRoutes() {
         }
       />
 
+      {/* Doctor Schedule - Doctor only */}
+      <Route
+        path="/schedule"
+        element={
+          <ProtectedRoute allowedRoles={["DOCTOR"]}>
+            <MainLayout>
+              <DoctorSchedule />
+            </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+
       {/* Departments - All authenticated users */}
       <Route
         path="/departments"
@@ -153,6 +165,18 @@ function AppRoutes() {
           <AdminRoute>
             <MainLayout>
               <Inventory />
+            </MainLayout>
+          </AdminRoute>
+        }
+      />
+
+      {/* Admin Users - ADMIN only */}
+      <Route
+        path="/admin/users"
+        element={
+          <AdminRoute>
+            <MainLayout>
+              <AdminUsers />
             </MainLayout>
           </AdminRoute>
         }

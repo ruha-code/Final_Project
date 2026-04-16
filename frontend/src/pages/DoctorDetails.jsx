@@ -1,18 +1,9 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
-import { Phone, Mail, MapPin, Users, Calendar, Star } from "lucide-react";
-import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { Phone, Mail, MapPin, Users, Calendar, Star, Clock } from "lucide-react";
 import { api } from "../services/api";
 
-const chartData = [
-  { day: "Mon", inpatient: 30, outpatient: 50 },
-  { day: "Tue", inpatient: 40, outpatient: 60 },
-  { day: "Wed", inpatient: 35, outpatient: 70 },
-  { day: "Thu", inpatient: 50, outpatient: 65 },
-  { day: "Fri", inpatient: 45, outpatient: 75 },
-  { day: "Sat", inpatient: 30, outpatient: 55 },
-  { day: "Sun", inpatient: 25, outpatient: 45 },
-];
+const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 function getInitials(name) {
   if (!name) return "?";
@@ -22,17 +13,48 @@ function getInitials(name) {
 export default function DoctorDetails() {
   const { id } = useParams();
   const [doc, setDoc] = useState(null);
+  const [schedule, setSchedule] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState("All");
 
   useEffect(() => {
-    api.get("/doctors")
-      .then((doctors) => {
+    const fetchData = async () => {
+      try {
+        // Load all doctors and find ours (backend has no GET /doctors/:id)
+        const doctors = await api.get("/doctors");
         const found = doctors.find((d) => d.id === Number(id));
         setDoc(found || null);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
+
+        // Try to load available slots for the next 5 days to show schedule
+        if (found) {
+          const today = new Date();
+          const scheduleData = [];
+          for (let i = 0; i < 7; i++) {
+            const d = new Date(today);
+            d.setDate(d.getDate() + i);
+            const dateStr = d.toISOString().split("T")[0];
+            try {
+              const slotsRes = await api.get(`/doctors/${found.id}/available-slots?date=${dateStr}`);
+              if (slotsRes.available_slots?.length > 0) {
+                scheduleData.push({
+                  date: dateStr,
+                  dayName: d.toLocaleDateString("en-GB", { weekday: "long" }),
+                  dateFormatted: d.toLocaleDateString("en-GB", { day: "numeric", month: "short" }),
+                  slots: slotsRes.available_slots,
+                });
+              }
+            } catch {
+              // ignore
+            }
+          }
+          setSchedule(scheduleData);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
   }, [id]);
 
   if (loading) {
@@ -111,44 +133,39 @@ export default function DoctorDetails() {
         </div>
       </div>
 
-      {/* CHART */}
-      <div className="bg-white rounded-2xl border p-6 shadow-sm">
-        <h3 className="text-sm font-semibold mb-4">Patient Overview</h3>
-        <div className="flex gap-5 text-xs text-gray-400 mb-4">
-          <div className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 bg-teal-500 rounded-full" /> Inpatient
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 bg-teal-200 rounded-full" /> Outpatient
-          </div>
-        </div>
-        <ResponsiveContainer width="100%" height={260}>
-          <BarChart data={chartData} barGap={6}>
-            <XAxis dataKey="day" tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-            <Tooltip cursor={{ fill: "rgba(0,0,0,0.03)" }} contentStyle={{ borderRadius: "12px", border: "none", fontSize: "12px", boxShadow: "0 4px 20px rgba(0,0,0,0.08)" }} />
-            <Bar dataKey="inpatient" fill="rgba(20, 184, 166, 0.9)" radius={[8, 8, 0, 0]} activeBar={{ fill: "#0f766e" }} />
-            <Bar dataKey="outpatient" fill="rgba(20, 184, 166, 0.35)" radius={[8, 8, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-
-      {/* PATIENTS */}
+      {/* SCHEDULE */}
       <div className="bg-white rounded-2xl border p-6">
-        <div className="flex justify-between mb-4">
-          <h3 className="text-sm font-semibold">Schedule</h3>
-          <div className="flex gap-3 text-xs">
-            {["All", "Upcoming", "History"].map((t) => (
-              <button
-                key={t}
-                onClick={() => setTab(t)}
-                className={`px-3 py-1 rounded-lg ${tab === t ? "bg-teal-500 text-white" : "bg-gray-100 text-gray-500"}`}
-              >
-                {t}
-              </button>
+        <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+          <Clock size={16} /> Available Schedule (Next 7 Days)
+        </h3>
+
+        {schedule.length === 0 ? (
+          <p className="text-sm text-gray-400">No available slots in the next 7 days.</p>
+        ) : (
+          <div className="space-y-4">
+            {schedule.map((day) => (
+              <div key={day.date}>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-sm font-medium text-gray-700">{day.dayName}</span>
+                  <span className="text-xs text-gray-400">{day.dateFormatted}</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {day.slots.map((slot) => {
+                    const t = new Date(slot);
+                    return (
+                      <span
+                        key={slot}
+                        className="px-3 py-1.5 bg-teal-50 text-teal-600 text-xs rounded-lg"
+                      >
+                        {t.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
             ))}
           </div>
-        </div>
-        <p className="text-sm text-gray-400">No schedule data available.</p>
+        )}
       </div>
     </div>
   );
