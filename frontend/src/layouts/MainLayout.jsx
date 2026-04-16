@@ -44,6 +44,8 @@ function MainLayout({ children }) {
   const getTitle = () => {
     const path = location.pathname;
 
+    if (path.includes("admin/analytics")) return "Analytics";
+    if (path.includes("admin/audit-logs")) return "Audit Logs";
     if (path.includes("admin/users")) return "User Management";
     if (path.includes("dashboard")) return "Dashboard";
     if (path.includes("appointments")) return "Appointments";
@@ -65,8 +67,9 @@ function MainLayout({ children }) {
 const getSubtitle = () => {
     const path = location.pathname;
 
-    if (path.includes("admin/users")) return "Manage system users";
+    if (path.includes("admin/analytics")) return "Clinic performance & demand overview";
     if (path.includes("admin/audit-logs")) return "View activity logs for security";
+    if (path.includes("admin/users")) return "Manage system users";
     if (path.includes("dashboard")) {
       if (isAdmin()) return "Admin dashboard overview";
       if (isDoctor()) return "Doctor dashboard overview";
