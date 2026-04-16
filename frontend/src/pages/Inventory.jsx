@@ -13,6 +13,27 @@ import InventoryChart from "../components/inventory/InventoryChart";
 import InventoryFilters from "../components/inventory/InventoryFilters";
 import { api } from "../services/api";
 
+function getActivityIcon(action) {
+  if (action?.includes("ADD")) return Package;
+  if (action?.includes("REMOVE")) return ArrowDown;
+  if (action?.includes("LOW")) return AlertTriangle;
+  return Truck;
+}
+
+function getActivityColor(action) {
+  if (action?.includes("ADD")) return "bg-teal-100 text-teal-600";
+  if (action?.includes("REMOVE")) return "bg-red-100 text-red-500";
+  if (action?.includes("LOW")) return "bg-yellow-100 text-yellow-600";
+  return "bg-blue-100 text-blue-600";
+}
+
+function getActivityText(action) {
+  if (action === "INVENTORY_ADD") return "Item added";
+  if (action === "INVENTORY_REMOVE") return "Item removed";
+  if (action === "INVENTORY_LOW") return "Low stock alert";
+  return "Inventory updated";
+}
+
 function StatCard({ title, value, icon, color }) {
   return (
     <div className="bg-white rounded-2xl p-5 border flex justify-between items-center">
@@ -45,6 +66,7 @@ export default function Inventory() {
     LABORATORY: 0,
     OTHER: 0,
   });
+  const [activities, setActivities] = useState([]);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -85,7 +107,18 @@ export default function Inventory() {
         console.error("Failed to fetch inventory stats:", err);
       }
     };
+
+    const fetchActivities = async () => {
+      try {
+        const data = await api.get("/audit-logs?page=1&page_size=10");
+        setActivities(data.items || []);
+      } catch (err) {
+        console.error("Failed to fetch activities:", err);
+      }
+    };
+
     fetchStats();
+    fetchActivities();
   }, []);
 
   return (
@@ -170,38 +203,25 @@ export default function Inventory() {
 
         {/* ACTIVITIES */}
         <div className="bg-white rounded-2xl border p-5 flex flex-col">
-          <h3 className="font-semibold mb-6">Inventory Activities</h3>
+          <h3 className="font-semibold mb-6">Recent Activities</h3>
 
           <div className="space-y-2 text-sm">
-            <div className="flex items-center gap-3 hover:bg-gray-50 p-2 rounded-lg transition">
-              <div className="w-8 h-8 bg-teal-100 text-teal-600 flex items-center justify-center rounded-lg">
-                <Package size={14} />
-              </div>
-              <p>50 gloves added</p>
-            </div>
-
-            <div className="flex items-center gap-3 hover:bg-gray-50 p-2 rounded-lg transition">
-              <div className="w-8 h-8 bg-red-100 text-red-500 flex items-center justify-center rounded-lg">
-                <ArrowDown size={14} />
-              </div>
-              <p>20 saline bottles removed</p>
-            </div>
-
-          
-            <div className="flex items-center gap-3 hover:bg-gray-50 p-2 rounded-lg transition">
-              <div className="w-8 h-8 bg-blue-100 text-blue-600 flex items-center justify-center rounded-lg">
-                <Truck size={14} />
-              </div>
-              <p>New shipment arrived</p>
-            </div>
-
-            {/* ITEM */}
-            <div className="flex items-center gap-3 hover:bg-gray-50 p-2 rounded-lg transition">
-              <div className="w-8 h-8 bg-yellow-100 text-yellow-600 flex items-center justify-center rounded-lg">
-                <AlertTriangle size={14} />
-              </div>
-              <p>Low stock alert triggered</p>
-            </div>
+            {activities.length === 0 ? (
+              <p className="text-gray-400 text-xs">No recent activities</p>
+            ) : (
+              activities.map((a, i) => {
+                const Icon = getActivityIcon(a.action);
+                const color = getActivityColor(a.action);
+                return (
+                  <div key={a.id || i} className="flex items-center gap-3 hover:bg-gray-50 p-2 rounded-lg transition">
+                    <div className={`w-8 h-8 flex items-center justify-center rounded-lg ${color}`}>
+                      <Icon size={14} />
+                    </div>
+                    <p>{getActivityText(a.action)}</p>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       </div>

@@ -13,25 +13,34 @@ import { useState, useEffect } from "react";
 import { api } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
-const barData = [
-  { name: "Mon", a: 30, b: 45, c: 20 },
-  { name: "Tue", a: 40, b: 50, c: 25 },
-  { name: "Wed", a: 60, b: 55, c: 30 },
-  { name: "Thu", a: 50, b: 70, c: 28 },
-  { name: "Fri", a: 75, b: 60, c: 35 },
-  { name: "Sat", a: 45, b: 55, c: 25 },
-  { name: "Sun", a: 65, b: 70, c: 30 },
-];
+function groupPatientsByAge(patients) {
+  const groups = { "0-17": 0, "18-35": 0, "36-50": 0, "51+": 0 };
+  patients.forEach((p) => {
+    if (!p.date_of_birth) return;
+    const age = Math.floor((Date.now() - new Date(p.date_of_birth).getTime()) / (1000 * 60 * 60 * 24 * 365.25));
+    if (age < 18) groups["0-17"]++;
+    else if (age < 36) groups["18-35"]++;
+    else if (age < 51) groups["36-50"]++;
+    else groups["51+"]++;
+  });
+  return [
+    { name: "0-17", count: groups["0-17"] },
+    { name: "18-35", count: groups["18-35"] },
+    { name: "36-50", count: groups["36-50"] },
+    { name: "51+", count: groups["51+"] },
+  ];
+}
 
-const lineData = [
-  { name: "Jan", income: 800, expense: 400 },
-  { name: "Feb", income: 900, expense: 500 },
-  { name: "Mar", income: 1100, expense: 600 },
-  { name: "Apr", income: 1000, expense: 700 },
-  { name: "May", income: 1500, expense: 800 },
-  { name: "Jun", income: 1200, expense: 700 },
-  { name: "Jul", income: 1300, expense: 750 },
-];
+function groupAppointmentsByMonth(appointments) {
+  const months = {};
+  appointments.forEach((a) => {
+    if (!a.appointment_time) return;
+    const date = new Date(a.appointment_time);
+    const key = date.toLocaleDateString("en-US", { month: "short" });
+    months[key] = (months[key] || 0) + 1;
+  });
+  return Object.entries(months).map(([name, count]) => ({ name, count }));
+}
 
 function formatAppointmentDate(isoString) {
   if (!isoString) return "—";
@@ -50,6 +59,8 @@ function Dashboard() {
   const [recentAppointments, setRecentAppointments] = useState([]);
   const [agendaItems, setAgendaItems] = useState([]);
   const [topDoctors, setTopDoctors] = useState([]);
+  const [barData, setBarData] = useState([]);
+  const [lineData, setLineData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -63,12 +74,11 @@ function Dashboard() {
             await Promise.allSettled([
               api.get("/patients"),
               api.get("/doctors"),
-              api.get("/appointments/admin/all?page=1&page_size=5"),
+              api.get("/appointments/admin/all?page=1&page_size=100"),
               api.get("/calendar"),
             ]);
 
-          const patientCount =
-            patients.status === "fulfilled" ? patients.value.length : 0;
+          const patientList = patients.status === "fulfilled" ? patients.value : [];
           const doctorList = doctors.status === "fulfilled" ? doctors.value : [];
           const apptData =
             apptPage.status === "fulfilled"
@@ -77,14 +87,20 @@ function Dashboard() {
           const calendarData =
             calendar.status === "fulfilled" ? calendar.value : [];
 
+          const patientCount = patientList.length;
+          const appointmentsByMonth = groupAppointmentsByMonth(apptData.items || []);
+          const patientsByAge = groupPatientsByAge(patientList);
+
           setStats({
             totalPatients: patientCount,
             doctors: doctorList.length,
             appointments: apptData.total ?? apptData.items?.length ?? 0,
           });
 
-          setRecentAppointments(apptData.items || []);
+          setRecentAppointments(apptData.items?.slice(0, 5) || []);
           setTopDoctors(doctorList.slice(0, 3));
+          setBarData(patientsByAge);
+          setLineData(appointmentsByMonth);
           setAgendaItems(
             Array.isArray(calendarData) ? calendarData.slice(0, 3) : [],
           );
@@ -94,21 +110,22 @@ function Dashboard() {
             api.get("/calendar"),
           ]);
 
-          const apptData =
-            appointments.status === "fulfilled"
-              ? appointments.value
-              : [];
+          const appointmentsList = appointments.status === "fulfilled" ? appointments.value : [];
+          const apptData = Array.isArray(appointmentsList) ? appointmentsList : { items: [] };
           const calendarData =
             calendar.status === "fulfilled" ? calendar.value : [];
 
           setStats({
             totalPatients: 0,
             doctors: 0,
-            appointments: Array.isArray(apptData) ? apptData.length : 0,
+            appointments: Array.isArray(appointmentsList) ? appointmentsList.length : 0,
           });
 
-          setRecentAppointments(Array.isArray(apptData) ? apptData.slice(0, 5) : []);
+          const appointmentsByMonth = groupAppointmentsByMonth(appointmentsList);
+          setRecentAppointments(Array.isArray(appointmentsList) ? appointmentsList.slice(0, 5) : []);
           setTopDoctors([]);
+          setBarData([]);
+          setLineData(appointmentsByMonth);
           setAgendaItems(
             Array.isArray(calendarData) ? calendarData.slice(0, 3) : [],
           );
@@ -200,9 +217,7 @@ function Dashboard() {
                     <XAxis dataKey="name" />
                     <YAxis />
                     <Tooltip />
-                    <Bar dataKey="a" fill="#0f766e" radius={[6, 6, 0, 0]} />
-                    <Bar dataKey="b" fill="#14b8a6" radius={[6, 6, 0, 0]} />
-                    <Bar dataKey="c" fill="#94a3b8" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="count" fill="#14b8a6" radius={[6, 6, 0, 0]} name="Patients" />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -217,8 +232,7 @@ function Dashboard() {
                     <XAxis dataKey="name" />
                     <YAxis />
                     <Tooltip />
-                    <Line dataKey="income" stroke="#0f766e" strokeWidth={3} />
-                    <Line dataKey="expense" stroke="#94a3b8" />
+                    <Line dataKey="count" stroke="#0f766e" strokeWidth={3} name="Appointments" />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
