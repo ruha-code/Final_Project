@@ -51,6 +51,7 @@ function MainLayout({ children }) {
     if (path.includes("doctors")) return "Doctors";
     if (path.includes("departments")) return "Departments";
     if (path.includes("schedule")) return "My Schedule";
+    if (path.includes("my-patients")) return "My Patients";
     if (path.includes("/doctor/profile")) return "My Profile";
     if (path.includes("/patient/profile")) return "My Profile";
     if (path.includes("/admin/profile")) return "My Profile";
@@ -74,6 +75,7 @@ const getSubtitle = () => {
     if (path.includes("appointments")) return "Manage appointments";
     if (path.includes("patients")) return "Patient data & profiles";
     if (path.includes("schedule")) return "Manage your weekly availability";
+    if (path.includes("my-patients")) return "View your assigned patients";
     if (path.includes("/doctor/profile")) return "Edit your doctor profile";
     if (path.includes("/patient/profile")) return "Edit your patient profile";
     if (path.includes("/admin/profile")) return "Edit your admin profile";
@@ -118,6 +120,7 @@ const getSubtitle = () => {
             {menuItem("/doctors", "Doctors")}
             {menuItem("/departments", "Departments")}
             {isDoctor() && menuItem("/schedule", "My Schedule")}
+            {isDoctor() && menuItem("/my-patients", "My Patients")}
             {isDoctor() && menuItem("/doctor/profile", "My Profile")}
             {isPatient() && menuItem("/patient/profile", "My Profile")}
             {menuItem("/calendar", "Calendar")}

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { Phone, Mail, MapPin, HeartPulse } from "lucide-react";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { api } from "../services/api";
 
 function calcAge(dateOfBirth) {
@@ -26,7 +27,7 @@ export default function PatientDetails() {
     ])
       .then(([p, v]) => {
         setPatient(p);
-        setVitals(v);
+        setVitals(v || []);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -42,7 +43,14 @@ export default function PatientDetails() {
 
   if (!patient) return <div className="text-gray-400 p-6">Patient not found</div>;
 
-  const latest = vitals[0] || {};
+  const latest = vitals?.[0] || {};
+
+  const chartData = (vitals || []).slice(0, 10).reverse().map((v) => ({
+    date: new Date(v.recorded_at).toLocaleDateString("en-GB", { month: "short", day: "numeric" }),
+    bp: v.systolic_bp || 0,
+    sugar: v.blood_sugar || 0,
+    weight: v.weight || 0,
+  }));
 
   return (
     <div className="space-y-6">
@@ -123,16 +131,17 @@ export default function PatientDetails() {
             <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
               <HeartPulse size={16} /> Vitals History
             </h3>
-            {vitals.length > 0 ? (
-              <div className="flex items-end gap-3 h-40">
-                {vitals.slice(0, 7).map((v, i) => (
-                  <div
-                    key={i}
-                    className="flex-1 bg-teal-500 rounded-t-lg"
-                    style={{ height: `${Math.min(100, ((v.systolic_bp || v.blood_sugar || 80) / 200) * 100)}%` }}
-                    title={`${v.systolic_bp || v.blood_sugar || "—"}`}
-                  />
-                ))}
+            {chartData.length > 0 ? (
+              <div className="h-48">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData}>
+                    <XAxis dataKey="date" stroke="#9ca3af" fontSize={11} />
+                    <YAxis stroke="#9ca3af" fontSize={11} width={30} />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="bp" stroke="#0d9488" strokeWidth={2} name="BP" />
+                    <Line type="monotone" dataKey="sugar" stroke="#f59e0b" strokeWidth={2} name="Sugar" />
+                  </LineChart>
+                </ResponsiveContainer>
               </div>
             ) : (
               <p className="text-sm text-gray-400">No vitals recorded yet.</p>
