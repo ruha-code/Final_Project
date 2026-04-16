@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { api } from "../services/api";
 import { useAuth } from "../context/AuthContext";
-import { X, Plus, ChevronRight, ChevronLeft, Clock, Calendar } from "lucide-react";
+import { X, Plus, ChevronRight, ChevronLeft, Clock, Calendar, Trash2 } from "lucide-react";
 
 const STATUS_STYLES = {
   COMPLETED: "text-green-600 bg-green-50",
@@ -395,6 +395,20 @@ function Appointments() {
     setActionLoading(null);
   };
 
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this appointment?")) return;
+    if (actionLoading) return;
+    setActionLoading(id);
+    try {
+      await api.delete(`/appointments/${id}`);
+      fetchAppointments();
+    } catch (err) {
+      console.error("Failed to delete:", err);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const today = new Date().toDateString();
   const todayCount = appointments.filter((a) => new Date(a.appointment_time).toDateString() === today).length;
   const completedCount = appointments.filter((a) => a.status === "COMPLETED").length;
@@ -532,7 +546,16 @@ function Appointments() {
                           Complete
                         </button>
                       )}
-                      {!canCancel && !canComplete && (
+                      {isAdmin() && item.status !== "COMPLETED" && (
+                        <button
+                          onClick={() => handleDelete(item.id)}
+                          disabled={actionLoading === item.id}
+                          className="text-xs px-3 py-1 bg-gray-100 text-gray-500 rounded-lg hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      )}
+                      {!canCancel && !canComplete && !isAdmin() && (
                         <span className="text-xs text-gray-300">—</span>
                       )}
                     </div>

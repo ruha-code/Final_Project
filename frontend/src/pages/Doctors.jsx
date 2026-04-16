@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Phone, MessageCircle, MoreVertical, X } from "lucide-react";
+import { Phone, MessageCircle, MoreVertical, X, Trash2, Edit } from "lucide-react";
 import { api } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
@@ -149,6 +149,9 @@ export default function Doctors() {
   const [statusFilter, setStatusFilter] = useState("All");
   const [openMenu, setOpenMenu] = useState(null);
   const [openModal, setOpenModal] = useState(false);
+  const [editDoctor, setEditDoctor] = useState(null);
+  const [editForm, setEditForm] = useState({});
+  const [saving, setSaving] = useState(false);
 
   const fetchDoctors = async () => {
     try {
@@ -165,6 +168,42 @@ export default function Doctors() {
   useEffect(() => {
     fetchDoctors();
   }, []);
+
+  const handleDelete = async (id, e) => {
+    e.stopPropagation();
+    if (!window.confirm("Are you sure you want to delete this doctor?")) return;
+    try {
+      await api.delete(`/doctors/${id}`);
+      fetchDoctors();
+    } catch (err) {
+      console.error("Failed to delete doctor:", err);
+    }
+  };
+
+  const handleEdit = (doc, e) => {
+    e.stopPropagation();
+    setEditDoctor(doc);
+    setEditForm({
+      specialty: doc.specialty || "",
+      bio: doc.bio || "",
+      years_of_experience: doc.years_of_experience || 0,
+      is_available: doc.is_available,
+      consultation_duration_minutes: doc.consultation_duration_minutes || 30,
+    });
+  };
+
+  const handleSaveEdit = async () => {
+    setSaving(true);
+    try {
+      await api.put(`/doctors/${editDoctor.id}`, editForm);
+      setEditDoctor(null);
+      fetchDoctors();
+    } catch (err) {
+      console.error("Failed to update doctor:", err);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const departments = [
     "All",
@@ -265,6 +304,22 @@ export default function Doctors() {
                         >
                           View
                         </button>
+                        {isAdmin() && (
+                          <>
+                            <button
+                              onClick={(e) => { handleEdit(doc, e); setOpenMenu(null); }}
+                              className="block w-full px-3 py-2 hover:bg-gray-100 text-left text-teal-600"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={(e) => { handleDelete(doc.id, e); setOpenMenu(null); }}
+                              className="block w-full px-3 py-2 hover:bg-gray-100 text-left text-red-500"
+                            >
+                              Delete
+                            </button>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>
@@ -322,6 +377,77 @@ export default function Doctors() {
           onClose={() => setOpenModal(false)}
           onCreated={fetchDoctors}
         />
+      )}
+
+      {editDoctor && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white w-[500px] rounded-2xl shadow-xl overflow-hidden">
+            <div className="flex justify-between items-center px-6 py-4 bg-teal-50 border-b">
+              <h2 className="font-semibold">Edit Doctor - {editDoctor.full_name}</h2>
+              <button onClick={() => setEditDoctor(null)} className="p-1 hover:bg-gray-200 rounded-lg">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="text-sm text-gray-500 mb-1 block">Specialty</label>
+                <input
+                  value={editForm.specialty}
+                  onChange={(e) => setEditForm({...editForm, specialty: e.target.value})}
+                  className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-gray-500 mb-1 block">Bio</label>
+                <textarea
+                  value={editForm.bio}
+                  onChange={(e) => setEditForm({...editForm, bio: e.target.value})}
+                  rows={3}
+                  className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400 resize-none"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-gray-500 mb-1 block">Years of Experience</label>
+                <input
+                  type="number"
+                  value={editForm.years_of_experience}
+                  onChange={(e) => setEditForm({...editForm, years_of_experience: parseInt(e.target.value) || 0})}
+                  className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-gray-500 mb-1 block">Consultation Duration (minutes)</label>
+                <input
+                  type="number"
+                  value={editForm.consultation_duration_minutes}
+                  onChange={(e) => setEditForm({...editForm, consultation_duration_minutes: parseInt(e.target.value) || 30})}
+                  className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
+                />
+              </div>
+              <div>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={editForm.is_available}
+                    onChange={(e) => setEditForm({...editForm, is_available: e.target.checked})}
+                    className="w-4 h-4 text-teal-500"
+                  />
+                  <span className="text-sm">Available for appointments</span>
+                </label>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button onClick={() => setEditDoctor(null)} className="flex-1 py-2 bg-gray-100 rounded-xl text-sm">Cancel</button>
+                <button
+                  onClick={handleSaveEdit}
+                  disabled={saving}
+                  className="flex-1 py-2 bg-teal-500 text-white rounded-xl text-sm hover:bg-teal-600 disabled:opacity-50"
+                >
+                  {saving ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

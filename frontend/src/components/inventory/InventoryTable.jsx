@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { MoreVertical } from "lucide-react";
+import { MoreVertical, Plus, X, Edit, Trash2 } from "lucide-react";
 import { api } from "../../services/api";
+import { useAuth } from "../../context/AuthContext";
 
 const STATUS_STYLES = {
   AVAILABLE: "bg-teal-100 text-teal-600",
@@ -14,10 +15,120 @@ const STATUS_LABELS = {
   OUT: "Out",
 };
 
-export default function InventoryTable({ search = "", status = "All" }) {
+function ItemModal({ onClose, onSaved, editData }) {
+  const { isAdmin } = useAuth();
+  const [form, setForm] = useState({
+    name: editData?.name || "",
+    category: editData?.category || "MEDICATIONS",
+    quantity: editData?.quantity || 0,
+    unit: editData?.unit || "pcs",
+    stock_percentage: editData?.stock_percentage || 0,
+    status: editData?.status || "AVAILABLE",
+  });
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!form.name) return;
+    setSaving(true);
+    try {
+      if (editData) {
+        await api.put(`/inventory/${editData.id}`, form);
+      } else {
+        await api.post("/inventory", form);
+      }
+      onSaved();
+      onClose();
+    } catch (err) {
+      console.error("Failed to save:", err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-white w-[480px] rounded-2xl shadow-xl overflow-hidden">
+        <div className="flex justify-between items-center px-6 py-4 bg-teal-50 border-b">
+          <h2 className="font-semibold">{editData ? "Edit" : "Add"} Inventory Item</h2>
+          <button onClick={onClose} className="p-1 hover:bg-gray-200 rounded-lg">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="p-6 space-y-4">
+          <div>
+            <label className="text-sm text-gray-500 mb-1 block">Name *</label>
+            <input
+              value={form.name}
+              onChange={(e) => setForm({...form, name: e.target.value})}
+              className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-sm text-gray-500 mb-1 block">Category</label>
+              <select
+                value={form.category}
+                onChange={(e) => setForm({...form, category: e.target.value})}
+                className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
+              >
+                <option value="MEDICATIONS">Medications</option>
+                <option value="CONSUMABLES">Consumables</option>
+                <option value="LABORATORY">Laboratory</option>
+                <option value="OTHER">Other</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-sm text-gray-500 mb-1 block">Unit</label>
+              <input
+                value={form.unit}
+                onChange={(e) => setForm({...form, unit: e.target.value})}
+                className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-sm text-gray-500 mb-1 block">Quantity</label>
+              <input
+                type="number"
+                value={form.quantity}
+                onChange={(e) => setForm({...form, quantity: parseInt(e.target.value) || 0})}
+                className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
+              />
+            </div>
+            <div>
+              <label className="text-sm text-gray-500 mb-1 block">Stock %</label>
+              <input
+                type="number"
+                value={form.stock_percentage}
+                onChange={(e) => setForm({...form, stock_percentage: parseInt(e.target.value) || 0})}
+                className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
+              />
+            </div>
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button onClick={onClose} className="flex-1 py-2 bg-gray-100 rounded-xl text-sm">Cancel</button>
+            <button
+              onClick={handleSubmit}
+              disabled={saving}
+              className="flex-1 py-2 bg-teal-500 text-white rounded-xl text-sm hover:bg-teal-600 disabled:opacity-50"
+            >
+              {saving ? "Saving..." : editData ? "Update" : "Create"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function InventoryTable({ search = "", status = "All", onRefresh }) {
+  const { isAdmin } = useAuth();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeMenu, setActiveMenu] = useState(null);
+  const [modal, setModal] = useState(null);
+  const [editData, setEditData] = useState(null);
 
   useEffect(() => {
     const fetchInventory = async () => {
@@ -55,7 +166,16 @@ export default function InventoryTable({ search = "", status = "All" }) {
         <span>Item</span>
         <span>Stock</span>
         <span>Status</span>
-        <span></span>
+        <div className="flex justify-end">
+          {isAdmin() && (
+            <button
+              onClick={() => { setEditData(null); setModal(true); }}
+              className="text-teal-600 hover:bg-teal-50 px-2 py-1 rounded-lg flex items-center gap-1"
+            >
+              <Plus size={12} /> Add
+            </button>
+          )}
+        </div>
       </div>
 
       {/* ROWS */}
@@ -127,10 +247,22 @@ export default function InventoryTable({ search = "", status = "All" }) {
                 <button className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-50">
                   View
                 </button>
-                <button className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-50">
+                <button
+                  onClick={() => { setEditData(item); setModal(true); setActiveMenu(null); }}
+                  className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-50"
+                >
                   Edit
                 </button>
-                <button className="block w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-50">
+                <button
+                  onClick={async () => {
+                    if (!window.confirm("Delete this item?")) return;
+                    try {
+                      await api.delete(`/inventory/${item.id}`);
+                      fetchInventory();
+                    } catch (err) { console.error(err); }
+                  }}
+                  className="block w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-50"
+                >
                   Delete
                 </button>
               </div>
@@ -143,6 +275,14 @@ export default function InventoryTable({ search = "", status = "All" }) {
         <div className="text-center py-10 text-gray-400 text-sm">
           No items found
         </div>
+      )}
+
+      {modal && (
+        <ItemModal
+          onClose={() => { setModal(null); setEditData(null); }}
+          onSaved={() => { fetchInventory(); if (onRefresh) onRefresh(); }}
+          editData={editData}
+        />
       )}
     </div>
   );

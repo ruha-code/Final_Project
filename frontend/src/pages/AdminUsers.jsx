@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "../services/api";
-import { Search, Plus, X, Shield, UserCheck, UserX } from "lucide-react";
+import { Search, Plus, X, Shield, UserCheck, UserX, Trash2 } from "lucide-react";
 
 const ROLE_STYLES = {
   ADMIN: "bg-purple-100 text-purple-600",
@@ -184,6 +184,19 @@ export default function AdminUsers() {
     }
   };
 
+  const handleDelete = async (userId) => {
+    if (!window.confirm("Are you sure you want to delete this user? This action cannot be undone.")) return;
+    setActionLoading(userId);
+    try {
+      await api.delete(`/auth/admin/users/${userId}`);
+      fetchUsers();
+    } catch (err) {
+      console.error("Failed to delete user:", err);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   return (
     <>
       <div className="space-y-6">
@@ -278,17 +291,26 @@ export default function AdminUsers() {
                     {u.is_active ? "Active" : "Inactive"}
                   </span>
 
-                  <button
-                    onClick={() => handleToggleActive(u.id, u.is_active)}
-                    disabled={actionLoading === u.id}
-                    className={`text-xs px-3 py-1.5 rounded-lg flex items-center gap-1 w-fit disabled:opacity-50 ${
-                      u.is_active
-                        ? "bg-red-50 text-red-500 hover:bg-red-100"
-                        : "bg-green-50 text-green-600 hover:bg-green-100"
-                    }`}
-                  >
-                    {u.is_active ? <><UserX size={12} /> Deactivate</> : <><UserCheck size={12} /> Activate</>}
-                  </button>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => handleToggleActive(u.id, u.is_active)}
+                      disabled={actionLoading === u.id}
+                      className={`text-xs px-3 py-1.5 rounded-lg flex items-center gap-1 w-fit disabled:opacity-50 ${
+                        u.is_active
+                          ? "bg-red-50 text-red-500 hover:bg-red-100"
+                          : "bg-green-50 text-green-600 hover:bg-green-100"
+                      }`}
+                    >
+                      {u.is_active ? <><UserX size={12} /> Deactivate</> : <><UserCheck size={12} /> Activate</>}
+                    </button>
+                    <button
+                      onClick={() => handleDelete(u.id)}
+                      disabled={actionLoading === u.id}
+                      className="text-xs px-3 py-1.5 rounded-lg flex items-center gap-1 w-fit disabled:opacity-50 bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-500"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
                 </div>
               ))
             )}

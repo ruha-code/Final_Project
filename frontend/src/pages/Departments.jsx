@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { Building2, Layers, Users, MapPin, ArrowRight, Search } from "lucide-react";
+import { Building2, Layers, Users, MapPin, ArrowRight, Search, Plus, X, Edit, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../services/api";
+import { useAuth } from "../context/AuthContext";
 import DepartmentsChart from "../components/DepartmentsChart";
 
 const FALLBACK_IMG = "https://images.unsplash.com/photo-1584982751601-97dcc096659c";
@@ -53,14 +54,11 @@ function MiniStats({ departments }) {
   );
 }
 
-function DepartmentCard({ dep }) {
+function DepartmentCard({ dep, onEdit, onDelete }) {
   const navigate = useNavigate();
 
   return (
-    <div
-      onClick={() => navigate(`/departments/${dep.id}`)}
-      className="bg-white rounded-2xl border overflow-hidden hover:shadow-xl transition cursor-pointer"
-    >
+    <div className="bg-white rounded-2xl border overflow-hidden hover:shadow-xl transition">
       <img
         src={dep.image_url ? `${dep.image_url}?auto=format&fit=crop&w=800` : `${FALLBACK_IMG}?auto=format&fit=crop&w=800`}
         className="h-40 w-full object-cover"
@@ -75,9 +73,92 @@ function DepartmentCard({ dep }) {
           <span className="text-xs bg-teal-100 text-teal-600 px-2 py-1 rounded-lg">
             {dep.staff_count} Staff
           </span>
-          <span className="text-sm text-teal-600 flex items-center gap-1">
+          <span className="text-sm text-teal-600 flex items-center gap-1 cursor-pointer" onClick={(e) => { e.stopPropagation(); navigate(`/departments/${dep.id}`); }}>
             View <ArrowRight size={14} />
           </span>
+        </div>
+        {window.isAdmin && (
+          <div className="flex gap-2 pt-2 border-t mt-2">
+            <button onClick={(e) => { e.stopPropagation(); onEdit(dep); }} className="flex-1 py-1 text-xs bg-gray-100 rounded-lg hover:bg-teal-50 text-teal-600">Edit</button>
+            <button onClick={(e) => { e.stopPropagation(); onDelete(dep.id); }} className="flex-1 py-1 text-xs bg-gray-100 rounded-lg hover:bg-red-50 text-red-500">Delete</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DepartmentModal({ onClose, onSaved, editData }) {
+  const [form, setForm] = useState({
+    name: editData?.name || "",
+    location: editData?.location || "",
+    description: editData?.description || "",
+  });
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!form.name) return;
+    setSaving(true);
+    try {
+      if (editData) {
+        await api.put(`/departments/${editData.id}`, form);
+      } else {
+        await api.post("/departments", form);
+      }
+      onSaved();
+      onClose();
+    } catch (err) {
+      console.error("Failed to save:", err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-white w-[480px] rounded-2xl shadow-xl overflow-hidden">
+        <div className="flex justify-between items-center px-6 py-4 bg-teal-50 border-b">
+          <h2 className="font-semibold">{editData ? "Edit" : "Add"} Department</h2>
+          <button onClick={onClose} className="p-1 hover:bg-gray-200 rounded-lg">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="p-6 space-y-4">
+          <div>
+            <label className="text-sm text-gray-500 mb-1 block">Name *</label>
+            <input
+              value={form.name}
+              onChange={(e) => setForm({...form, name: e.target.value})}
+              className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
+            />
+          </div>
+          <div>
+            <label className="text-sm text-gray-500 mb-1 block">Location</label>
+            <input
+              value={form.location}
+              onChange={(e) => setForm({...form, location: e.target.value})}
+              className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
+            />
+          </div>
+          <div>
+            <label className="text-sm text-gray-500 mb-1 block">Description</label>
+            <textarea
+              value={form.description}
+              onChange={(e) => setForm({...form, description: e.target.value})}
+              rows={3}
+              className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400 resize-none"
+            />
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button onClick={onClose} className="flex-1 py-2 bg-gray-100 rounded-xl text-sm">Cancel</button>
+            <button
+              onClick={handleSubmit}
+              disabled={saving}
+              className="flex-1 py-2 bg-teal-500 text-white rounded-xl text-sm hover:bg-teal-600 disabled:opacity-50"
+            >
+              {saving ? "Saving..." : editData ? "Update" : "Create"}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -85,16 +166,42 @@ function DepartmentCard({ dep }) {
 }
 
 export default function Departments() {
+  const { isAdmin } = useAuth();
   const [departments, setDepartments] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [modal, setModal] = useState(null);
+  const [editData, setEditData] = useState(null);
+
+  const fetchDepartments = async () => {
+    try {
+      const data = await api.get("/departments");
+      setDepartments(data);
+    } catch (err) {
+      console.error("Failed to fetch:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    api.get("/departments")
-      .then(setDepartments)
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    fetchDepartments();
   }, []);
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Delete this department?")) return;
+    try {
+      await api.delete(`/departments/${id}`);
+      fetchDepartments();
+    } catch (err) {
+      console.error("Failed to delete:", err);
+    }
+  };
+
+  const openEdit = (dep) => {
+    setEditData(dep);
+    setModal(true);
+  };
 
   const filtered = departments.filter((d) =>
     d.name.toLowerCase().includes(search.toLowerCase())
@@ -140,7 +247,14 @@ export default function Departments() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <button className="text-sm bg-teal-100 text-teal-600 px-4 py-2 rounded-xl">Filter</button>
+        {isAdmin() && (
+          <button
+            onClick={() => { setEditData(null); setModal(true); }}
+            className="text-sm bg-teal-100 text-teal-600 px-4 py-2 rounded-xl flex items-center gap-1"
+          >
+            <Plus size={14} /> Add Department
+          </button>
+        )}
       </div>
 
       {filtered.length === 0 ? (
@@ -148,9 +262,13 @@ export default function Departments() {
       ) : (
         <div className="grid grid-cols-4 gap-6">
           {filtered.map((dep) => (
-            <DepartmentCard key={dep.id} dep={dep} />
+            <DepartmentCard key={dep.id} dep={dep} onEdit={openEdit} onDelete={handleDelete} />
           ))}
         </div>
+      )}
+
+      {modal && (
+        <DepartmentModal onClose={() => setModal(false)} onSaved={fetchDepartments} editData={editData} />
       )}
     </div>
   );

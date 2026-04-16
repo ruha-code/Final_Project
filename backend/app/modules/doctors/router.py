@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from datetime import date, datetime, timedelta, time
- 
+
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, RoleChecker
 from app.core.exceptions import NotFoundException, ConflictException
@@ -18,11 +18,11 @@ from app.modules.doctors.schemas import (
     ScheduleSlotResponse,
     AvailableSlotsResponse,
 )
- 
+
 router = APIRouter()
 doctor_only = RoleChecker([UserRole.DOCTOR])
- 
- 
+
+
 def _build_detail(doctor: Doctor) -> DoctorDetailResponse:
     """Merge Doctor + User + Department into one response dict."""
     return DoctorDetailResponse(
@@ -45,15 +45,20 @@ def _build_detail(doctor: Doctor) -> DoctorDetailResponse:
         phone=doctor.user.phone,
         avatar_url=doctor.user.avatar_url,
     )
- 
- 
-@router.get("", response_model=list[DoctorDetailResponse], summary="List all doctors (public)")
+
+
+@router.get(
+    "", response_model=list[DoctorDetailResponse], summary="List all doctors (public)"
+)
 async def list_doctors(
     department_id: int | None = Query(default=None, description="Filter by department"),
-    is_available: bool | None = Query(default=None, description="Filter by availability"),
+    is_available: bool | None = Query(
+        default=None, description="Filter by availability"
+    ),
     db: AsyncSession = Depends(get_db),
 ):
     from sqlalchemy.orm import selectinload
+
     query = select(Doctor).options(
         selectinload(Doctor.user),
         selectinload(Doctor.department),
@@ -62,23 +67,29 @@ async def list_doctors(
         query = query.where(Doctor.department_id == department_id)
     if is_available is not None:
         query = query.where(Doctor.is_available == is_available)
- 
+
     result = await db.execute(query)
     doctors = result.scalars().all()
     return [_build_detail(d) for d in doctors]
- 
- 
-@router.post("/profile", response_model=DoctorDetailResponse, status_code=201, summary="Set up doctor profile")
+
+
+@router.post(
+    "/profile",
+    response_model=DoctorDetailResponse,
+    status_code=201,
+    summary="Set up doctor profile",
+)
 async def setup_doctor_profile(
     dto: DoctorProfileCreate,
     current_user: User = Depends(doctor_only),
     db: AsyncSession = Depends(get_db),
 ):
     from sqlalchemy.orm import selectinload
+
     result = await db.execute(select(Doctor).where(Doctor.user_id == current_user.id))
     if result.scalar_one_or_none():
         raise ConflictException("Doctor profile already exists for this account")
- 
+
     doctor = Doctor(
         user_id=current_user.id,
         department_id=dto.department_id,
@@ -93,23 +104,30 @@ async def setup_doctor_profile(
     )
     db.add(doctor)
     await db.commit()
- 
+
     result = await db.execute(
         select(Doctor)
         .options(selectinload(Doctor.user), selectinload(Doctor.department))
         .where(Doctor.id == doctor.id)
     )
     doctor = result.scalar_one()
-    await log(db, current_user.id, Actions.SETUP_DOCTOR_PROFILE, entity_type="Doctor", entity_id=doctor.id)
+    await log(
+        db,
+        current_user.id,
+        Actions.SETUP_DOCTOR_PROFILE,
+        entity_type="Doctor",
+        entity_id=doctor.id,
+    )
     return _build_detail(doctor)
- 
- 
+
+
 @router.get("/me", response_model=DoctorDetailResponse, summary="Get my doctor profile")
 async def get_my_doctor_profile(
     current_user: User = Depends(doctor_only),
     db: AsyncSession = Depends(get_db),
 ):
     from sqlalchemy.orm import selectinload
+
     result = await db.execute(
         select(Doctor)
         .options(selectinload(Doctor.user), selectinload(Doctor.department))
@@ -119,15 +137,18 @@ async def get_my_doctor_profile(
     if not doctor:
         raise NotFoundException("Doctor profile not found. Please set it up first.")
     return _build_detail(doctor)
- 
- 
-@router.put("/me", response_model=DoctorDetailResponse, summary="Update my doctor profile")
+
+
+@router.put(
+    "/me", response_model=DoctorDetailResponse, summary="Update my doctor profile"
+)
 async def update_my_doctor_profile(
     dto: DoctorProfileUpdate,
     current_user: User = Depends(doctor_only),
     db: AsyncSession = Depends(get_db),
 ):
     from sqlalchemy.orm import selectinload
+
     result = await db.execute(
         select(Doctor)
         .options(selectinload(Doctor.user), selectinload(Doctor.department))
@@ -136,7 +157,7 @@ async def update_my_doctor_profile(
     doctor = result.scalar_one_or_none()
     if not doctor:
         raise NotFoundException("Doctor profile not found.")
- 
+
     if dto.department_id is not None:
         doctor.department_id = dto.department_id
     if dto.specialty is not None:
@@ -149,13 +170,17 @@ async def update_my_doctor_profile(
         doctor.bio = dto.bio
     if dto.is_available is not None:
         doctor.is_available = dto.is_available
- 
+
     await db.commit()
     await db.refresh(doctor)
     return _build_detail(doctor)
- 
- 
-@router.post("/schedule", response_model=list[ScheduleSlotResponse], summary="Set weekly availability")
+
+
+@router.post(
+    "/schedule",
+    response_model=list[ScheduleSlotResponse],
+    summary="Set weekly availability",
+)
 async def set_schedule(
     slots: list[ScheduleSlotCreate],
     current_user: User = Depends(doctor_only),
@@ -165,7 +190,7 @@ async def set_schedule(
     doctor = result.scalar_one_or_none()
     if not doctor:
         raise NotFoundException("Set up your doctor profile first.")
- 
+
     saved = []
     for slot in slots:
         result = await db.execute(
@@ -190,15 +215,25 @@ async def set_schedule(
             )
             db.add(new_slot)
             saved.append(new_slot)
- 
+
     await db.commit()
     for s in saved:
         await db.refresh(s)
-    await log(db, current_user.id, Actions.SET_DOCTOR_SCHEDULE, entity_type="Doctor", entity_id=doctor.id)
+    await log(
+        db,
+        current_user.id,
+        Actions.SET_DOCTOR_SCHEDULE,
+        entity_type="Doctor",
+        entity_id=doctor.id,
+    )
     return saved
- 
- 
-@router.get("/schedule", response_model=list[ScheduleSlotResponse], summary="Get my weekly schedule")
+
+
+@router.get(
+    "/schedule",
+    response_model=list[ScheduleSlotResponse],
+    summary="Get my weekly schedule",
+)
 async def get_my_schedule(
     current_user: User = Depends(doctor_only),
     db: AsyncSession = Depends(get_db),
@@ -207,16 +242,20 @@ async def get_my_schedule(
     doctor = result.scalar_one_or_none()
     if not doctor:
         raise NotFoundException("Doctor profile not found.")
- 
+
     result = await db.execute(
         select(DoctorSchedule)
         .where(DoctorSchedule.doctor_id == doctor.id)
         .order_by(DoctorSchedule.day_of_week)
     )
     return result.scalars().all()
- 
- 
-@router.get("/{doctor_id}/available-slots", response_model=AvailableSlotsResponse, summary="Get available slots for a doctor")
+
+
+@router.get(
+    "/{doctor_id}/available-slots",
+    response_model=AvailableSlotsResponse,
+    summary="Get available slots for a doctor",
+)
 async def get_available_slots(
     doctor_id: int,
     date: date = Query(..., description="Date YYYY-MM-DD"),
@@ -226,7 +265,7 @@ async def get_available_slots(
     doctor = result.scalar_one_or_none()
     if not doctor:
         raise NotFoundException("Doctor not found")
- 
+
     day_of_week = date.weekday()
     result = await db.execute(
         select(DoctorSchedule).where(
@@ -237,8 +276,10 @@ async def get_available_slots(
     )
     schedule = result.scalar_one_or_none()
     if not schedule:
-        return AvailableSlotsResponse(doctor_id=doctor_id, date=str(date), available_slots=[])
- 
+        return AvailableSlotsResponse(
+            doctor_id=doctor_id, date=str(date), available_slots=[]
+        )
+
     duration = doctor.consultation_duration_minutes
     slots = []
     current = datetime.combine(date, schedule.start_time)
@@ -246,7 +287,7 @@ async def get_available_slots(
     while current + timedelta(minutes=duration) <= end_boundary:
         slots.append(current)
         current += timedelta(minutes=duration)
- 
+
     day_start = datetime.combine(date, time(0, 0))
     day_end = datetime.combine(date, time(23, 59, 59))
     result = await db.execute(
@@ -257,7 +298,71 @@ async def get_available_slots(
             Appointment.status != "CANCELLED",
         )
     )
-    booked_times = {a.appointment_time.replace(tzinfo=None) for a in result.scalars().all()}
+    booked_times = {
+        a.appointment_time.replace(tzinfo=None) for a in result.scalars().all()
+    }
     available = [s for s in slots if s not in booked_times]
- 
-    return AvailableSlotsResponse(doctor_id=doctor_id, date=str(date), available_slots=available)
+
+    return AvailableSlotsResponse(
+        doctor_id=doctor_id, date=str(date), available_slots=available
+    )
+
+
+# Admin endpoints for doctor management
+from app.core.dependencies import RoleChecker
+
+
+@router.put(
+    "/{doctor_id}", response_model=DoctorDetailResponse, summary="Update doctor (Admin)"
+)
+async def update_doctor_admin(
+    doctor_id: int,
+    dto: DoctorProfileUpdate,
+    current_user: User = Depends(RoleChecker(["ADMIN"])),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Doctor)
+        .options(selectinload(Doctor.user), selectinload(Doctor.department))
+        .where(Doctor.id == doctor_id)
+    )
+    doctor = result.scalar_one_or_none()
+    if not doctor:
+        raise NotFoundException("Doctor not found")
+
+    for field, value in dto.model_dump(exclude_none=True).items():
+        if field == "department_id":
+            doctor.department_id = value
+        else:
+            setattr(doctor, field, value)
+
+    await db.commit()
+    await db.refresh(doctor)
+    await log(
+        db, current_user.id, "UPDATE_DOCTOR", entity_type="Doctor", entity_id=doctor.id
+    )
+    return _build_detail(doctor)
+
+
+@router.delete("/{doctor_id}", status_code=204, summary="Delete doctor (Admin)")
+async def delete_doctor_admin(
+    doctor_id: int,
+    current_user: User = Depends(RoleChecker(["ADMIN"])),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Doctor).options(selectinload(Doctor.user)).where(Doctor.id == doctor_id)
+    )
+    doctor = result.scalar_one_or_none()
+    if not doctor:
+        raise NotFoundException("Doctor not found")
+
+    user_id = doctor.user_id
+    await db.delete(doctor)
+    await db.execute(select(User).where(User.id == user_id))
+    await db.delete(doctor.user)
+    await db.commit()
+    await log(
+        db, current_user.id, "DELETE_DOCTOR", entity_type="Doctor", entity_id=doctor_id
+    )
+    return None

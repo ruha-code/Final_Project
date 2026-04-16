@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from typing import Optional
- 
+
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, RoleChecker
 from app.core.exceptions import NotFoundException, ConflictException
@@ -17,11 +17,11 @@ from app.modules.patients.schemas import (
     HealthVitalCreate,
     HealthVitalResponse,
 )
- 
+
 router = APIRouter()
 patient_only = RoleChecker(["PATIENT"])
- 
- 
+
+
 def _build_detail(patient: Patient) -> PatientDetailResponse:
     return PatientDetailResponse(
         id=patient.id,
@@ -45,10 +45,15 @@ def _build_detail(patient: Patient) -> PatientDetailResponse:
         email=patient.user.email,
         avatar_url=patient.user.avatar_url,
     )
- 
- 
+
+
 # ── POST /patients/profile ────────────────────────────────────────────────────
-@router.post("/profile", response_model=PatientDetailResponse, status_code=201, summary="Set up patient profile")
+@router.post(
+    "/profile",
+    response_model=PatientDetailResponse,
+    status_code=201,
+    summary="Set up patient profile",
+)
 async def setup_patient_profile(
     dto: PatientProfileCreate,
     current_user: User = Depends(patient_only),
@@ -57,7 +62,7 @@ async def setup_patient_profile(
     result = await db.execute(select(Patient).where(Patient.user_id == current_user.id))
     if result.scalar_one_or_none():
         raise ConflictException("Patient profile already exists for this account")
- 
+
     patient = Patient(
         user_id=current_user.id,
         date_of_birth=dto.date_of_birth,
@@ -75,55 +80,81 @@ async def setup_patient_profile(
     )
     db.add(patient)
     await db.commit()
- 
+
     result = await db.execute(
-        select(Patient).options(selectinload(Patient.user)).where(Patient.id == patient.id)
+        select(Patient)
+        .options(selectinload(Patient.user))
+        .where(Patient.id == patient.id)
     )
     patient = result.scalar_one()
-    await log(db, current_user.id, Actions.SETUP_PATIENT_PROFILE, entity_type="Patient", entity_id=patient.id)
+    await log(
+        db,
+        current_user.id,
+        Actions.SETUP_PATIENT_PROFILE,
+        entity_type="Patient",
+        entity_id=patient.id,
+    )
     return _build_detail(patient)
- 
- 
+
+
 # ── GET /patients/me ──────────────────────────────────────────────────────────
-@router.get("/me", response_model=PatientDetailResponse, summary="Get my patient profile")
+@router.get(
+    "/me", response_model=PatientDetailResponse, summary="Get my patient profile"
+)
 async def get_my_patient_profile(
     current_user: User = Depends(patient_only),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(Patient).options(selectinload(Patient.user)).where(Patient.user_id == current_user.id)
+        select(Patient)
+        .options(selectinload(Patient.user))
+        .where(Patient.user_id == current_user.id)
     )
     patient = result.scalar_one_or_none()
     if not patient:
         raise NotFoundException("Patient profile not found. Please set it up first.")
     return _build_detail(patient)
- 
- 
+
+
 # ── PUT /patients/me ──────────────────────────────────────────────────────────
-@router.put("/me", response_model=PatientDetailResponse, summary="Update my patient profile")
+@router.put(
+    "/me", response_model=PatientDetailResponse, summary="Update my patient profile"
+)
 async def update_my_patient_profile(
     dto: PatientProfileUpdate,
     current_user: User = Depends(patient_only),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(Patient).options(selectinload(Patient.user)).where(Patient.user_id == current_user.id)
+        select(Patient)
+        .options(selectinload(Patient.user))
+        .where(Patient.user_id == current_user.id)
     )
     patient = result.scalar_one_or_none()
     if not patient:
         raise NotFoundException("Patient profile not found. Please set it up first.")
- 
+
     for field, value in dto.model_dump(exclude_none=True).items():
         setattr(patient, field, value)
- 
+
     await db.commit()
     await db.refresh(patient)
-    await log(db, current_user.id, Actions.UPDATE_PATIENT_PROFILE, entity_type="Patient", entity_id=patient.id)
+    await log(
+        db,
+        current_user.id,
+        Actions.UPDATE_PATIENT_PROFILE,
+        entity_type="Patient",
+        entity_id=patient.id,
+    )
     return _build_detail(patient)
- 
- 
+
+
 # ── GET /patients (Admin) ─────────────────────────────────────────────────────
-@router.get("", response_model=list[PatientDetailResponse], summary="List all patients (Admin only)")
+@router.get(
+    "",
+    response_model=list[PatientDetailResponse],
+    summary="List all patients (Admin only)",
+)
 async def list_patients(
     status: Optional[str] = Query(default=None),
     patient_type: Optional[str] = Query(default=None),
@@ -132,40 +163,51 @@ async def list_patients(
     db: AsyncSession = Depends(get_db),
 ):
     query = select(Patient).options(selectinload(Patient.user))
- 
+
     if status:
         query = query.where(Patient.patient_status == status)
     if patient_type:
         query = query.where(Patient.patient_type == patient_type)
- 
+
     result = await db.execute(query)
     patients = result.scalars().all()
- 
+
     if search:
         search_lower = search.lower()
         patients = [p for p in patients if search_lower in p.user.full_name.lower()]
- 
+
     return [_build_detail(p) for p in patients]
- 
- 
+
+
 # ── GET /patients/{id} ────────────────────────────────────────────────────────
-@router.get("/{patient_id}", response_model=PatientDetailResponse, summary="Get patient by ID (Admin/Doctor)")
+@router.get(
+    "/{patient_id}",
+    response_model=PatientDetailResponse,
+    summary="Get patient by ID (Admin/Doctor)",
+)
 async def get_patient_by_id(
     patient_id: int,
     current_user: User = Depends(RoleChecker(["ADMIN", "DOCTOR"])),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(Patient).options(selectinload(Patient.user)).where(Patient.id == patient_id)
+        select(Patient)
+        .options(selectinload(Patient.user))
+        .where(Patient.id == patient_id)
     )
     patient = result.scalar_one_or_none()
     if not patient:
         raise NotFoundException("Patient not found")
     return _build_detail(patient)
- 
- 
+
+
 # ── POST /patients/{id}/vitals ────────────────────────────────────────────────
-@router.post("/{patient_id}/vitals", response_model=HealthVitalResponse, status_code=201, summary="Record health vitals")
+@router.post(
+    "/{patient_id}/vitals",
+    response_model=HealthVitalResponse,
+    status_code=201,
+    summary="Record health vitals",
+)
 async def add_vitals(
     patient_id: int,
     dto: HealthVitalCreate,
@@ -175,16 +217,20 @@ async def add_vitals(
     result = await db.execute(select(Patient).where(Patient.id == patient_id))
     if not result.scalar_one_or_none():
         raise NotFoundException("Patient not found")
- 
+
     vital = HealthVital(patient_id=patient_id, **dto.model_dump())
     db.add(vital)
     await db.commit()
     await db.refresh(vital)
     return vital
- 
- 
+
+
 # ── GET /patients/{id}/vitals ─────────────────────────────────────────────────
-@router.get("/{patient_id}/vitals", response_model=list[HealthVitalResponse], summary="Get patient vitals history")
+@router.get(
+    "/{patient_id}/vitals",
+    response_model=list[HealthVitalResponse],
+    summary="Get patient vitals history",
+)
 async def get_vitals(
     patient_id: int,
     current_user: User = Depends(RoleChecker(["ADMIN", "DOCTOR", "PATIENT"])),
@@ -196,3 +242,69 @@ async def get_vitals(
         .order_by(HealthVital.recorded_at.desc())
     )
     return result.scalars().all()
+
+
+# ── PUT /patients/{id} (Admin) ────────────────────────────────────────────────
+@router.put(
+    "/{patient_id}",
+    response_model=PatientDetailResponse,
+    summary="Update patient (Admin)",
+)
+async def update_patient(
+    patient_id: int,
+    dto: PatientProfileUpdate,
+    current_user: User = Depends(RoleChecker(["ADMIN"])),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Patient)
+        .options(selectinload(Patient.user))
+        .where(Patient.id == patient_id)
+    )
+    patient = result.scalar_one_or_none()
+    if not patient:
+        raise NotFoundException("Patient not found")
+
+    for field, value in dto.model_dump(exclude_none=True).items():
+        setattr(patient, field, value)
+
+    await db.commit()
+    await db.refresh(patient)
+    await log(
+        db,
+        current_user.id,
+        "UPDATE_PATIENT",
+        entity_type="Patient",
+        entity_id=patient.id,
+    )
+    return _build_detail(patient)
+
+
+# ── DELETE /patients/{id} (Admin) ──────────────────────────────────────────────
+@router.delete("/{patient_id}", status_code=204, summary="Delete patient (Admin)")
+async def delete_patient(
+    patient_id: int,
+    current_user: User = Depends(RoleChecker(["ADMIN"])),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Patient)
+        .options(selectinload(Patient.user))
+        .where(Patient.id == patient_id)
+    )
+    patient = result.scalar_one_or_none()
+    if not patient:
+        raise NotFoundException("Patient not found")
+
+    user_id = patient.user_id
+    await db.delete(patient)
+    await db.delete(patient.user)
+    await db.commit()
+    await log(
+        db,
+        current_user.id,
+        "DELETE_PATIENT",
+        entity_type="Patient",
+        entity_id=patient_id,
+    )
+    return None

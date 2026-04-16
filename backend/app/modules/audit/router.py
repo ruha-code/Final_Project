@@ -14,6 +14,7 @@ from app.modules.audit.schemas import AuditLogResponse
 
 router = APIRouter()
 
+
 class Actions:
     REGISTER = "REGISTER"
     LOGIN = "LOGIN"
@@ -26,9 +27,14 @@ class Actions:
     COMPLETE_APPOINTMENT = "COMPLETE_APPOINTMENT"
     DEACTIVATE_USER = "DEACTIVATE_USER"
     ACTIVATE_USER = "ACTIVATE_USER"
+    DELETE_USER = "DELETE_USER"
+    UPDATE_PATIENT = "UPDATE_PATIENT"
+    DELETE_PATIENT = "DELETE_PATIENT"
+    UPDATE_DOCTOR = "UPDATE_DOCTOR"
+    DELETE_DOCTOR = "DELETE_DOCTOR"
+    DELETE_APPOINTMENT = "DELETE_APPOINTMENT"
     VIEW_AUDIT_LOGS = "VIEW_AUDIT_LOGS"
     VIEW_ANALYTICS = "VIEW_ANALYTICS"
-
 
 
 async def log(
@@ -47,17 +53,16 @@ async def log(
         user_agent = request.headers.get("user-agent")
 
     entry = AuditLog(
-        user_id = user_id,
-        action = action,
-        entity_type = entity_type,
-        entity_id = entity_id,
-        extra_data = extra_data,
-        ip_address = ip,
-        user_agent = user_agent,
+        user_id=user_id,
+        action=action,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        extra_data=extra_data,
+        ip_address=ip,
+        user_agent=user_agent,
     )
     db.add(entry)
     await db.commit()
-
 
 
 @router.get("/audit-logs")
@@ -84,12 +89,12 @@ async def get_audit_logs(
 
     if end_date:
         query = query.where(AuditLog.created_at <= end_date)
-    
+
     query = query.order_by(desc(AuditLog.created_at))
 
     result = await paginate(query, page, page_size, db)
-    
+
     result.items = [AuditLogResponse.model_validate(a) for a in result.items]
 
-    await log(db = db, user_id = current_user.id, action = Actions.VIEW_AUDIT_LOGS)
+    await log(db=db, user_id=current_user.id, action=Actions.VIEW_AUDIT_LOGS)
     return result
