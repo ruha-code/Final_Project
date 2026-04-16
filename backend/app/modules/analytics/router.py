@@ -34,6 +34,8 @@ async def get_demand(db: AsyncSession = Depends(get_db), current_user: User=Depe
 
     response = []
     for h3_index, count in rows:
+        if h3_index is None:
+            continue
         lat, lon = h3.cell_to_latlng(h3_index) 
 
         response.append(
