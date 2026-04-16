@@ -20,6 +20,7 @@ function Calendar() {
   const [filter, setFilter] = useState("all");
   const [showModal, setShowModal] = useState(false);
   const [newEvent, setNewEvent] = useState({ title: "", date: "", time: "", category: "ADMIN" });
+  const [error, setError] = useState(null);
 
   const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
@@ -37,8 +38,12 @@ function Calendar() {
           category: e.category,
         }));
         setEvents(converted);
+        setError(null);
       })
-      .catch(console.error);
+      .catch((err) => {
+        console.error(err);
+        setError("Failed to load calendar events");
+      });
   };
 
   useEffect(() => {
@@ -82,6 +87,11 @@ function Calendar() {
 
   return (
     <>
+      {error && (
+        <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl">
+          {error}
+        </div>
+      )}
       <div className="grid grid-cols-6 gap-6">
         {/* LEFT */}
         <div className="bg-white p-5 rounded-2xl border space-y-5">

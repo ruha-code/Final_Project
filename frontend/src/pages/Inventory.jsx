@@ -34,7 +34,7 @@ function getActivityText(action) {
   return "Inventory updated";
 }
 
-function StatCard({ title, value, icon, color }) {
+function StatCard({ title, value, icon: Icon, color }) {
   return (
     <div className="bg-white rounded-2xl p-5 border flex justify-between items-center">
       <div>
@@ -45,7 +45,7 @@ function StatCard({ title, value, icon, color }) {
       <div
         className={`w-10 h-10 rounded-xl flex items-center justify-center ${color}`}
       >
-        {icon && <icon size={18} />}
+        {Icon && <Icon size={18} />}
       </div>
     </div>
   );
@@ -110,7 +110,7 @@ export default function Inventory() {
 
     const fetchActivities = async () => {
       try {
-        const data = await api.get("/audit-logs?page=1&page_size=10");
+        const data = await api.get("/audit/audit-logs?page=1&page_size=10");
         setActivities(data.items || []);
       } catch (err) {
         console.error("Failed to fetch activities:", err);

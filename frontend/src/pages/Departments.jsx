@@ -56,6 +56,7 @@ function MiniStats({ departments }) {
 
 function DepartmentCard({ dep, onEdit, onDelete }) {
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
 
   return (
     <div className="bg-white rounded-2xl border overflow-hidden hover:shadow-xl transition">
@@ -77,7 +78,7 @@ function DepartmentCard({ dep, onEdit, onDelete }) {
             View <ArrowRight size={14} />
           </span>
         </div>
-        {window.isAdmin && (
+        {isAdmin() && (
           <div className="flex gap-2 pt-2 border-t mt-2">
             <button onClick={(e) => { e.stopPropagation(); onEdit(dep); }} className="flex-1 py-1 text-xs bg-gray-100 rounded-lg hover:bg-teal-50 text-teal-600">Edit</button>
             <button onClick={(e) => { e.stopPropagation(); onDelete(dep.id); }} className="flex-1 py-1 text-xs bg-gray-100 rounded-lg hover:bg-red-50 text-red-500">Delete</button>

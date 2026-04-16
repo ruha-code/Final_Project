@@ -63,7 +63,10 @@ function BookingModal({ onClose, onBooked }) {
   const [doctorSearch, setDoctorSearch] = useState("");
 
   useEffect(() => {
-    api.get("/doctors").then(setDoctors).catch(console.error);
+    api.get("/doctors").then(setDoctors).catch((err) => {
+      console.error(err);
+      setError("Failed to load doctors list");
+    });
   }, []);
 
   const loadSlots = async (doctorId, date) => {

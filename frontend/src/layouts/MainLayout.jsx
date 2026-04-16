@@ -134,6 +134,7 @@ const getSubtitle = () => {
                 </li>
                 {menuItem("/admin/users", "Users")}
                 {menuItem("/admin/audit-logs", "Audit Logs")}
+                {menuItem("/admin/analytics", "Analytics")}
               </>
             )}
           </ul>

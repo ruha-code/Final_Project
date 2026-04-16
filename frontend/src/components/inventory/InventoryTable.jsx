@@ -130,23 +130,22 @@ export default function InventoryTable({ search = "", status = "All", onRefresh 
   const [modal, setModal] = useState(null);
   const [editData, setEditData] = useState(null);
 
-  useEffect(() => {
-    const fetchInventory = async () => {
-      try {
-        setLoading(true);
-        const params = new URLSearchParams();
-        if (search) params.set("search", search);
-        if (status !== "All") params.set("status", status.toUpperCase());
-        const data = await api.get(`/inventory?${params.toString()}`);
-        setItems(data);
-      } catch (err) {
-        console.error("Failed to fetch inventory:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchInventory = async () => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams();
+      if (search) params.set("search", search);
+      if (status !== "All") params.set("status", status.toUpperCase());
+      const data = await api.get(`/inventory?${params.toString()}`);
+      setItems(data);
+    } catch (err) {
+      console.error("Failed to fetch inventory:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    // Debounce search
+  useEffect(() => {
     const timer = setTimeout(fetchInventory, 300);
     return () => clearTimeout(timer);
   }, [search, status]);

@@ -21,6 +21,7 @@ import Inventory from "../pages/Inventory";
 import Departments from "../pages/Departments";
 import DepartmentDetails from "../pages/DepartmentDetails";
 import AdminUsers from "../pages/AdminUsers";
+import Analytics from "../pages/Analytics";
 import {
   ProtectedRoute,
   AdminRoute,
@@ -242,6 +243,18 @@ function AppRoutes() {
           <AdminRoute>
             <MainLayout>
               <AuditLogs />
+            </MainLayout>
+          </AdminRoute>
+        }
+      />
+
+      {/* Analytics - ADMIN only */}
+      <Route
+        path="/admin/analytics"
+        element={
+          <AdminRoute>
+            <MainLayout>
+              <Analytics />
             </MainLayout>
           </AdminRoute>
         }
