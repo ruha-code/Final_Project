@@ -14,7 +14,11 @@ import DoctorDetails from "../pages/DoctorDetails";
 import Inventory from "../pages/Inventory";
 import Departments from "../pages/Departments";
 import DepartmentDetails from "../pages/DepartmentDetails";
-import { ProtectedRoute } from "../components/ProtectedRoute";
+import {
+  ProtectedRoute,
+  AdminRoute,
+  DoctorRoute,
+} from "../components/ProtectedRoute";
 
 function AppRoutes() {
   return (
@@ -24,6 +28,8 @@ function AppRoutes() {
       <Route path="/register" element={<Register />} />
 
       {/* APP - Protected Routes */}
+
+      {/* Dashboard - All authenticated users */}
       <Route
         path="/dashboard"
         element={
@@ -35,6 +41,7 @@ function AppRoutes() {
         }
       />
 
+      {/* Messages - All authenticated users */}
       <Route
         path="/messages"
         element={
@@ -46,6 +53,7 @@ function AppRoutes() {
         }
       />
 
+      {/* Appointments - All authenticated users */}
       <Route
         path="/appointments"
         element={
@@ -57,6 +65,7 @@ function AppRoutes() {
         }
       />
 
+      {/* Calendar - All authenticated users */}
       <Route
         path="/calendar"
         element={
@@ -68,28 +77,7 @@ function AppRoutes() {
         }
       />
 
-      <Route
-        path="/patients"
-        element={
-          <ProtectedRoute>
-            <MainLayout>
-              <Patients />
-            </MainLayout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/patients/:id"
-        element={
-          <ProtectedRoute>
-            <MainLayout>
-              <PatientDetails />
-            </MainLayout>
-          </ProtectedRoute>
-        }
-      />
-
+      {/* Doctors - All authenticated users */}
       <Route
         path="/doctors"
         element={
@@ -112,17 +100,7 @@ function AppRoutes() {
         }
       />
 
-      <Route
-        path="/inventory"
-        element={
-          <ProtectedRoute>
-            <MainLayout>
-              <Inventory />
-            </MainLayout>
-          </ProtectedRoute>
-        }
-      />
-
+      {/* Departments - All authenticated users */}
       <Route
         path="/departments"
         element={
@@ -142,6 +120,41 @@ function AppRoutes() {
               <DepartmentDetails />
             </MainLayout>
           </ProtectedRoute>
+        }
+      />
+
+      {/* Patients - ADMIN and DOCTOR only */}
+      <Route
+        path="/patients"
+        element={
+          <DoctorRoute>
+            <MainLayout>
+              <Patients />
+            </MainLayout>
+          </DoctorRoute>
+        }
+      />
+
+      <Route
+        path="/patients/:id"
+        element={
+          <DoctorRoute>
+            <MainLayout>
+              <PatientDetails />
+            </MainLayout>
+          </DoctorRoute>
+        }
+      />
+
+      {/* Inventory - ADMIN only */}
+      <Route
+        path="/inventory"
+        element={
+          <AdminRoute>
+            <MainLayout>
+              <Inventory />
+            </MainLayout>
+          </AdminRoute>
         }
       />
     </Routes>

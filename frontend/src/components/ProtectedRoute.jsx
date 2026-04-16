@@ -1,9 +1,8 @@
-// src/components/ProtectedRoute.jsx
-import { Navigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { Navigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
-export function ProtectedRoute({ children }) {
-  const { isAuthenticated, loading } = useAuth();
+export function ProtectedRoute({ children, allowedRoles }) {
+  const { isAuthenticated, loading, hasRole } = useAuth();
 
   if (loading) {
     return (
@@ -17,5 +16,27 @@ export function ProtectedRoute({ children }) {
     return <Navigate to="/" replace />;
   }
 
+  if (allowedRoles && !hasRole(allowedRoles)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   return children;
+}
+
+export function AdminRoute({ children }) {
+  return <ProtectedRoute allowedRoles={["ADMIN"]}>{children}</ProtectedRoute>;
+}
+
+export function DoctorRoute({ children }) {
+  return (
+    <ProtectedRoute allowedRoles={["ADMIN", "DOCTOR"]}>{children}</ProtectedRoute>
+  );
+}
+
+export function PatientRoute({ children }) {
+  return (
+    <ProtectedRoute allowedRoles={["ADMIN", "DOCTOR", "PATIENT", "STAFF"]}>
+      {children}
+    </ProtectedRoute>
+  );
 }

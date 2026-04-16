@@ -11,6 +11,7 @@ import {
 } from "recharts";
 import { useState, useEffect } from "react";
 import { api } from "../services/api";
+import { useAuth } from "../context/AuthContext";
 
 const barData = [
   { name: "Mon", a: 30, b: 45, c: 20 },
@@ -39,6 +40,8 @@ function formatAppointmentDate(isoString) {
 }
 
 function Dashboard() {
+  const { isAdmin, isDoctor, user } = useAuth();
+
   const [stats, setStats] = useState({
     totalPatients: 0,
     doctors: 0,
@@ -55,35 +58,61 @@ function Dashboard() {
       try {
         setLoading(true);
 
-        const [patients, doctors, apptPage, calendar] =
-          await Promise.allSettled([
-            api.get("/patients"),
-            api.get("/doctors"),
-            api.get("/appointments/admin/all?page=1&page_size=5"),
+        if (isAdmin() || isDoctor()) {
+          const [patients, doctors, apptPage, calendar] =
+            await Promise.allSettled([
+              api.get("/patients"),
+              api.get("/doctors"),
+              api.get("/appointments/admin/all?page=1&page_size=5"),
+              api.get("/calendar"),
+            ]);
+
+          const patientCount =
+            patients.status === "fulfilled" ? patients.value.length : 0;
+          const doctorList = doctors.status === "fulfilled" ? doctors.value : [];
+          const apptData =
+            apptPage.status === "fulfilled"
+              ? apptPage.value
+              : { items: [], total: 0 };
+          const calendarData =
+            calendar.status === "fulfilled" ? calendar.value : [];
+
+          setStats({
+            totalPatients: patientCount,
+            doctors: doctorList.length,
+            appointments: apptData.total ?? apptData.items?.length ?? 0,
+          });
+
+          setRecentAppointments(apptData.items || []);
+          setTopDoctors(doctorList.slice(0, 3));
+          setAgendaItems(
+            Array.isArray(calendarData) ? calendarData.slice(0, 3) : [],
+          );
+        } else {
+          const [appointments, calendar] = await Promise.allSettled([
+            api.get("/appointments/my"),
             api.get("/calendar"),
           ]);
 
-        const patientCount =
-          patients.status === "fulfilled" ? patients.value.length : 0;
-        const doctorList = doctors.status === "fulfilled" ? doctors.value : [];
-        const apptData =
-          apptPage.status === "fulfilled"
-            ? apptPage.value
-            : { items: [], total: 0 };
-        const calendarData =
-          calendar.status === "fulfilled" ? calendar.value : [];
+          const apptData =
+            appointments.status === "fulfilled"
+              ? appointments.value
+              : [];
+          const calendarData =
+            calendar.status === "fulfilled" ? calendar.value : [];
 
-        setStats({
-          totalPatients: patientCount,
-          doctors: doctorList.length,
-          appointments: apptData.total ?? apptData.items?.length ?? 0,
-        });
+          setStats({
+            totalPatients: 0,
+            doctors: 0,
+            appointments: Array.isArray(apptData) ? apptData.length : 0,
+          });
 
-        setRecentAppointments(apptData.items || []);
-        setTopDoctors(doctorList.slice(0, 3));
-        setAgendaItems(
-          Array.isArray(calendarData) ? calendarData.slice(0, 3) : [],
-        );
+          setRecentAppointments(Array.isArray(apptData) ? apptData.slice(0, 5) : []);
+          setTopDoctors([]);
+          setAgendaItems(
+            Array.isArray(calendarData) ? calendarData.slice(0, 3) : [],
+          );
+        }
       } catch (err) {
         setError("Failed to load dashboard data");
         console.error("Dashboard error:", err);
@@ -93,7 +122,7 @@ function Dashboard() {
     };
 
     fetchAll();
-  }, []);
+  }, [isAdmin, isDoctor]);
 
   if (loading) {
     return (
@@ -114,8 +143,8 @@ function Dashboard() {
       {/* LEFT */}
       <div className="flex-1 space-y-6">
         {/* CARDS */}
-        <div className="grid grid-cols-3 gap-5">
-          {[
+        <div className={`grid gap-5 ${isAdmin() || isDoctor() ? "grid-cols-3" : "grid-cols-1"}`}>
+          {(isAdmin() || isDoctor()) ? [
             {
               title: "Total Patients",
               value: stats.totalPatients.toLocaleString(),
@@ -144,52 +173,73 @@ function Dashboard() {
                 {item.info}
               </div>
             </div>
-          ))}
+          )) : (
+            <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+              <p className="text-xs text-gray-400">My Appointments</p>
+              <h2 className="text-2xl font-semibold mt-2 text-gray-800">
+                {stats.appointments}
+              </h2>
+              <div className="mt-3 bg-teal-50 text-teal-600 text-xs px-3 py-1 rounded-full w-fit">
+                Total appointments
+              </div>
+            </div>
+          )}
         </div>
 
         {/* CHARTS */}
-        <div className="grid grid-cols-2 gap-6">
-          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition">
-            <h2 className="text-sm font-semibold mb-4">
-              Patient by Age Stages
-            </h2>
-            <div className="h-56">
-              <ResponsiveContainer>
-                <BarChart data={barData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="a" fill="#0f766e" radius={[6, 6, 0, 0]} />
-                  <Bar dataKey="b" fill="#14b8a6" radius={[6, 6, 0, 0]} />
-                  <Bar dataKey="c" fill="#94a3b8" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+        {(isAdmin() || isDoctor()) ? (
+          <div className="grid grid-cols-2 gap-6">
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition">
+              <h2 className="text-sm font-semibold mb-4">
+                Patient by Age Stages
+              </h2>
+              <div className="h-56">
+                <ResponsiveContainer>
+                  <BarChart data={barData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="a" fill="#0f766e" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="b" fill="#14b8a6" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="c" fill="#94a3b8" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
-          </div>
 
-          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition">
-            <h2 className="text-sm font-semibold mb-4">Revenue</h2>
-            <div className="h-56">
-              <ResponsiveContainer>
-                <LineChart data={lineData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line dataKey="income" stroke="#0f766e" strokeWidth={3} />
-                  <Line dataKey="expense" stroke="#94a3b8" />
-                </LineChart>
-              </ResponsiveContainer>
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition">
+              <h2 className="text-sm font-semibold mb-4">Revenue</h2>
+              <div className="h-56">
+                <ResponsiveContainer>
+                  <LineChart data={lineData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Line dataKey="income" stroke="#0f766e" strokeWidth={3} />
+                    <Line dataKey="expense" stroke="#94a3b8" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+            <h2 className="text-sm font-semibold mb-4">
+              Welcome, {user?.full_name || "Patient"}!
+            </h2>
+            <p className="text-gray-500">
+              Your health dashboard is ready. Track your appointments and health information.
+            </p>
+          </div>
+        )}
 
         {/* RECENT APPOINTMENTS TABLE */}
         <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-sm font-semibold text-gray-700">
-              Recent Appointments
+              {isAdmin() || isDoctor() ? "Recent Appointments" : "My Appointments"}
             </h2>
           </div>
 
@@ -316,36 +366,38 @@ function Dashboard() {
         </div>
 
         {/* DOCTORS SCHEDULE */}
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-          <h2 className="text-sm font-semibold mb-4">Doctors' Schedule</h2>
-          {topDoctors.length === 0 ? (
-            <p className="text-xs text-gray-400">No doctors registered</p>
-          ) : (
-            <div className="space-y-4">
-              {topDoctors.map((doc) => (
-                <div key={doc.id} className="flex justify-between items-center">
-                  <div>
-                    <p className="text-sm font-medium text-gray-800">
-                      {doc.full_name}
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      {doc.department_name || doc.specialty || "—"}
-                    </p>
+        {(isAdmin() || isDoctor()) && (
+          <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+            <h2 className="text-sm font-semibold mb-4">Doctors' Schedule</h2>
+            {topDoctors.length === 0 ? (
+              <p className="text-xs text-gray-400">No doctors registered</p>
+            ) : (
+              <div className="space-y-4">
+                {topDoctors.map((doc) => (
+                  <div key={doc.id} className="flex justify-between items-center">
+                    <div>
+                      <p className="text-sm font-medium text-gray-800">
+                        {doc.full_name}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {doc.department_name || doc.specialty || "—"}
+                      </p>
+                    </div>
+                    <span
+                      className={`text-xs px-3 py-1 rounded-full font-medium ${
+                        doc.is_available
+                          ? "bg-green-100 text-green-700"
+                          : "bg-red-100 text-red-500"
+                      }`}
+                    >
+                      {doc.is_available ? "Available" : "Unavailable"}
+                    </span>
                   </div>
-                  <span
-                    className={`text-xs px-3 py-1 rounded-full font-medium ${
-                      doc.is_available
-                        ? "bg-green-100 text-green-700"
-                        : "bg-red-100 text-red-500"
-                    }`}
-                  >
-                    {doc.is_available ? "Available" : "Unavailable"}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

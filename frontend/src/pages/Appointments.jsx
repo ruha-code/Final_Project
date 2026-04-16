@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "../services/api";
+import { useAuth } from "../context/AuthContext";
 
 const STATUS_STYLES = {
   COMPLETED: "text-green-600 bg-green-50",
@@ -53,6 +54,8 @@ function formatDateTime(isoString) {
 }
 
 function Appointments() {
+  const { isAdmin, isDoctor } = useAuth();
+
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("All");
@@ -62,10 +65,14 @@ function Appointments() {
     const fetchAppointments = async () => {
       try {
         setLoading(true);
-        const data = await api.get(
-          "/appointments/admin/all?page=1&page_size=100",
-        );
-        setAppointments(data.items || []);
+        let data;
+        if (isAdmin() || isDoctor()) {
+          data = await api.get("/appointments/admin/all?page=1&page_size=100");
+          setAppointments(data.items || []);
+        } else {
+          data = await api.get("/appointments/my");
+          setAppointments(Array.isArray(data) ? data : []);
+        }
       } catch (err) {
         console.error("Failed to fetch appointments:", err);
       } finally {
@@ -73,7 +80,7 @@ function Appointments() {
       }
     };
     fetchAppointments();
-  }, []);
+  }, [isAdmin, isDoctor]);
 
   const today = new Date().toDateString();
 
@@ -116,7 +123,9 @@ function Appointments() {
         <div className="flex justify-between items-center">
           <div>
             <h2 className="text-2xl font-semibold">Appointments</h2>
-            <p className="text-sm text-gray-400">Manage all appointments</p>
+            <p className="text-sm text-gray-400">
+              {isAdmin() || isDoctor() ? "Manage all appointments" : "View your appointments"}
+            </p>
           </div>
 
           <input

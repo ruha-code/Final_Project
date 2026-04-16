@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../services/api";
+import { useAuth } from "../context/AuthContext";
 
 function calcAge(dateOfBirth) {
   if (!dateOfBirth) return "—";
@@ -41,6 +42,7 @@ function Status({ status }) {
 }
 
 function Patients() {
+  const { isAdmin } = useAuth();
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState([]);
@@ -81,22 +83,24 @@ function Patients() {
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-semibold">Patients</h2>
 
-        <div className="flex gap-2">
-          {["Gender", "Age", "Patient Type", "Condition"].map((f) => (
-            <button
-              key={f}
-              className="px-3 py-1.5 bg-gray-100 text-sm rounded-lg hover:bg-gray-200 flex items-center gap-1"
-            >
-              {f} <span className="text-xs">▾</span>
-            </button>
-          ))}
-        </div>
+        {isAdmin() && (
+          <div className="flex gap-2">
+            {["Gender", "Age", "Patient Type", "Condition"].map((f) => (
+              <button
+                key={f}
+                className="px-3 py-1.5 bg-gray-100 text-sm rounded-lg hover:bg-gray-200 flex items-center gap-1"
+              >
+                {f} <span className="text-xs">▾</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* TABLE */}
       <div className="bg-white rounded-2xl border overflow-hidden">
-        <div className="grid grid-cols-9 px-6 py-3 text-xs text-gray-400 bg-gray-50">
-          <span></span>
+        <div className={`grid px-6 py-3 text-xs text-gray-400 bg-gray-50 ${isAdmin() ? "grid-cols-9" : "grid-cols-8"}`}>
+          {isAdmin() && <span></span>}
           <span>Name</span>
           <span>Gender / Age</span>
           <span>Condition</span>
@@ -116,16 +120,18 @@ function Patients() {
             <div
               key={p.id}
               onClick={() => navigate(`/patients/${p.id}`)}
-              className={`grid grid-cols-9 px-6 py-4 border-t items-center cursor-pointer transition hover:bg-gray-50 ${
+              className={`grid px-6 py-4 border-t items-center cursor-pointer transition hover:bg-gray-50 ${
                 selected.includes(p.id) ? "bg-teal-50" : ""
-              }`}
+              } ${isAdmin() ? "grid-cols-9" : "grid-cols-8"}`}
             >
-              <input
-                type="checkbox"
-                onClick={(e) => e.stopPropagation()}
-                checked={selected.includes(p.id)}
-                onChange={() => toggleSelect(p.id)}
-              />
+              {isAdmin() && (
+                <input
+                  type="checkbox"
+                  onClick={(e) => e.stopPropagation()}
+                  checked={selected.includes(p.id)}
+                  onChange={() => toggleSelect(p.id)}
+                />
+              )}
 
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-full bg-teal-100 text-teal-600 flex items-center justify-center text-sm font-semibold">

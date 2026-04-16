@@ -1,19 +1,18 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { Search, Bell, Settings } from "lucide-react";
+import { Search, Bell, Settings, LogOut } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 
 function MainLayout({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { logout } = useAuth();
+  const { logout, user, isAdmin, isDoctor } = useAuth();
 
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(null);
 
   const dropdownRef = useRef();
 
-  // CLOSE DROPDOWNS
   useEffect(() => {
     const handleClick = (e) => {
       if (!dropdownRef.current?.contains(e.target)) {
@@ -24,7 +23,6 @@ function MainLayout({ children }) {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  // MENU
   const menuItem = (path, name) => {
     const isActive = location.pathname.startsWith(path);
 
@@ -42,7 +40,6 @@ function MainLayout({ children }) {
     );
   };
 
-  // TITLE
   const getTitle = () => {
     const path = location.pathname;
 
@@ -58,15 +55,38 @@ function MainLayout({ children }) {
     return "Dashboard";
   };
 
-  // SUBTITLE
   const getSubtitle = () => {
     const path = location.pathname;
 
-    if (path.includes("dashboard")) return "Hello Ruslan, welcome back 👋";
+    if (path.includes("dashboard")) {
+      if (isAdmin()) return "Admin dashboard overview";
+      if (isDoctor()) return "Doctor dashboard overview";
+      return "Patient dashboard overview";
+    }
     if (path.includes("appointments")) return "Manage appointments";
     if (path.includes("patients")) return "Patient data & profiles";
 
     return "Manage your system";
+  };
+
+  const getInitials = (name) => {
+    if (!name) return "?";
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase();
+  };
+
+  const getRoleLabel = (role) => {
+    const labels = {
+      ADMIN: "Administrator",
+      DOCTOR: "Doctor",
+      PATIENT: "Patient",
+      STAFF: "Staff",
+    };
+    return labels[role] || role;
   };
 
   return (
@@ -82,21 +102,23 @@ function MainLayout({ children }) {
           <ul className="space-y-2">
             {menuItem("/dashboard", "Dashboard")}
             {menuItem("/appointments", "Appointments")}
-            {menuItem("/patients", "Patients")}
+            {(isAdmin() || isDoctor()) && menuItem("/patients", "Patients")}
             {menuItem("/doctors", "Doctors")}
             {menuItem("/departments", "Departments")}
             {menuItem("/calendar", "Calendar")}
-            {menuItem("/inventory", "Inventory")}
+            {isAdmin() && menuItem("/inventory", "Inventory")}
             {menuItem("/messages", "Messages")}
           </ul>
         </div>
 
-        <div className="bg-teal-50 p-4 rounded-xl">
-          <p className="text-sm text-gray-600 mb-3">Upgrade to Pro</p>
-          <button className="w-full bg-teal-500 text-white py-2 rounded-lg text-sm">
-            Upgrade
-          </button>
-        </div>
+        {isAdmin() && (
+          <div className="bg-teal-50 p-4 rounded-xl">
+            <p className="text-sm text-gray-600 mb-3">Upgrade to Pro</p>
+            <button className="w-full bg-teal-500 text-white py-2 rounded-lg text-sm">
+              Upgrade
+            </button>
+          </div>
+        )}
       </div>
 
       {/* MAIN */}
@@ -147,22 +169,24 @@ function MainLayout({ children }) {
             </div>
 
             {/* SETTINGS */}
-            <div className="relative">
-              <button
-                onClick={() => setOpen(open === "settings" ? null : "settings")}
-                className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100"
-              >
-                <Settings size={16} />
-              </button>
+            {isAdmin() && (
+              <div className="relative">
+                <button
+                  onClick={() => setOpen(open === "settings" ? null : "settings")}
+                  className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100"
+                >
+                  <Settings size={16} />
+                </button>
 
-              {open === "settings" && (
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg p-2 z-50">
-                  <p className="px-3 py-2 hover:bg-gray-100 rounded-lg cursor-pointer">
-                    Preferences
-                  </p>
-                </div>
-              )}
-            </div>
+                {open === "settings" && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg p-2 z-50">
+                    <p className="px-3 py-2 hover:bg-gray-100 rounded-lg cursor-pointer">
+                      Preferences
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* PROFILE */}
             <div className="relative">
@@ -170,13 +194,17 @@ function MainLayout({ children }) {
                 onClick={() => setOpen(open === "profile" ? null : "profile")}
                 className="flex items-center gap-3 pl-3 border-l cursor-pointer"
               >
-                <div className="w-9 h-9 bg-teal-500 text-white flex items-center justify-center rounded-full">
-                  R
+                <div className="w-9 h-9 bg-teal-500 text-white flex items-center justify-center rounded-full text-sm font-medium">
+                  {getInitials(user?.full_name)}
                 </div>
 
                 <div>
-                  <p className="text-sm font-medium text-gray-700">Ruslan</p>
-                  <p className="text-xs text-gray-400">Admin</p>
+                  <p className="text-sm font-medium text-gray-700">
+                    {user?.full_name || "User"}
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    {getRoleLabel(user?.role)}
+                  </p>
                 </div>
               </div>
 
@@ -185,17 +213,19 @@ function MainLayout({ children }) {
                   <p className="px-3 py-2 hover:bg-gray-100 rounded-lg cursor-pointer">
                     Profile
                   </p>
-                  <p className="px-3 py-2 hover:bg-gray-100 rounded-lg cursor-pointer">
-                    Settings
-                  </p>
+                  {isAdmin() && (
+                    <p className="px-3 py-2 hover:bg-gray-100 rounded-lg cursor-pointer">
+                      Settings
+                    </p>
+                  )}
                   <p
                     onClick={() => {
                       logout();
                       navigate("/");
                     }}
-                    className="px-3 py-2 hover:bg-red-100 text-red-500 rounded-lg cursor-pointer"
+                    className="px-3 py-2 hover:bg-red-100 text-red-500 rounded-lg cursor-pointer flex items-center gap-2"
                   >
-                    Logout
+                    <LogOut size={14} /> Logout
                   </p>
                 </div>
               )}

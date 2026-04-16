@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Phone, MessageCircle, MoreVertical, X } from "lucide-react";
 import { api } from "../services/api";
+import { useAuth } from "../context/AuthContext";
 
 function StatusBadge({ isAvailable }) {
   return (
@@ -17,6 +18,7 @@ function StatusBadge({ isAvailable }) {
 
 export default function Doctors() {
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
 
   const [doctors, setDoctors] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -80,12 +82,14 @@ export default function Doctors() {
               <option>Unavailable</option>
             </select>
 
-            <button
-              onClick={() => setOpenModal(true)}
-              className="bg-teal-500 text-white px-4 py-2 rounded-xl text-sm hover:bg-teal-600"
-            >
-              + Add Doctor
-            </button>
+            {isAdmin() && (
+              <button
+                onClick={() => setOpenModal(true)}
+                className="bg-teal-500 text-white px-4 py-2 rounded-xl text-sm hover:bg-teal-600"
+              >
+                + Add Doctor
+              </button>
+            )}
           </div>
         </div>
 
@@ -137,12 +141,16 @@ export default function Doctors() {
                         >
                           View
                         </button>
-                        <button className="block w-full px-3 py-2 hover:bg-gray-100">
-                          Edit
-                        </button>
-                        <button className="block w-full px-3 py-2 text-red-500 hover:bg-gray-100">
-                          Delete
-                        </button>
+                        {isAdmin() && (
+                          <>
+                            <button className="block w-full px-3 py-2 hover:bg-gray-100">
+                              Edit
+                            </button>
+                            <button className="block w-full px-3 py-2 text-red-500 hover:bg-gray-100">
+                              Delete
+                            </button>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>
