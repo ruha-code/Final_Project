@@ -162,7 +162,16 @@ async def book_appointment(
         entity_type="Appointment",
         entity_id=appointment.id,
     )
-    await event_bus.publish("appointment_created", {"appointment_id": appointment.id})
+    await event_bus.publish("appointment_created", {
+        "appointment_id": appointment.id,
+        "patient_email": appointment.patient.user.email,
+        "patient_name": appointment.patient.user.full_name,
+        "doctor_email": appointment.doctor.user.email,
+        "doctor_name": appointment.doctor.user.full_name,
+        "appointment_time": appointment.appointment_time.strftime("%B %d, %Y at %I:%M %p"),
+        "appointment_type": appointment.appointment_type,
+        "reason": appointment.reason,
+    })
     return _build_detail(appointment)
 
 
@@ -256,7 +265,11 @@ async def cancel_appointment(
     appointment.cancelled_at = datetime.utcnow()
     appointment.cancelled_by = current_user.id
     await db.commit()
-    await db.refresh(appointment)
+
+    result = await db.execute(
+        select(Appointment).options(*_load_opts()).where(Appointment.id == appointment.id)
+    )
+    appointment = result.scalar_one()
     await log(
         db,
         current_user.id,
@@ -264,7 +277,15 @@ async def cancel_appointment(
         entity_type="Appointment",
         entity_id=appointment.id,
     )
-    await event_bus.publish("appointment_cancelled", {"appointment_id": appointment.id})
+    await event_bus.publish("appointment_cancelled", {
+        "appointment_id": appointment.id,
+        "patient_email": appointment.patient.user.email,
+        "patient_name": appointment.patient.user.full_name,
+        "doctor_email": appointment.doctor.user.email,
+        "doctor_name": appointment.doctor.user.full_name,
+        "appointment_time": appointment.appointment_time.strftime("%B %d, %Y at %I:%M %p"),
+        "cancelled_by_name": current_user.full_name,
+    })
     return appointment
 
 
@@ -302,7 +323,11 @@ async def complete_appointment(
         appointment.notes = dto.notes
 
     await db.commit()
-    await db.refresh(appointment)
+
+    result = await db.execute(
+        select(Appointment).options(*_load_opts()).where(Appointment.id == appointment.id)
+    )
+    appointment = result.scalar_one()
     await log(
         db,
         current_user.id,
@@ -310,6 +335,14 @@ async def complete_appointment(
         entity_type="Appointment",
         entity_id=appointment.id,
     )
+    await event_bus.publish("appointment_completed", {
+        "appointment_id": appointment.id,
+        "patient_email": appointment.patient.user.email,
+        "patient_name": appointment.patient.user.full_name,
+        "doctor_name": appointment.doctor.user.full_name,
+        "appointment_time": appointment.appointment_time.strftime("%B %d, %Y at %I:%M %p"),
+        "notes": appointment.notes,
+    })
     return appointment
 
 

@@ -7,7 +7,13 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7 
     ALGORITHM: str = "HS256"
     REDIS_URL: str = "redis://localhost:6379"
-
+    
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str = ""
+    SMTP_PASSWORD: str = ""     
+    EMAILS_FROM: str = ""          
+    EMAILS_ENABLED: bool = False 
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

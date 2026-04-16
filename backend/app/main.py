@@ -1,5 +1,6 @@
 from app.core.middleware import RequestLoggingMiddleware
 from app.core.logging import setup_logging
+from app.core import event_bus
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -34,6 +35,7 @@ setup_logging()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    event_bus.setup()
     await init_db()
     yield
 
