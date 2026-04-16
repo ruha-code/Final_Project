@@ -19,6 +19,7 @@ from app.modules.auth.schemas import (
     TokenResponse,
     UserResponse,
     UserUpdateSchema,
+    AdminUserUpdateSchema,
 )
 from app.modules.auth.service import AuthService
 from app.modules.auth.models import User, UserRole
@@ -290,6 +291,50 @@ async def get_user_by_id(user_id: int, db: AsyncSession = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
+
+
+@router.put(
+    "/admin/users/{user_id}",
+    response_model=UserResponse,
+    dependencies=[Depends(RoleChecker(["ADMIN"]))],
+)
+async def update_user(
+    user_id: int,
+    dto: AdminUserUpdateSchema,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if dto.email and dto.email != user.email:
+        existing = await db.execute(select(User).where(User.email == dto.email))
+        if existing.scalar_one_or_none():
+            raise ConflictException("Email already in use")
+
+    if dto.full_name is not None:
+        user.full_name = dto.full_name
+    if dto.email is not None:
+        user.email = dto.email
+    if dto.phone is not None:
+        user.phone = dto.phone
+    if dto.role is not None:
+        user.role = dto.role
+
+    await db.commit()
+    await db.refresh(user)
+    await log(
+        db=db,
+        user_id=current_user.id,
+        action=Actions.UPDATE_USER,
+        entity_type="User",
+        entity_id=user.id,
+        request=request,
+    )
+    return UserResponse.model_validate(user)
 
 
 @router.put(
