@@ -6,7 +6,7 @@ import DepartmentsChart from "../components/DepartmentsChart";
 
 const FALLBACK_IMG = "https://images.unsplash.com/photo-1584982751601-97dcc096659c";
 
-function StatCard({ title, value, icon: Icon }) {
+function StatCard({ title, value, icon: IconComponent }) {
   return (
     <div className="bg-white rounded-2xl p-5 border flex justify-between items-center">
       <div>
@@ -14,7 +14,7 @@ function StatCard({ title, value, icon: Icon }) {
         <h2 className="text-2xl font-bold">{value}</h2>
       </div>
       <div className="w-10 h-10 bg-teal-100 text-teal-600 rounded-xl flex items-center justify-center">
-        <Icon size={18} />
+        {IconComponent && <IconComponent size={18} />}
       </div>
     </div>
   );

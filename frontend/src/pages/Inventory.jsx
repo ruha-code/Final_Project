@@ -13,7 +13,7 @@ import InventoryChart from "../components/inventory/InventoryChart";
 import InventoryFilters from "../components/inventory/InventoryFilters";
 import { api } from "../services/api";
 
-function StatCard({ title, value, icon: Icon, color }) {
+function StatCard({ title, value, icon, color }) {
   return (
     <div className="bg-white rounded-2xl p-5 border flex justify-between items-center">
       <div>
@@ -24,7 +24,7 @@ function StatCard({ title, value, icon: Icon, color }) {
       <div
         className={`w-10 h-10 rounded-xl flex items-center justify-center ${color}`}
       >
-        <Icon size={18} />
+        {icon && <icon size={18} />}
       </div>
     </div>
   );
