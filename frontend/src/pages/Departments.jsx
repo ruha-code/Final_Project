@@ -24,32 +24,53 @@ function StatCard({ title, value, icon: IconComponent }) {
 function MiniStats({ departments }) {
   const avg = (key) => {
     if (!departments.length) return 0;
-    return Math.round(departments.reduce((s, d) => s + (d[key] || 0), 0) / departments.length);
+    const values = departments.map((d) => d[key] || 0);
+    return Math.round((values.reduce((s, v) => s + v, 0) / values.length) * 100);
   };
+
+  const allZero =
+    avg("patient_satisfaction") === 0 &&
+    avg("efficiency") === 0 &&
+    avg("treatment_success") === 0;
 
   return (
     <div className="bg-white rounded-2xl border p-5 space-y-4">
       <h3 className="font-semibold text-sm">Department Insights</h3>
-      <div className="space-y-3 text-sm">
-        <div>
-          <p className="text-gray-500">Team Capacity</p>
-          <div className="h-2 bg-gray-200 rounded-full">
-            <div className="h-2 bg-teal-500 rounded-full" style={{ width: `${avg("patient_satisfaction")}%` }} />
+      {allZero ? (
+        <p className="text-xs text-gray-400">
+          Metrics not configured yet. Edit a department to set satisfaction, efficiency and success rates.
+        </p>
+      ) : (
+        <div className="space-y-3 text-sm">
+          <div>
+            <div className="flex justify-between text-xs text-gray-500 mb-1">
+              <span>Patient Satisfaction</span>
+              <span>{avg("patient_satisfaction")}%</span>
+            </div>
+            <div className="h-2 bg-gray-200 rounded-full">
+              <div className="h-2 bg-teal-500 rounded-full" style={{ width: `${avg("patient_satisfaction")}%` }} />
+            </div>
+          </div>
+          <div>
+            <div className="flex justify-between text-xs text-gray-500 mb-1">
+              <span>Efficiency</span>
+              <span>{avg("efficiency")}%</span>
+            </div>
+            <div className="h-2 bg-gray-200 rounded-full">
+              <div className="h-2 bg-teal-400 rounded-full" style={{ width: `${avg("efficiency")}%` }} />
+            </div>
+          </div>
+          <div>
+            <div className="flex justify-between text-xs text-gray-500 mb-1">
+              <span>Treatment Success</span>
+              <span>{avg("treatment_success")}%</span>
+            </div>
+            <div className="h-2 bg-gray-200 rounded-full">
+              <div className="h-2 bg-teal-600 rounded-full" style={{ width: `${avg("treatment_success")}%` }} />
+            </div>
           </div>
         </div>
-        <div>
-          <p className="text-gray-500">Patient Flow</p>
-          <div className="h-2 bg-gray-200 rounded-full">
-            <div className="h-2 bg-teal-400 rounded-full" style={{ width: `${avg("efficiency")}%` }} />
-          </div>
-        </div>
-        <div>
-          <p className="text-gray-500">Efficiency</p>
-          <div className="h-2 bg-gray-200 rounded-full">
-            <div className="h-2 bg-teal-600 rounded-full" style={{ width: `${avg("treatment_success")}%` }} />
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -89,17 +110,42 @@ function DepartmentCard({ dep, onEdit, onDelete }) {
   );
 }
 
+function MetricInput({ label, value, onChange }) {
+  return (
+    <div>
+      <div className="flex justify-between text-xs text-gray-500 mb-1">
+        <label>{label}</label>
+        <span>{Math.round((value || 0) * 100)}%</span>
+      </div>
+      <input
+        type="range"
+        min="0"
+        max="1"
+        step="0.01"
+        value={value || 0}
+        onChange={(e) => onChange(parseFloat(e.target.value))}
+        className="w-full accent-teal-500"
+      />
+    </div>
+  );
+}
+
 function DepartmentModal({ onClose, onSaved, editData }) {
   const [form, setForm] = useState({
     name: editData?.name || "",
     location: editData?.location || "",
     description: editData?.description || "",
+    patient_satisfaction: editData?.patient_satisfaction ?? 0,
+    efficiency: editData?.efficiency ?? 0,
+    treatment_success: editData?.treatment_success ?? 0,
   });
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSubmit = async () => {
     if (!form.name) return;
     setSaving(true);
+    setError("");
     try {
       if (editData) {
         await api.put(`/departments/${editData.id}`, form);
@@ -109,7 +155,7 @@ function DepartmentModal({ onClose, onSaved, editData }) {
       onSaved();
       onClose();
     } catch (err) {
-      console.error("Failed to save:", err);
+      setError(err.message || "Failed to save department");
     } finally {
       setSaving(false);
     }
@@ -125,6 +171,7 @@ function DepartmentModal({ onClose, onSaved, editData }) {
           </button>
         </div>
         <div className="p-6 space-y-4">
+          {error && <p className="text-sm text-red-500 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
           <div>
             <label className="text-sm text-gray-500 mb-1 block">Name *</label>
             <input
@@ -146,10 +193,30 @@ function DepartmentModal({ onClose, onSaved, editData }) {
             <textarea
               value={form.description}
               onChange={(e) => setForm({...form, description: e.target.value})}
-              rows={3}
+              rows={2}
               className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400 resize-none"
             />
           </div>
+
+          <div className="pt-2 border-t space-y-3">
+            <p className="text-xs text-gray-400 font-medium">Performance Metrics</p>
+            <MetricInput
+              label="Patient Satisfaction"
+              value={form.patient_satisfaction}
+              onChange={(v) => setForm({ ...form, patient_satisfaction: v })}
+            />
+            <MetricInput
+              label="Efficiency"
+              value={form.efficiency}
+              onChange={(v) => setForm({ ...form, efficiency: v })}
+            />
+            <MetricInput
+              label="Treatment Success"
+              value={form.treatment_success}
+              onChange={(v) => setForm({ ...form, treatment_success: v })}
+            />
+          </div>
+
           <div className="flex gap-3 pt-2">
             <button onClick={onClose} className="flex-1 py-2 bg-gray-100 rounded-xl text-sm">Cancel</button>
             <button

@@ -232,7 +232,7 @@ function Dashboard() {
             </div>
 
             <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition">
-              <h2 className="text-sm font-semibold mb-4">Revenue</h2>
+              <h2 className="text-sm font-semibold mb-4">Appointments by Month</h2>
               <div className="h-56">
                 <ResponsiveContainer>
                   <LineChart data={lineData}>

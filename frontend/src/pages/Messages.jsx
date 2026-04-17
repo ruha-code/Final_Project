@@ -3,6 +3,8 @@ import { api } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import MessageBubble from "../components/MessageBubble";
 
+const POLL_INTERVAL = 4000;
+
 function getInitials(name) {
   if (!name) return "?";
   return name.split(" ").map((n) => n[0]).join("").toUpperCase();
@@ -29,6 +31,12 @@ function Messages() {
   const [createError, setCreateError] = useState("");
   const [loading, setLoading] = useState(true);
   const bottomRef = useRef(null);
+  const pollRef = useRef(null);
+  const activeConvIdRef = useRef(null);
+
+  useEffect(() => {
+    activeConvIdRef.current = activeConvId;
+  }, [activeConvId]);
 
   useEffect(() => {
     api.get("/messages/conversations")
@@ -42,17 +50,36 @@ function Messages() {
 
   useEffect(() => {
     if (user?.role !== "PATIENT") return;
-
-    api.get("/doctors")
-      .then(setDoctors)
-      .catch(console.error);
+    api.get("/doctors").then(setDoctors).catch(console.error);
   }, [user?.role]);
 
+  const fetchMessages = async (convId) => {
+    if (!convId) return;
+    try {
+      const data = await api.get(`/messages/conversations/${convId}/messages`);
+      setMessages(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
-    if (!activeConvId) return;
-    api.get(`/messages/conversations/${activeConvId}/messages`)
-      .then(setMessages)
-      .catch(console.error);
+    if (!activeConvId) {
+      setMessages([]);
+      return;
+    }
+    fetchMessages(activeConvId);
+
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(() => {
+      if (activeConvIdRef.current) {
+        fetchMessages(activeConvIdRef.current);
+      }
+    }, POLL_INTERVAL);
+
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
   }, [activeConvId]);
 
   useEffect(() => {
@@ -75,10 +102,8 @@ function Messages() {
       setCreateError("Select a doctor to start a conversation");
       return;
     }
-
     setCreateLoading(true);
     setCreateError("");
-
     try {
       const conversation = await api.post("/messages/conversations", {
         doctor_id: Number(selectedDoctorId),
@@ -134,9 +159,7 @@ function Messages() {
           <div className="mb-4 p-3 bg-teal-50 rounded-xl space-y-3">
             <div>
               <p className="text-sm font-medium text-gray-700">Start a conversation</p>
-              <p className="text-xs text-gray-500 mt-1">
-                Choose a doctor to open a new chat.
-              </p>
+              <p className="text-xs text-gray-500 mt-1">Choose a doctor to open a new chat.</p>
             </div>
 
             <select
@@ -152,9 +175,7 @@ function Messages() {
               ))}
             </select>
 
-            {createError && (
-              <p className="text-xs text-red-500">{createError}</p>
-            )}
+            {createError && <p className="text-xs text-red-500">{createError}</p>}
 
             <button
               onClick={handleCreateConversation}
@@ -200,16 +221,16 @@ function Messages() {
       <div className="flex-1 bg-white rounded-2xl border shadow-sm flex flex-col">
         {activeConv ? (
           <>
-            {/* HEADER */}
             <div className="p-4 border-b flex items-center gap-3">
               <Avatar name={contactName} />
               <div>
                 <p className="text-sm font-semibold">{contactName}</p>
-                <p className="text-xs text-green-500">Online</p>
+                <p className="text-xs text-gray-400">
+                  {user?.role === "PATIENT" ? "Doctor" : "Patient"}
+                </p>
               </div>
             </div>
 
-            {/* MESSAGES */}
             <div className="flex-1 p-4 space-y-3 overflow-auto">
               {messages.map((msg) => (
                 <MessageBubble
@@ -224,7 +245,6 @@ function Messages() {
               <div ref={bottomRef} />
             </div>
 
-            {/* INPUT */}
             <div className="p-4 border-t flex gap-2">
               <input
                 value={input}
@@ -244,15 +264,11 @@ function Messages() {
         ) : (
           <div className="flex-1 flex items-center justify-center p-8 text-center">
             {user?.role === "PATIENT" ? (
-              <div>
-                <p className="text-sm text-gray-500">Start a conversation with a doctor to begin messaging.</p>
-              </div>
+              <p className="text-sm text-gray-500">Start a conversation with a doctor to begin messaging.</p>
             ) : (
               <div>
                 <p className="text-sm text-gray-500">No conversations yet.</p>
-                <p className="text-xs text-gray-400 mt-2">
-                  Patients can start a new chat from their side.
-                </p>
+                <p className="text-xs text-gray-400 mt-2">Patients can start a new chat from their side.</p>
               </div>
             )}
           </div>
@@ -271,9 +287,6 @@ function Messages() {
             <p className="text-xs text-gray-400">
               {user?.role === "PATIENT" ? "Doctor" : "Patient"}
             </p>
-            <span className="inline-block mt-2 px-3 py-1 bg-green-100 text-green-600 text-xs rounded-full">
-              Online
-            </span>
           </div>
         ) : (
           <p className="text-sm text-gray-400">No conversation selected</p>

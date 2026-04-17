@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { TrendingUp, Users, CheckCircle, XCircle, MapPin } from "lucide-react";
 import { api } from "../services/api";
 
@@ -26,11 +26,21 @@ export default function Analytics() {
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        const [doctors, demandData] = await Promise.all([
+        const [stats, demandData, doctors] = await Promise.all([
           api.get("/analytics/doctors"),
           api.get("/analytics/demand"),
+          api.get("/doctors"),
         ]);
-        setDoctorStats(doctors);
+
+        const nameMap = {};
+        doctors.forEach((d) => { nameMap[d.id] = d.full_name; });
+
+        const enriched = stats.map((d) => ({
+          ...d,
+          doctor_name: nameMap[d.doctor_id] || `Doctor #${d.doctor_id}`,
+        }));
+
+        setDoctorStats(enriched);
         setDemand(demandData.sort((a, b) => b.count - a.count).slice(0, 10));
       } catch (err) {
         setError(err.message);
@@ -65,7 +75,7 @@ export default function Analytics() {
     : 0;
 
   const chartData = doctorStats.map((d) => ({
-    name: `Doctor ${d.doctor_id}`,
+    name: d.doctor_name,
     completed: d.completed,
     cancelled: d.cancelled,
     rate: Math.round(d.completion_rate * 100),
@@ -78,7 +88,6 @@ export default function Analytics() {
         <p className="text-sm text-gray-400">Clinic performance overview</p>
       </div>
 
-      {/* STATS */}
       <div className="grid grid-cols-4 gap-6">
         <StatCard title="Total Appointments" value={totalAppointments} icon={TrendingUp} color="bg-teal-100 text-teal-600" />
         <StatCard title="Completed" value={totalCompleted} icon={CheckCircle} color="bg-green-100 text-green-600" />
@@ -86,21 +95,17 @@ export default function Analytics() {
         <StatCard title="Avg Completion Rate" value={`${avgCompletion}%`} icon={Users} color="bg-blue-100 text-blue-600" />
       </div>
 
-      {/* CHARTS */}
       <div className="grid grid-cols-3 gap-6">
-        {/* Doctor Performance */}
         <div className="col-span-2 bg-white rounded-2xl border p-5">
           <h3 className="font-semibold mb-4">Doctor Performance</h3>
           {chartData.length === 0 ? (
             <p className="text-gray-400 text-sm text-center py-10">No data available</p>
           ) : (
             <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+              <BarChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 40 }}>
+                <XAxis dataKey="name" tick={{ fontSize: 11 }} angle={-25} textAnchor="end" interval={0} />
                 <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip
-                  formatter={(value, name) => [value, name === "completed" ? "Completed" : "Cancelled"]}
-                />
+                <Tooltip formatter={(value, name) => [value, name === "completed" ? "Completed" : "Cancelled"]} />
                 <Bar dataKey="completed" fill="#14b8a6" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="cancelled" fill="#f87171" radius={[4, 4, 0, 0]} />
               </BarChart>
@@ -108,7 +113,6 @@ export default function Analytics() {
           )}
         </div>
 
-        {/* Completion Rate per Doctor */}
         <div className="bg-white rounded-2xl border p-5">
           <h3 className="font-semibold mb-4">Completion Rates</h3>
           <div className="space-y-3">
@@ -118,8 +122,8 @@ export default function Analytics() {
               doctorStats.map((d) => (
                 <div key={d.doctor_id}>
                   <div className="flex justify-between text-xs text-gray-500 mb-1">
-                    <span>Doctor {d.doctor_id}</span>
-                    <span>{Math.round(d.completion_rate * 100)}%</span>
+                    <span className="truncate max-w-[140px]" title={d.doctor_name}>{d.doctor_name}</span>
+                    <span className="ml-1 flex-shrink-0">{Math.round(d.completion_rate * 100)}%</span>
                   </div>
                   <div className="h-2 bg-gray-100 rounded-full">
                     <div
@@ -134,7 +138,6 @@ export default function Analytics() {
         </div>
       </div>
 
-      {/* Demand heatmap table */}
       <div className="bg-white rounded-2xl border p-5">
         <h3 className="font-semibold mb-4 flex items-center gap-2">
           <MapPin size={16} className="text-teal-500" /> Top Demand Areas
@@ -157,8 +160,8 @@ export default function Analytics() {
                 {demand.map((d) => (
                   <tr key={d.h3_index} className="border-t hover:bg-gray-50">
                     <td className="py-3 font-mono text-xs text-gray-500">{d.h3_index}</td>
-                    <td className="py-3">{d.center_lat.toFixed(4)}</td>
-                    <td className="py-3">{d.center_lon.toFixed(4)}</td>
+                    <td className="py-3">{d.center_lat?.toFixed(4)}</td>
+                    <td className="py-3">{d.center_lon?.toFixed(4)}</td>
                     <td className="py-3 font-semibold">{d.count}</td>
                     <td className="py-3">
                       <div className="h-2 bg-gray-100 rounded-full w-24">

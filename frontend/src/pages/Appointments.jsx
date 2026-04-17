@@ -19,9 +19,7 @@ const STATUS_LABELS = {
 
 function StatusBadge({ status }) {
   return (
-    <span
-      className={`text-xs px-2.5 py-1 rounded-md font-medium ${STATUS_STYLES[status] || "bg-gray-100 text-gray-500"}`}
-    >
+    <span className={`text-xs px-2.5 py-1 rounded-md font-medium ${STATUS_STYLES[status] || "bg-gray-100 text-gray-500"}`}>
       {STATUS_LABELS[status] || status}
     </span>
   );
@@ -41,11 +39,53 @@ function StatCard({ title, value, desc, color }) {
 }
 
 function formatDateTime(isoString) {
-  if (!isoString) return "—";
+  if (!isoString) return { date: "—", time: "—" };
   const d = new Date(isoString);
   const date = d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
   const time = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
   return { date, time };
+}
+
+/* ───── Complete Notes Modal ───── */
+function CompleteModal({ onClose, onConfirm, loading }) {
+  const [notes, setNotes] = useState("");
+  return (
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-white w-[420px] rounded-2xl shadow-xl overflow-hidden">
+        <div className="flex justify-between items-center px-6 py-4 bg-green-50 border-b">
+          <h2 className="font-semibold text-lg">Complete Appointment</h2>
+          <button onClick={onClose} className="p-1 hover:bg-gray-200 rounded-lg">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="p-6 space-y-4">
+          <p className="text-sm text-gray-500">Add completion notes (optional) before marking this appointment as completed.</p>
+          <div>
+            <label className="text-sm text-gray-500 mb-1 block">Notes</label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={4}
+              placeholder="Treatment summary, prescriptions, follow-up instructions..."
+              className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none resize-none focus:ring-2 focus:ring-green-400"
+            />
+          </div>
+          <div className="flex gap-3">
+            <button onClick={onClose} className="flex-1 py-2 bg-gray-100 rounded-xl text-sm">
+              Cancel
+            </button>
+            <button
+              onClick={() => onConfirm(notes || null)}
+              disabled={loading}
+              className="flex-1 py-2 bg-green-500 text-white rounded-xl text-sm hover:bg-green-600 disabled:opacity-50"
+            >
+              {loading ? "Completing..." : "Complete"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /* ───── Booking Modal ───── */
@@ -122,7 +162,6 @@ function BookingModal({ onClose, onBooked }) {
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="bg-white w-[560px] rounded-2xl shadow-xl overflow-hidden">
-        {/* Header */}
         <div className="flex justify-between items-center px-6 py-4 bg-teal-50 border-b">
           <div>
             <h2 className="font-semibold text-lg">Book Appointment</h2>
@@ -133,7 +172,6 @@ function BookingModal({ onClose, onBooked }) {
           </button>
         </div>
 
-        {/* Progress bar */}
         <div className="flex gap-1 px-6 pt-4">
           {[1, 2, 3].map((s) => (
             <div key={s} className={`h-1 flex-1 rounded-full ${s <= step ? "bg-teal-500" : "bg-gray-200"}`} />
@@ -145,12 +183,9 @@ function BookingModal({ onClose, onBooked }) {
         )}
 
         <div className="p-6">
-          {/* Step 1: Select Doctor */}
           {step === 1 && (
             <div className="space-y-4">
-              <h3 className="font-medium text-gray-700 flex items-center gap-2">
-                Select a Doctor
-              </h3>
+              <h3 className="font-medium text-gray-700">Select a Doctor</h3>
               <input
                 placeholder="Search by name or specialty..."
                 value={doctorSearch}
@@ -166,9 +201,7 @@ function BookingModal({ onClose, onBooked }) {
                       key={doc.id}
                       onClick={() => setSelectedDoctor(doc)}
                       className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition border ${
-                        selectedDoctor?.id === doc.id
-                          ? "border-teal-500 bg-teal-50"
-                          : "border-gray-100 hover:bg-gray-50"
+                        selectedDoctor?.id === doc.id ? "border-teal-500 bg-teal-50" : "border-gray-100 hover:bg-gray-50"
                       }`}
                     >
                       <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center text-teal-600 font-semibold text-sm">
@@ -187,7 +220,7 @@ function BookingModal({ onClose, onBooked }) {
               </div>
               <div className="flex justify-end pt-2">
                 <button
-                  onClick={() => step === 1 && selectedDoctor && setStep(2)}
+                  onClick={() => selectedDoctor && setStep(2)}
                   disabled={!selectedDoctor}
                   className="px-5 py-2 bg-teal-500 text-white rounded-xl text-sm disabled:opacity-50 flex items-center gap-1 hover:bg-teal-600"
                 >
@@ -197,7 +230,6 @@ function BookingModal({ onClose, onBooked }) {
             </div>
           )}
 
-          {/* Step 2: Select Date & Time */}
           {step === 2 && (
             <div className="space-y-4">
               <h3 className="font-medium text-gray-700 flex items-center gap-2">
@@ -239,9 +271,7 @@ function BookingModal({ onClose, onBooked }) {
                             key={slot}
                             onClick={() => setSelectedSlot(slot)}
                             className={`py-2 rounded-lg text-sm transition ${
-                              selectedSlot === slot
-                                ? "bg-teal-500 text-white"
-                                : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                              selectedSlot === slot ? "bg-teal-500 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-700"
                             }`}
                           >
                             {label}
@@ -268,7 +298,6 @@ function BookingModal({ onClose, onBooked }) {
             </div>
           )}
 
-          {/* Step 3: Details & Confirm */}
           {step === 3 && (
             <div className="space-y-4">
               <h3 className="font-medium text-gray-700">Confirm Details</h3>
@@ -346,8 +375,10 @@ function Appointments() {
   const [search, setSearch] = useState("");
   const [showBooking, setShowBooking] = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
+  const [actionError, setActionError] = useState("");
+  const [completeModal, setCompleteModal] = useState(null); // appointmentId | null
   const [reloadKey, setReloadKey] = useState(0);
-  const triggerReload = () => setReloadKey((current) => current + 1);
+  const triggerReload = () => setReloadKey((k) => k + 1);
 
   useEffect(() => {
     const fetchAppointments = async () => {
@@ -367,13 +398,13 @@ function Appointments() {
         setLoading(false);
       }
     };
-
     void fetchAppointments();
   }, [isAdmin, isDoctor, reloadKey]);
 
   const handleCancel = async (id) => {
     if (actionLoading) return;
     setActionLoading(id);
+    setActionError("");
     try {
       if (isAdmin()) {
         await api.put(`/appointments/${id}/admin-cancel`);
@@ -382,33 +413,38 @@ function Appointments() {
       }
       triggerReload();
     } catch (err) {
-      console.error("Failed to cancel:", err);
+      setActionError(err.message || "Failed to cancel appointment");
     } finally {
       setActionLoading(null);
     }
   };
 
-  const handleComplete = async (id) => {
-    if (actionLoading) return;
+  const handleComplete = async (notes) => {
+    const id = completeModal;
     setActionLoading(id);
+    setActionError("");
     try {
-      await api.put(`/appointments/${id}/complete`, { notes: null });
+      await api.put(`/appointments/${id}/complete`, { notes });
+      setCompleteModal(null);
+      triggerReload();
     } catch (err) {
-      console.error("Failed to complete:", err);
+      setActionError(err.message || "Failed to complete appointment");
+      setCompleteModal(null);
+    } finally {
+      setActionLoading(null);
     }
-    triggerReload();
-    setActionLoading(null);
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this appointment?")) return;
     if (actionLoading) return;
     setActionLoading(id);
+    setActionError("");
     try {
       await api.delete(`/appointments/${id}`);
       triggerReload();
     } catch (err) {
-      console.error("Failed to delete:", err);
+      setActionError(err.message || "Failed to delete appointment");
     } finally {
       setActionLoading(null);
     }
@@ -421,8 +457,7 @@ function Appointments() {
   const cancelledCount = appointments.filter((a) => a.status === "CANCELLED").length;
 
   const filtered = appointments.filter((item) => {
-    const matchFilter =
-      filter === "All" ? true : item.status === filter.toUpperCase().replace("CANCELED", "CANCELLED");
+    const matchFilter = filter === "All" ? true : item.status === filter.toUpperCase().replace("CANCELED", "CANCELLED");
     const matchSearch =
       (item.patient_name?.toLowerCase().includes(search.toLowerCase())) ||
       (item.doctor_name?.toLowerCase().includes(search.toLowerCase()));
@@ -441,7 +476,6 @@ function Appointments() {
     <>
       <div className="bg-gray-50 min-h-screen">
         <div className="max-w-6xl mx-auto p-6 space-y-6">
-          {/* HEADER */}
           <div className="flex justify-between items-center">
             <div>
               <h2 className="text-2xl font-semibold">Appointments</h2>
@@ -469,7 +503,15 @@ function Appointments() {
             </div>
           </div>
 
-          {/* STATS */}
+          {actionError && (
+            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm flex justify-between items-center">
+              <span>{actionError}</span>
+              <button onClick={() => setActionError("")} className="ml-4 text-red-400 hover:text-red-600">
+                <X size={16} />
+              </button>
+            </div>
+          )}
+
           <div className="grid grid-cols-4 gap-3">
             <StatCard title="Today" value={todayCount} desc="Appointments" color="text-green-500" />
             <StatCard title="Completed" value={completedCount} desc="Finished" color="text-green-500" />
@@ -477,16 +519,13 @@ function Appointments() {
             <StatCard title="Canceled" value={cancelledCount} desc="Missed" color="text-red-400" />
           </div>
 
-          {/* FILTER */}
           <div className="flex gap-2">
             {["All", "Scheduled", "Ongoing", "Completed", "Canceled"].map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
                 className={`px-4 py-2 rounded-lg text-sm transition-all ${
-                  filter === f
-                    ? "bg-teal-500 text-white shadow-sm"
-                    : "bg-white border text-gray-600 hover:bg-gray-100"
+                  filter === f ? "bg-teal-500 text-white shadow-sm" : "bg-white border text-gray-600 hover:bg-gray-100"
                 }`}
               >
                 {f}
@@ -494,7 +533,6 @@ function Appointments() {
             ))}
           </div>
 
-          {/* TABLE */}
           <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
             <div className="grid grid-cols-7 px-6 py-3 text-xs text-gray-400 border-b">
               <span>Patient</span>
@@ -544,7 +582,7 @@ function Appointments() {
                       )}
                       {canComplete && (
                         <button
-                          onClick={() => handleComplete(item.id)}
+                          onClick={() => setCompleteModal(item.id)}
                           disabled={actionLoading === item.id}
                           className="text-xs px-3 py-1 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 disabled:opacity-50"
                         >
@@ -576,6 +614,14 @@ function Appointments() {
         <BookingModal
           onClose={() => setShowBooking(false)}
           onBooked={triggerReload}
+        />
+      )}
+
+      {completeModal && (
+        <CompleteModal
+          onClose={() => setCompleteModal(null)}
+          onConfirm={handleComplete}
+          loading={actionLoading === completeModal}
         />
       )}
     </>

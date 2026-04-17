@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { api } from "../services/api";
-import { Save, Check, User, Mail, Phone, MapPin, Heart, AlertCircle } from "lucide-react";
+import { Save, Check, User, Phone, MapPin, Heart, AlertCircle } from "lucide-react";
 
 export default function PatientProfile() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  const [isNewProfile, setIsNewProfile] = useState(false);
 
   const [form, setForm] = useState({
     full_name: "",
@@ -38,8 +39,8 @@ export default function PatientProfile() {
           emergency_contact_phone: data.emergency_contact_phone || "",
         });
       } catch (err) {
-        if (err.message?.includes("not found")) {
-          setError("Patient profile not found. Please contact admin to set up your profile.");
+        if (err.message?.includes("not found") || err.message?.includes("set it up")) {
+          setIsNewProfile(true);
         } else {
           setError(err.message || "Failed to load profile");
         }
@@ -56,11 +57,32 @@ export default function PatientProfile() {
   };
 
   const handleSave = async () => {
+    if (isNewProfile) {
+      if (!form.date_of_birth) { setError("Date of birth is required"); return; }
+      if (!form.gender) { setError("Gender is required"); return; }
+      if (!form.phone.trim()) { setError("Phone is required"); return; }
+    }
+
     setSaving(true);
     setError("");
     setSaved(false);
     try {
-      await api.put("/patients/me", form);
+      if (isNewProfile) {
+        await api.post("/patients/profile", {
+          date_of_birth: form.date_of_birth,
+          gender: form.gender,
+          phone: form.phone.trim(),
+          blood_type: form.blood_type || null,
+          address: form.address || null,
+          condition: form.condition || null,
+          notes: form.notes || null,
+          emergency_contact_name: form.emergency_contact_name || null,
+          emergency_contact_phone: form.emergency_contact_phone || null,
+        });
+        setIsNewProfile(false);
+      } else {
+        await api.put("/patients/me", form);
+      }
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (err) {
@@ -82,29 +104,42 @@ export default function PatientProfile() {
     <div className="max-w-2xl mx-auto space-y-6">
       <div>
         <h2 className="text-2xl font-semibold">My Profile</h2>
-        <p className="text-sm text-gray-400">Manage your patient profile</p>
+        <p className="text-sm text-gray-400">
+          {isNewProfile ? "Complete your profile to get started" : "Manage your patient profile"}
+        </p>
       </div>
+
+      {isNewProfile && (
+        <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 text-sm text-teal-700">
+          <p className="font-medium mb-1">Welcome! Let's set up your profile.</p>
+          <p className="text-teal-600 text-xs">Date of birth, gender and phone are required.</p>
+        </div>
+      )}
 
       {error && (
         <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">{error}</div>
       )}
 
       <div className="bg-white rounded-2xl border p-6 space-y-6">
-        <div>
-          <label className="text-sm text-gray-500 mb-1 block">Full Name</label>
-          <div className="flex items-center gap-3">
-            <User size={18} className="text-gray-400" />
-            <input
-              name="full_name"
-              value={form.full_name}
-              onChange={handleChange}
-              className="flex-1 px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
-            />
+        {!isNewProfile && (
+          <div>
+            <label className="text-sm text-gray-500 mb-1 block">Full Name</label>
+            <div className="flex items-center gap-3">
+              <User size={18} className="text-gray-400" />
+              <input
+                name="full_name"
+                value={form.full_name}
+                onChange={handleChange}
+                className="flex-1 px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         <div>
-          <label className="text-sm text-gray-500 mb-1 block">Date of Birth</label>
+          <label className="text-sm text-gray-500 mb-1 block">
+            Date of Birth {isNewProfile && <span className="text-red-400">*</span>}
+          </label>
           <input
             name="date_of_birth"
             type="date"
@@ -116,7 +151,9 @@ export default function PatientProfile() {
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="text-sm text-gray-500 mb-1 block">Gender</label>
+            <label className="text-sm text-gray-500 mb-1 block">
+              Gender {isNewProfile && <span className="text-red-400">*</span>}
+            </label>
             <select
               name="gender"
               value={form.gender}
@@ -152,7 +189,9 @@ export default function PatientProfile() {
         </div>
 
         <div>
-          <label className="text-sm text-gray-500 mb-1 block">Phone</label>
+          <label className="text-sm text-gray-500 mb-1 block">
+            Phone {isNewProfile && <span className="text-red-400">*</span>}
+          </label>
           <div className="flex items-center gap-3">
             <Phone size={18} className="text-gray-400" />
             <input
@@ -242,7 +281,7 @@ export default function PatientProfile() {
             saved ? "bg-green-500 text-white" : "bg-teal-500 text-white hover:bg-teal-600"
           } disabled:opacity-50`}
         >
-          {saved ? <><Check size={18} /> Saved</> : saving ? "Saving..." : <><Save size={18} /> Save Profile</>}
+          {saved ? <><Check size={18} /> Saved</> : saving ? "Saving..." : <><Save size={18} /> {isNewProfile ? "Create Profile" : "Save Profile"}</>}
         </button>
       </div>
     </div>
