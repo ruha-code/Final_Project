@@ -177,6 +177,8 @@ async def create_doctor_account(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    from app.modules.doctors.models import Doctor
+
     # Check email unique
     result = await db.execute(select(User).where(User.email == dto.email))
     if result.scalar_one_or_none():
@@ -196,6 +198,10 @@ async def create_doctor_account(
         is_active=True,
     )
     db.add(user)
+
+    doctor = Doctor(user=user)
+    db.add(doctor)
+
     await db.commit()
     await db.refresh(user)
 
