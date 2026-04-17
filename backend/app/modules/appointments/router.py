@@ -61,7 +61,14 @@ def _build_detail(apt: Appointment) -> AppointmentDetailResponse:
     )
 
 
+def _normalize_utc(dt: datetime) -> datetime:
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
 async def _check_doctor_conflict(doctor_id, start, duration, db):
+    start = _normalize_utc(start)
     end = start + timedelta(minutes=duration)
     result = await db.execute(
         select(Appointment).where(
@@ -71,7 +78,7 @@ async def _check_doctor_conflict(doctor_id, start, duration, db):
         )
     )
     for existing in result.scalars().all():
-        existing_start = existing.appointment_time
+        existing_start = _normalize_utc(existing.appointment_time)
         existing_end = existing_start + timedelta(minutes=existing.duration_minutes)
         if existing_end > start:
             return True
@@ -79,22 +86,7 @@ async def _check_doctor_conflict(doctor_id, start, duration, db):
 
 
 async def _check_patient_conflict(patient_id, start, duration, db):
-    end = start + timedelta(minutes=duration)
-    result = await db.execute(
-        select(Appointment).where(
-            Appointment.patient_id == patient_id,
-            Appointment.status != AppointmentStatus.CANCELLED,
-            Appointment.appointment_time < end,
-        )
-    )
-    for existing in result.scalars().all():
-        existing_start = existing.appointment_time
-        existing_end = existing_start + timedelta(minutes=existing.duration_minutes)
-        if existing_end > start:
-            return True
-    return False
-
-async def _check_patient_conflict(patient_id, start, duration, db):
+    start = _normalize_utc(start)
     end = start + timedelta(minutes=duration)
     result = await db.execute(
         select(Appointment).where(
@@ -128,7 +120,7 @@ async def book_appointment(
     if not doctor:
         raise NotFoundException("Doctor not found")
 
-    appt_time = dto.appointment_time.replace(tzinfo=None)
+    appt_time = _normalize_utc(dto.appointment_time)
     day_of_week = appt_time.weekday()
 
     result = await db.execute(
