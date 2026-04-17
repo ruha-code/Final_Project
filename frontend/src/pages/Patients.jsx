@@ -1,24 +1,19 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Edit, Eye, Trash2, X } from "lucide-react";
+
 import { api } from "../services/api";
 import { useAuth } from "../context/AuthContext";
-import { Trash2, Edit, X } from "lucide-react";
 
 function calcAge(dateOfBirth) {
-  if (!dateOfBirth) return "—";
-  const diff = Date.now() - new Date(dateOfBirth).getTime();
-  return Math.floor(diff / (1000 * 60 * 60 * 24 * 365.25));
+  if (!dateOfBirth) return "-";
+  return Math.floor((Date.now() - new Date(dateOfBirth).getTime()) / (1000 * 60 * 60 * 24 * 365.25));
 }
 
 function getInitials(name) {
   if (!name) return "?";
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .join("");
+  return name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
 }
-
-const GENDER_ICON = { MALE: "♂", FEMALE: "♀", OTHER: "⚧" };
 
 const STATUS_STYLES = {
   DISCHARGED: "bg-gray-100 text-gray-500",
@@ -26,37 +21,61 @@ const STATUS_STYLES = {
   ADMITTED: "bg-blue-100 text-blue-600",
 };
 
-const STATUS_LABELS = {
-  DISCHARGED: "Discharged",
-  IN_TREATMENT: "In Treatment",
-  ADMITTED: "Admitted",
-};
-
 function Status({ status }) {
   return (
-    <span
-      className={`px-3 py-1 text-xs rounded-full font-medium ${STATUS_STYLES[status] || "bg-gray-100 text-gray-400"}`}
-    >
-      {STATUS_LABELS[status] || status}
+    <span className={`rounded-full px-3 py-1 text-xs font-medium ${STATUS_STYLES[status] || "bg-gray-100 text-gray-400"}`}>
+      {status ? status.replace("_", " ") : "-"}
     </span>
   );
 }
 
-function Patients() {
-  const { isAdmin } = useAuth();
+function EditModal({ patient, form, setForm, onClose, onSave, saving }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+      <div className="w-[500px] overflow-hidden rounded-2xl bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b bg-teal-50 px-6 py-4">
+          <h2 className="font-semibold">Edit Patient - {patient.full_name}</h2>
+          <button onClick={onClose} className="rounded-lg p-1 hover:bg-gray-200">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="space-y-4 p-6">
+          <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Phone" className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400" />
+          <input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Address" className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400" />
+          <input value={form.condition} onChange={(e) => setForm({ ...form, condition: e.target.value })} placeholder="Condition" className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400" />
+          <select value={form.patient_status} onChange={(e) => setForm({ ...form, patient_status: e.target.value })} className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400">
+            <option value="IN_TREATMENT">In Treatment</option>
+            <option value="ADMITTED">Admitted</option>
+            <option value="DISCHARGED">Discharged</option>
+          </select>
+          <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={3} placeholder="Notes" className="w-full resize-none rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400" />
+          <div className="flex gap-3">
+            <button onClick={onClose} className="flex-1 rounded-xl bg-gray-100 py-2 text-sm">Cancel</button>
+            <button onClick={onSave} disabled={saving} className="flex-1 rounded-xl bg-teal-500 py-2 text-sm text-white hover:bg-teal-600 disabled:opacity-50">
+              {saving ? "Saving..." : "Save Changes"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function Patients() {
+  const { isAdmin, isDoctor } = useAuth();
+  const navigate = useNavigate();
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState([]);
   const [editPatient, setEditPatient] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [saving, setSaving] = useState(false);
-  const navigate = useNavigate();
 
   const fetchPatients = async () => {
     try {
       setLoading(true);
       const data = await api.get("/patients");
-      setPatients(data);
+      setPatients(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Failed to fetch patients:", err);
     } finally {
@@ -65,46 +84,27 @@ function Patients() {
   };
 
   useEffect(() => {
-    fetchPatients();
+    void fetchPatients();
   }, []);
 
-  const toggleSelect = (id) => {
-    setSelected((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id],
-    );
-  };
-
-  const handleDelete = async (id, e) => {
-    e.stopPropagation();
-    if (!window.confirm("Are you sure you want to delete this patient?")) return;
-    try {
-      await api.delete(`/patients/${id}`);
-      fetchPatients();
-    } catch (err) {
-      console.error("Failed to delete patient:", err);
-    }
-  };
-
-  const handleEdit = (patient, e) => {
-    e.stopPropagation();
+  const openEdit = (patient, event) => {
+    event.stopPropagation();
     setEditPatient(patient);
     setEditForm({
       phone: patient.phone || "",
       address: patient.address || "",
-      blood_type: patient.blood_type || "",
       condition: patient.condition || "",
       notes: patient.notes || "",
       patient_status: patient.patient_status || "IN_TREATMENT",
-      room_location: patient.room_location || "",
     });
   };
 
-  const handleSaveEdit = async () => {
-    setSaving(true);
+  const saveEdit = async () => {
     try {
+      setSaving(true);
       await api.put(`/patients/${editPatient.id}`, editForm);
       setEditPatient(null);
-      fetchPatients();
+      void fetchPatients();
     } catch (err) {
       console.error("Failed to update patient:", err);
     } finally {
@@ -112,20 +112,34 @@ function Patients() {
     }
   };
 
+  const deletePatient = async (id, event) => {
+    event.stopPropagation();
+    if (!window.confirm("Are you sure you want to delete this patient?")) return;
+    try {
+      await api.delete(`/patients/${id}`);
+      void fetchPatients();
+    } catch (err) {
+      console.error("Failed to delete patient:", err);
+    }
+  };
+
+  const toggleSelect = (id) => {
+    setSelected((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
+  };
+
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-500"></div>
-      </div>
-    );
+    return <div className="flex h-64 items-center justify-center"><div className="h-12 w-12 animate-spin rounded-full border-b-2 border-teal-500"></div></div>;
   }
+
+  const isDoctorView = isDoctor() && !isAdmin();
 
   return (
     <div className="space-y-6">
-      {/* HEADER */}
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold">Patients</h2>
-
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-semibold">Patients</h2>
+          <p className="text-sm text-gray-400">{isDoctorView ? "Open a patient and continue the visit workflow." : "Manage patient records."}</p>
+        </div>
         {isAdmin() && selected.length > 0 && (
           <button
             onClick={async () => {
@@ -134,212 +148,95 @@ function Patients() {
                 try { await api.delete(`/patients/${id}`); } catch (err) { console.error(err); }
               }
               setSelected([]);
-              fetchPatients();
+              void fetchPatients();
             }}
-            className="px-4 py-2 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 flex items-center gap-2"
+            className="rounded-xl bg-red-500 px-4 py-2 text-sm text-white hover:bg-red-600"
           >
-            <Trash2 size={14} /> Delete Selected ({selected.length})
+            Delete Selected ({selected.length})
           </button>
         )}
       </div>
 
-      {/* TABLE */}
-      <div className="bg-white rounded-2xl border overflow-hidden">
-        <div className={`grid px-6 py-3 text-xs text-gray-400 bg-gray-50 ${isAdmin() ? "grid-cols-9" : "grid-cols-8"}`}>
-          {isAdmin() && <span></span>}
-          <span>Name</span>
-          <span>Gender / Age</span>
-          <span>Condition</span>
-          <span>Blood Type</span>
-          <span>Patient Type</span>
-          <span>Admission Date</span>
-          <span>Location</span>
-          <span>Status</span>
-        </div>
-
-        {patients.length === 0 ? (
-          <div className="text-center py-10 text-gray-400 text-sm">
-            No patients found
-          </div>
-        ) : (
-          patients.map((p) => (
-            <div
-              key={p.id}
-              onClick={() => navigate(`/patients/${p.id}`)}
-              className={`grid px-6 py-4 border-t items-center cursor-pointer transition hover:bg-gray-50 ${
-                selected.includes(p.id) ? "bg-teal-50" : ""
-              } ${isAdmin() ? "grid-cols-9" : "grid-cols-8"}`}
-            >
-              {isAdmin() && (
-                <input
-                  type="checkbox"
-                  onClick={(e) => e.stopPropagation()}
-                  checked={selected.includes(p.id)}
-                  onChange={() => toggleSelect(p.id)}
-                />
-              )}
-
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-teal-100 text-teal-600 flex items-center justify-center text-sm font-semibold">
-                  {getInitials(p.full_name)}
+      <div className="overflow-hidden rounded-2xl border bg-white">
+        {isDoctorView ? (
+          <>
+            <div className="grid grid-cols-[1.4fr_0.7fr_1fr_0.8fr_0.7fr] bg-gray-50 px-6 py-3 text-xs text-gray-400">
+              <span>Name</span>
+              <span>Age</span>
+              <span>Condition</span>
+              <span>Status</span>
+              <span>Action</span>
+            </div>
+            {patients.map((patient) => (
+              <div key={patient.id} onClick={() => navigate(`/patients/${patient.id}`)} className="grid cursor-pointer grid-cols-[1.4fr_0.7fr_1fr_0.8fr_0.7fr] items-center border-t px-6 py-4 hover:bg-gray-50">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-teal-100 text-sm font-semibold text-teal-600">
+                    {getInitials(patient.full_name)}
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900">{patient.full_name}</p>
+                    <p className="text-xs text-gray-400">#{patient.id}</p>
+                  </div>
                 </div>
+                <span className="text-sm text-gray-500">{calcAge(patient.date_of_birth)}</span>
+                <span className="text-sm text-gray-600">{patient.condition || "-"}</span>
+                <Status status={patient.patient_status} />
                 <div>
-                  <p className="font-medium">{p.full_name}</p>
-                  <p className="text-xs text-gray-400">#{p.id}</p>
+                  <span className="inline-flex rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700">View</span>
                 </div>
               </div>
-
-              <span className="text-sm text-gray-500">
-                {GENDER_ICON[p.gender] || "—"} / {calcAge(p.date_of_birth)}
-              </span>
-
-              <span className="text-sm text-gray-600">
-                {p.condition || "—"}
-              </span>
-
-              <span className="text-sm text-gray-500">
-                {p.blood_type || "—"}
-              </span>
-
-              <span className="text-sm text-gray-500 capitalize">
-                {p.patient_type?.toLowerCase()}
-              </span>
-
-              <span className="text-sm text-gray-500">
-                {p.admission_date
-                  ? new Date(p.admission_date).toLocaleDateString("en-GB", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })
-                  : "—"}
-              </span>
-
-              <span className="text-sm text-gray-500">
-                {p.room_location || "—"}
-              </span>
-
-              <Status status={p.patient_status} />
-
-              {isAdmin() && (
-                <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    onClick={(e) => handleEdit(p, e)}
-                    className="p-1.5 text-gray-400 hover:text-teal-500 hover:bg-teal-50 rounded-lg"
-                  >
-                    <Edit size={14} />
-                  </button>
-                  <button
-                    onClick={(e) => handleDelete(p.id, e)}
-                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              )}
+            ))}
+          </>
+        ) : (
+          <>
+            <div className="grid grid-cols-9 bg-gray-50 px-6 py-3 text-xs text-gray-400">
+              <span></span>
+              <span>Name</span>
+              <span>Age</span>
+              <span>Condition</span>
+              <span>Blood Type</span>
+              <span>Type</span>
+              <span>Admission Date</span>
+              <span>Status</span>
+              <span>Actions</span>
             </div>
-          ))
+            {patients.map((patient) => (
+              <div key={patient.id} onClick={() => navigate(`/patients/${patient.id}`)} className={`grid cursor-pointer grid-cols-9 items-center border-t px-6 py-4 hover:bg-gray-50 ${selected.includes(patient.id) ? "bg-teal-50" : ""}`}>
+                <input type="checkbox" checked={selected.includes(patient.id)} onClick={(e) => e.stopPropagation()} onChange={() => toggleSelect(patient.id)} />
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-teal-100 text-sm font-semibold text-teal-600">{getInitials(patient.full_name)}</div>
+                  <div>
+                    <p className="font-medium text-gray-900">{patient.full_name}</p>
+                    <p className="text-xs text-gray-400">#{patient.id}</p>
+                  </div>
+                </div>
+                <span className="text-sm text-gray-500">{calcAge(patient.date_of_birth)}</span>
+                <span className="text-sm text-gray-600">{patient.condition || "-"}</span>
+                <span className="text-sm text-gray-500">{patient.blood_type || "-"}</span>
+                <span className="text-sm text-gray-500">{patient.patient_type?.toLowerCase() || "-"}</span>
+                <span className="text-sm text-gray-500">{patient.admission_date || "-"}</span>
+                <Status status={patient.patient_status} />
+                <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                  <button onClick={(e) => navigate(`/patients/${patient.id}`)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-teal-500"><Eye size={14} /></button>
+                  <button onClick={(e) => openEdit(patient, e)} className="rounded-lg p-1.5 text-gray-400 hover:bg-teal-50 hover:text-teal-500"><Edit size={14} /></button>
+                  <button onClick={(e) => deletePatient(patient.id, e)} className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500"><Trash2 size={14} /></button>
+                </div>
+              </div>
+            ))}
+          </>
         )}
       </div>
 
-      {/* Edit Modal */}
       {editPatient && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white w-[500px] rounded-2xl shadow-xl overflow-hidden">
-            <div className="flex justify-between items-center px-6 py-4 bg-teal-50 border-b">
-              <h2 className="font-semibold">Edit Patient - {editPatient.full_name}</h2>
-              <button onClick={() => setEditPatient(null)} className="p-1 hover:bg-gray-200 rounded-lg">
-                <X size={18} />
-              </button>
-            </div>
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="text-sm text-gray-500 mb-1 block">Phone</label>
-                <input
-                  value={editForm.phone}
-                  onChange={(e) => setEditForm({...editForm, phone: e.target.value})}
-                  className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
-                />
-              </div>
-              <div>
-                <label className="text-sm text-gray-500 mb-1 block">Address</label>
-                <input
-                  value={editForm.address}
-                  onChange={(e) => setEditForm({...editForm, address: e.target.value})}
-                  className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
-                />
-              </div>
-              <div>
-                <label className="text-sm text-gray-500 mb-1 block">Blood Type</label>
-                <select
-                  value={editForm.blood_type}
-                  onChange={(e) => setEditForm({...editForm, blood_type: e.target.value})}
-                  className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
-                >
-                  <option value="">Select</option>
-                  <option value="A+">A+</option>
-                  <option value="A-">A-</option>
-                  <option value="B+">B+</option>
-                  <option value="B-">B-</option>
-                  <option value="AB+">AB+</option>
-                  <option value="AB-">AB-</option>
-                  <option value="O+">O+</option>
-                  <option value="O-">O-</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-sm text-gray-500 mb-1 block">Condition</label>
-                <input
-                  value={editForm.condition}
-                  onChange={(e) => setEditForm({...editForm, condition: e.target.value})}
-                  className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
-                />
-              </div>
-              <div>
-                <label className="text-sm text-gray-500 mb-1 block">Status</label>
-                <select
-                  value={editForm.patient_status}
-                  onChange={(e) => setEditForm({...editForm, patient_status: e.target.value})}
-                  className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
-                >
-                  <option value="IN_TREATMENT">In Treatment</option>
-                  <option value="ADMITTED">Admitted</option>
-                  <option value="DISCHARGED">Discharged</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-sm text-gray-500 mb-1 block">Room Location</label>
-                <input
-                  value={editForm.room_location}
-                  onChange={(e) => setEditForm({...editForm, room_location: e.target.value})}
-                  className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
-                />
-              </div>
-              <div>
-                <label className="text-sm text-gray-500 mb-1 block">Notes</label>
-                <textarea
-                  value={editForm.notes}
-                  onChange={(e) => setEditForm({...editForm, notes: e.target.value})}
-                  rows={3}
-                  className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400 resize-none"
-                />
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button onClick={() => setEditPatient(null)} className="flex-1 py-2 bg-gray-100 rounded-xl text-sm">Cancel</button>
-                <button
-                  onClick={handleSaveEdit}
-                  disabled={saving}
-                  className="flex-1 py-2 bg-teal-500 text-white rounded-xl text-sm hover:bg-teal-600 disabled:opacity-50"
-                >
-                  {saving ? "Saving..." : "Save Changes"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <EditModal
+          patient={editPatient}
+          form={editForm}
+          setForm={setEditForm}
+          onClose={() => setEditPatient(null)}
+          onSave={saveEdit}
+          saving={saving}
+        />
       )}
     </div>
   );
 }
-
-export default Patients;

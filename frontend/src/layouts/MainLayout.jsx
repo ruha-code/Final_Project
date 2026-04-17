@@ -119,14 +119,14 @@ const getSubtitle = () => {
           <ul className="space-y-2">
             {menuItem("/dashboard", "Dashboard")}
             {menuItem("/appointments", "Appointments")}
-            {(isAdmin() || isDoctor()) && menuItem("/patients", "Patients")}
-            {menuItem("/doctors", "Doctors")}
-            {(isAdmin() || isDoctor()) && menuItem("/departments", "Departments")}
+            {isAdmin() && menuItem("/patients", "Patients")}
+            {(isAdmin() || isPatient()) && menuItem("/doctors", "Doctors")}
+            {isAdmin() && menuItem("/departments", "Departments")}
             {isDoctor() && menuItem("/schedule", "My Schedule")}
             {isDoctor() && menuItem("/my-patients", "My Patients")}
             {isDoctor() && menuItem("/doctor/profile", "My Profile")}
             {isPatient() && menuItem("/patient/profile", "My Profile")}
-            {(isAdmin() || isDoctor()) && menuItem("/calendar", "Calendar")}
+            {isAdmin() && menuItem("/calendar", "Calendar")}
             {isAdmin() && menuItem("/inventory", "Inventory")}
             {menuItem("/messages", "Messages")}
             {isAdmin() && (

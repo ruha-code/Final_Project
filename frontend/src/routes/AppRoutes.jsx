@@ -88,11 +88,11 @@ function AppRoutes() {
           }
         />
 
-        {/* Calendar - Admin and Doctor only */}
+        {/* Calendar - Admin only */}
         <Route
           path="/calendar"
           element={
-            <ProtectedRoute allowedRoles={["ADMIN", "DOCTOR"]}>
+            <ProtectedRoute allowedRoles={["ADMIN"]}>
               <MainLayout>
                 <Calendar />
               </MainLayout>
@@ -100,11 +100,11 @@ function AppRoutes() {
           }
         />
 
-        {/* Doctors - All authenticated users */}
+        {/* Doctors - Admin and Patient only */}
         <Route
           path="/doctors"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["ADMIN", "PATIENT"]}>
               <MainLayout>
                 <Doctors />
               </MainLayout>
@@ -115,7 +115,7 @@ function AppRoutes() {
         <Route
           path="/doctors/:id"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["ADMIN", "PATIENT"]}>
               <MainLayout>
                 <DoctorDetails />
               </MainLayout>
@@ -183,11 +183,11 @@ function AppRoutes() {
           }
         />
 
-        {/* Departments - Admin and Doctor only */}
+        {/* Departments - Admin only */}
         <Route
           path="/departments"
           element={
-            <ProtectedRoute allowedRoles={["ADMIN", "DOCTOR"]}>
+            <ProtectedRoute allowedRoles={["ADMIN"]}>
               <MainLayout>
                 <Departments />
               </MainLayout>
@@ -198,7 +198,7 @@ function AppRoutes() {
         <Route
           path="/departments/:id"
           element={
-            <ProtectedRoute allowedRoles={["ADMIN", "DOCTOR"]}>
+            <ProtectedRoute allowedRoles={["ADMIN"]}>
               <MainLayout>
                 <DepartmentDetails />
               </MainLayout>
@@ -206,15 +206,15 @@ function AppRoutes() {
           }
         />
 
-        {/* Patients - ADMIN and DOCTOR only */}
+        {/* Patients - ADMIN only */}
         <Route
           path="/patients"
           element={
-            <DoctorRoute>
+            <AdminRoute>
               <MainLayout>
                 <Patients />
               </MainLayout>
-            </DoctorRoute>
+            </AdminRoute>
           }
         />
 

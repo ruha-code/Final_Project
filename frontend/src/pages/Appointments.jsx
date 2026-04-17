@@ -34,13 +34,17 @@ function StatusBadge({ status }) {
   );
 }
 
-function SummaryCard({ title, value, description }) {
+function SummaryCard({ title, value, description, active = false, onClick }) {
   return (
-    <div className="rounded-2xl border bg-white p-5 shadow-sm">
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-2xl border bg-white p-5 text-left shadow-sm transition ${onClick ? "hover:-translate-y-0.5 hover:border-teal-200 hover:shadow-md" : ""} ${active ? "border-teal-400 ring-2 ring-teal-100" : "border-gray-200"}`}
+    >
       <p className="text-xs uppercase tracking-wide text-gray-400">{title}</p>
       <p className="mt-2 text-2xl font-semibold text-gray-900">{value}</p>
       <p className="mt-2 text-sm text-gray-500">{description}</p>
-    </div>
+    </button>
   );
 }
 
@@ -371,6 +375,45 @@ function isHistoricalAppointment(appointment) {
   return new Date(appointment.appointment_time).getTime() < Date.now();
 }
 
+function getRelativeStartLabel(appointmentTime) {
+  if (!appointmentTime) return "";
+  const appointmentDate = new Date(appointmentTime);
+  const now = new Date();
+  const diffMs = appointmentDate.getTime() - now.getTime();
+  const diffMinutes = Math.round(diffMs / 60000);
+  if (diffMinutes < 0) return "";
+  if (diffMinutes <= 5) return "Starting soon";
+  if (diffMinutes <= 60) return `Starts in ${diffMinutes} min`;
+  if (diffMinutes <= 360) {
+    const diffHours = Math.floor(diffMinutes / 60);
+    return `Starts in ${diffHours} h`;
+  }
+
+  const isSameDay = appointmentDate.toDateString() === now.toDateString();
+  if (isSameDay) return "Later today";
+
+  const tomorrow = new Date(now);
+  tomorrow.setDate(now.getDate() + 1);
+  if (appointmentDate.toDateString() === tomorrow.toDateString()) return "Tomorrow";
+
+  return "";
+}
+
+function getDoctorPrimaryAction(status) {
+  switch (status) {
+    case "SCHEDULED":
+      return { label: "Start Appointment", tone: "bg-teal-500 text-white hover:bg-teal-600" };
+    case "ONGOING":
+      return { label: "Continue", tone: "bg-blue-50 text-blue-700 hover:bg-blue-100" };
+    case "COMPLETED":
+      return { label: "View Summary", tone: "bg-gray-100 text-gray-700 hover:bg-gray-200" };
+    case "CANCELLED":
+      return { label: "View Patient", tone: "bg-gray-100 text-gray-700 hover:bg-gray-200" };
+    default:
+      return null;
+  }
+}
+
 export default function Appointments() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -452,6 +495,32 @@ export default function Appointments() {
     }
   };
 
+  const openPatientCase = (appointment) => {
+    navigate(`/patients/${appointment.patient_id}`, {
+      state: { appointmentId: appointment.id, appointmentStatus: appointment.status },
+    });
+  };
+
+  const handleDoctorPrimaryAction = async (appointment) => {
+    if (appointment.status === "SCHEDULED") {
+      try {
+        setActionLoading(appointment.id);
+        await api.put(`/appointments/${appointment.id}/start`);
+        triggerReload();
+        navigate(`/patients/${appointment.patient_id}`, {
+          state: { appointmentId: appointment.id, appointmentStatus: "ONGOING" },
+        });
+      } catch (err) {
+        setFeedback({ tone: "error", message: err.message || "Failed to start appointment" });
+      } finally {
+        setActionLoading(null);
+      }
+      return;
+    }
+
+    openPatientCase(appointment);
+  };
+
   const handleDelete = async (appointmentId) => {
     if (!window.confirm("Delete this appointment permanently?")) return;
     try {
@@ -465,6 +534,8 @@ export default function Appointments() {
       setActionLoading(null);
     }
   };
+
+  const todayKey = getTodayLocalDate();
 
   const filteredAppointments = appointments.filter((appointment) => {
     const value = search.trim().toLowerCase();
@@ -482,16 +553,16 @@ export default function Appointments() {
       return true;
     }
 
+    if (filter === "TODAY") return formatAppointmentDateTime(appointment.appointment_time).dateKey === todayKey;
     if (filter === "ALL") return true;
     return appointment.status === filter;
-  });
+  }).sort((first, second) => new Date(first.appointment_time).getTime() - new Date(second.appointment_time).getTime());
 
   const nextAppointment = appointments
     .filter(isUpcomingAppointment)
     .sort((first, second) => new Date(first.appointment_time).getTime() - new Date(second.appointment_time).getTime())[0];
   const upcomingCount = appointments.filter(isUpcomingAppointment).length;
   const historyCount = appointments.filter(isHistoricalAppointment).length;
-  const todayKey = getTodayLocalDate();
   const todayCount = appointments.filter((appointment) => formatAppointmentDateTime(appointment.appointment_time).dateKey === todayKey).length;
   const completedCount = appointments.filter((appointment) => appointment.status === "COMPLETED").length;
   const scheduledCount = appointments.filter((appointment) => appointment.status === "SCHEDULED").length;
@@ -515,7 +586,7 @@ export default function Appointments() {
               {isPatient()
                 ? "Track visits, review history and book new appointments."
                 : isDoctor()
-                  ? "Manage your patient visits and keep today's schedule moving."
+                  ? "Start upcoming visits, continue ongoing ones and keep your day moving."
                   : "Monitor and administer all appointments in the system."}
             </p>
           </div>
@@ -555,14 +626,14 @@ export default function Appointments() {
           </div>
         ) : (
           <div className="grid gap-4 lg:grid-cols-4">
-            <SummaryCard title="Today" value={todayCount} description="Appointments happening today." />
-            <SummaryCard title="Scheduled" value={scheduledCount} description="Upcoming visits that still need attention." />
-            <SummaryCard title="Completed" value={completedCount} description="Visits already completed." />
-            <SummaryCard title="Cancelled" value={cancelledCount} description="Appointments that were cancelled." />
+            <SummaryCard title="Today" value={todayCount} description="Appointments happening today." active={filter === "TODAY"} onClick={() => setFilter("TODAY")} />
+            <SummaryCard title="Scheduled" value={scheduledCount} description="Upcoming visits waiting to start." active={filter === "SCHEDULED"} onClick={() => setFilter("SCHEDULED")} />
+            <SummaryCard title="Ongoing" value={appointments.filter((appointment) => appointment.status === "ONGOING").length} description="Appointments currently in progress." active={filter === "ONGOING"} onClick={() => setFilter("ONGOING")} />
+            <SummaryCard title="Completed" value={completedCount} description="Visits already completed." active={filter === "COMPLETED"} onClick={() => setFilter("COMPLETED")} />
           </div>
         )}
 
-        <div className="flex flex-wrap gap-2">
+        {!isDoctor() && <div className="flex flex-wrap gap-2">
           {(isPatient()
             ? [{ value: "UPCOMING", label: "Upcoming" }, { value: "HISTORY", label: "History" }, { value: "CANCELLED", label: "Cancelled" }]
             : [{ value: "ALL", label: "All" }, { value: "SCHEDULED", label: "Scheduled" }, { value: "ONGOING", label: "Ongoing" }, { value: "COMPLETED", label: "Completed" }, { value: "CANCELLED", label: "Cancelled" }]
@@ -575,7 +646,7 @@ export default function Appointments() {
               {option.label}
             </button>
           ))}
-        </div>
+        </div>}
 
         <div className="overflow-hidden rounded-3xl border bg-white shadow-sm">
           {filteredAppointments.length === 0 ? (
@@ -594,6 +665,8 @@ export default function Appointments() {
                   const dateTime = formatAppointmentDateTime(appointment.appointment_time);
                   const canCancel = appointment.status === "SCHEDULED" || appointment.status === "ONGOING";
                   const canComplete = isDoctor() && appointment.status !== "COMPLETED" && appointment.status !== "CANCELLED";
+                  const startHint = getRelativeStartLabel(appointment.appointment_time);
+                  const doctorPrimaryAction = isDoctor() ? getDoctorPrimaryAction(appointment.status) : null;
                   return (
                     <div key={appointment.id} className={`grid items-center gap-4 px-6 py-4 text-sm ${isPatient() ? "grid-cols-[1.3fr_1fr_0.8fr_0.7fr_0.8fr_1fr]" : "grid-cols-[1.2fr_1.2fr_0.9fr_0.9fr_0.7fr_0.8fr_1fr]"}`}>
                       {isPatient() ? (
@@ -613,17 +686,32 @@ export default function Appointments() {
                         </>
                       ) : (
                         <>
-                          <div><p className="font-medium text-gray-900">{appointment.patient_name}</p><p className="text-xs text-gray-400">{appointment.reason || "No reason provided"}</p></div>
+                          <div>
+                            <p className="font-medium text-gray-900">{appointment.patient_name}</p>
+                            <p className="text-xs text-gray-400">{appointment.reason || "No reason provided"}</p>
+                            {startHint && appointment.status === "SCHEDULED" && (
+                              <p className="mt-1 text-xs font-medium text-teal-600">{startHint}</p>
+                            )}
+                          </div>
                           <span className="text-gray-700">{appointment.doctor_name}</span>
                           <span className="capitalize text-gray-500">{appointment.appointment_type?.toLowerCase().replace("_", " ")}</span>
                           <span className="text-gray-500">{dateTime.date}</span>
                           <span className="text-gray-500">{dateTime.time}</span>
                           <StatusBadge status={appointment.status} />
                           <div className="flex flex-wrap gap-2">
-                            {canCancel && <button onClick={() => handleCancel(appointment.id)} disabled={actionLoading === appointment.id} className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-100 disabled:opacity-60">{actionLoading === appointment.id ? "Updating..." : "Cancel"}</button>}
-                            {canComplete && <button onClick={() => setCompleteModal(appointment.id)} disabled={actionLoading === appointment.id} className="rounded-lg bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-green-100 disabled:opacity-60">Complete</button>}
+                            {isDoctor() && doctorPrimaryAction && (
+                              <button
+                                onClick={() => handleDoctorPrimaryAction(appointment)}
+                                disabled={actionLoading === appointment.id}
+                                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:opacity-60 ${doctorPrimaryAction.tone}`}
+                              >
+                                {actionLoading === appointment.id ? "Updating..." : doctorPrimaryAction.label}
+                              </button>
+                            )}
+                            {!isDoctor() && canCancel && <button onClick={() => handleCancel(appointment.id)} disabled={actionLoading === appointment.id} className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-100 disabled:opacity-60">{actionLoading === appointment.id ? "Updating..." : "Cancel"}</button>}
+                            {!isDoctor() && canComplete && <button onClick={() => setCompleteModal(appointment.id)} disabled={actionLoading === appointment.id} className="rounded-lg bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-green-100 disabled:opacity-60">Complete</button>}
                             {isAdmin() && appointment.status !== "COMPLETED" && <button onClick={() => handleDelete(appointment.id)} disabled={actionLoading === appointment.id} className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs text-gray-600 hover:bg-red-50 hover:text-red-600 disabled:opacity-60"><Trash2 size={12} /></button>}
-                            {!canCancel && !canComplete && !isAdmin() && <span className="text-xs text-gray-300">No actions</span>}
+                            {!isDoctor() && !canCancel && !canComplete && !isAdmin() && <span className="text-xs text-gray-300">No actions</span>}
                           </div>
                         </>
                       )}

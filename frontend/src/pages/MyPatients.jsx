@@ -1,23 +1,23 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { MessageSquare } from "lucide-react";
+
 import { api } from "../services/api";
-import { useAuth } from "../context/AuthContext";
-import { User, Calendar, ChevronRight, Activity } from "lucide-react";
 
 function calcAge(dateOfBirth) {
-  if (!dateOfBirth) return "—";
+  if (!dateOfBirth) return "-";
   return Math.floor((Date.now() - new Date(dateOfBirth).getTime()) / (1000 * 60 * 60 * 24 * 365.25));
 }
 
 function getInitials(name) {
   if (!name) return "?";
-  return name.split(" ").map((n) => n[0]).join("").toUpperCase();
+  return name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
 }
 
 export default function MyPatients() {
-  const { user } = useAuth();
   const navigate = useNavigate();
   const [patients, setPatients] = useState([]);
+  const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("");
@@ -25,77 +25,46 @@ export default function MyPatients() {
   useEffect(() => {
     const fetchPatients = async () => {
       try {
-        const appointments = await api.get("/appointments/my");
-        const patientIds = [...new Set(appointments.map(a => a.patient_id))];
+        const myAppointments = await api.get("/appointments/my");
+        setAppointments(Array.isArray(myAppointments) ? myAppointments : []);
+        const patientIds = [...new Set((myAppointments || []).map((item) => item.patient_id))];
         const allPatients = await api.get("/patients");
-        const myPatients = allPatients.filter(p => patientIds.includes(p.id));
-        setPatients(myPatients);
+        setPatients((allPatients || []).filter((patient) => patientIds.includes(patient.id)));
       } catch (err) {
         console.error("Failed to fetch patients:", err);
       } finally {
         setLoading(false);
       }
     };
-    fetchPatients();
-  }, [user.id]);
+    void fetchPatients();
+  }, []);
 
-  const filtered = patients.filter((p) => {
-    const matchSearch = !search || 
-      p.full_name?.toLowerCase().includes(search.toLowerCase()) ||
-      p.email?.toLowerCase().includes(search.toLowerCase());
-    const matchFilter = !filter || filter === "all" || p.patient_status === filter;
-    return matchSearch && matchFilter;
+  const filtered = patients.filter((patient) => {
+    const value = search.toLowerCase();
+    const matchesSearch = !value || patient.full_name?.toLowerCase().includes(value) || patient.email?.toLowerCase().includes(value);
+    const matchesFilter = !filter || filter === "all" || patient.patient_status === filter;
+    return matchesSearch && matchesFilter;
   });
 
-  const statusCounts = patients.reduce((acc, p) => {
-    const status = p.patient_status || "UNKNOWN";
-    acc[status] = (acc[status] || 0) + 1;
-    return acc;
-  }, {});
-
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-500" />
-      </div>
-    );
+    return <div className="flex h-64 items-center justify-center"><div className="h-12 w-12 animate-spin rounded-full border-b-2 border-teal-500" /></div>;
   }
+
+  const getPatientAppointments = (patientId) =>
+    appointments
+      .filter((appointment) => appointment.patient_id === patientId)
+      .sort((first, second) => new Date(second.appointment_time).getTime() - new Date(first.appointment_time).getTime());
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-semibold">My Patients</h2>
-        <p className="text-sm text-gray-400">Patients assigned to you</p>
+        <p className="text-sm text-gray-400">Patients connected to your appointments.</p>
       </div>
 
-      {/* STATS */}
-      <div className="grid grid-cols-4 gap-4">
-        {[
-          { label: "Total", value: patients.length, color: "text-gray-700" },
-          { label: "In Treatment", value: statusCounts.IN_TREATMENT || 0, color: "text-teal-600" },
-          { label: "Admitted", value: statusCounts.ADMITTED || 0, color: "text-blue-600" },
-          { label: "Discharged", value: statusCounts.DISCHARGED || 0, color: "text-gray-400" },
-        ].map((stat) => (
-          <div key={stat.label} className="bg-white rounded-xl border p-4">
-            <p className="text-xs text-gray-400">{stat.label}</p>
-            <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* FILTERS */}
       <div className="flex gap-4">
-        <input
-          placeholder="Search patients..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 bg-white border px-4 py-2 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
-        />
-        <select
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          className="bg-white border px-4 py-2 rounded-xl text-sm"
-        >
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search patients..." className="flex-1 rounded-xl border bg-white px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400" />
+        <select value={filter} onChange={(e) => setFilter(e.target.value)} className="rounded-xl border bg-white px-4 py-2 text-sm">
           <option value="">All Status</option>
           <option value="IN_TREATMENT">In Treatment</option>
           <option value="ADMITTED">Admitted</option>
@@ -103,52 +72,68 @@ export default function MyPatients() {
         </select>
       </div>
 
-      {/* LIST */}
       {filtered.length === 0 ? (
-        <div className="bg-white rounded-xl border p-10 text-center text-gray-400">
-          No patients found
-        </div>
+        <div className="rounded-xl border bg-white p-10 text-center text-gray-400">No patients found.</div>
       ) : (
-        <div className="bg-white rounded-xl border overflow-hidden">
-          <div className="grid grid-cols-6 px-6 py-3 text-xs text-gray-400 border-b bg-gray-50">
+        <div className="overflow-hidden rounded-xl border bg-white">
+          <div className="grid grid-cols-[1.2fr_0.6fr_0.8fr_0.8fr_0.8fr_0.8fr_0.9fr] border-b bg-gray-50 px-6 py-3 text-xs text-gray-400">
             <span>Patient</span>
-            <span>Age / Gender</span>
-            <span>Blood Type</span>
-            <span>Type</span>
+            <span>Age</span>
+            <span>Condition</span>
+            <span>Last Visit</span>
+            <span>Next Visit</span>
             <span>Status</span>
-            <span></span>
+            <span>Actions</span>
           </div>
+          {filtered.map((patient) => {
+            const patientAppointments = getPatientAppointments(patient.id);
+            const upcoming = [...patientAppointments]
+              .filter((appointment) => appointment.status !== "CANCELLED" && new Date(appointment.appointment_time).getTime() >= Date.now())
+              .sort((first, second) => new Date(first.appointment_time).getTime() - new Date(second.appointment_time).getTime())[0];
+            const previous = patientAppointments.find((appointment) => new Date(appointment.appointment_time).getTime() < Date.now());
+            const formatDate = (value) => value ? new Date(value).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : "-";
 
-          {filtered.map((p) => (
-            <div
-              key={p.id}
-              onClick={() => navigate(`/patients/${p.id}`)}
-              className="grid grid-cols-6 px-6 py-4 items-center border-b last:border-none hover:bg-gray-50 cursor-pointer transition"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-teal-100 text-teal-600 rounded-full flex items-center justify-center font-semibold text-sm">
-                  {getInitials(p.full_name)}
+            return (
+              <div
+                key={patient.id}
+                onClick={() => navigate(`/patients/${patient.id}`)}
+                className={`grid cursor-pointer grid-cols-[1.2fr_0.6fr_0.8fr_0.8fr_0.8fr_0.8fr_0.9fr] items-center border-b px-6 py-4 last:border-none transition hover:bg-gray-50 ${patient.patient_status === "DISCHARGED" ? "opacity-80" : ""}`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-teal-100 text-sm font-semibold text-teal-600">
+                    {getInitials(patient.full_name)}
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900">{patient.full_name}</p>
+                    <p className="text-xs text-gray-400">{patient.email}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-medium text-sm">{p.full_name}</p>
-                  <p className="text-xs text-gray-400">{p.email}</p>
+                <span className="text-sm text-gray-500">{calcAge(patient.date_of_birth)}</span>
+                <span className="text-sm text-gray-600">{patient.condition || "-"}</span>
+                <span className="text-sm text-gray-500">{formatDate(previous?.appointment_time)}</span>
+                <span className="text-sm text-gray-500">{formatDate(upcoming?.appointment_time)}</span>
+                <span className={`w-fit rounded-full px-3 py-1 text-xs font-medium ${
+                  patient.patient_status === "IN_TREATMENT"
+                    ? "bg-teal-100 text-teal-700"
+                    : patient.patient_status === "ADMITTED"
+                      ? "bg-blue-100 text-blue-700"
+                      : "bg-gray-100 text-gray-500"
+                }`}>
+                  {patient.patient_status?.replace("_", " ") || "-"}
+                </span>
+                <div className="flex flex-wrap gap-2" onClick={(event) => event.stopPropagation()}>
+                  <button onClick={() => navigate(`/patients/${patient.id}`)} className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-200">Open Case</button>
+                  {patient.patient_status !== "DISCHARGED" ? (
+                    <button onClick={() => navigate("/messages", { state: { patientId: patient.id } })} className="rounded-lg bg-teal-500 p-2 text-white hover:bg-teal-600" aria-label="Chat">
+                      <MessageSquare size={14} />
+                    </button>
+                  ) : (
+                    <span className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-400">Read only</span>
+                  )}
                 </div>
               </div>
-              <span className="text-sm text-gray-500">
-                {calcAge(p.date_of_birth)} / {p.gender?.slice(0, 1) || "—"}
-              </span>
-              <span className="text-sm text-gray-500">{p.blood_type || "—"}</span>
-              <span className="text-sm text-gray-500 capitalize">{p.patient_type?.toLowerCase() || "—"}</span>
-              <span className={`text-xs px-2 py-1 rounded-md w-fit ${
-                p.patient_status === "IN_TREATMENT" ? "bg-teal-100 text-teal-600" :
-                p.patient_status === "ADMITTED" ? "bg-blue-100 text-blue-600" :
-                "bg-gray-100 text-gray-500"
-              }`}>
-                {p.patient_status?.replace("_", " ") || "—"}
-              </span>
-              <ChevronRight size={16} className="text-gray-400" />
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

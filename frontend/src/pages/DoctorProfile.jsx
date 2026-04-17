@@ -1,6 +1,32 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { Award, Building, Check, Clock, Mail, Phone, Save, User } from "lucide-react";
+
 import { api } from "../services/api";
-import { Save, Check, User, Phone, Award, Clock, Building } from "lucide-react";
+
+const PHONE_REGEX = /^\+?\d{10,15}$/;
+
+function parseFieldErrors(err) {
+  const detail = err?.data?.detail;
+  if (!Array.isArray(detail)) return {};
+
+  return detail.reduce((acc, item) => {
+    const fieldName = Array.isArray(item?.loc)
+      ? item.loc.filter((segment) => typeof segment === "string" && !["body", "query", "path"].includes(segment)).at(-1)
+      : "";
+    if (!fieldName) return acc;
+    acc[fieldName] = item?.msg?.replace(/^Value error,\s*/i, "") || "Invalid value";
+    return acc;
+  }, {});
+}
+
+function fieldClass(hasError) {
+  return `flex-1 rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 ${hasError ? "border border-red-300 focus:ring-red-200" : "focus:ring-teal-400"}`;
+}
+
+function FieldError({ message }) {
+  if (!message) return null;
+  return <p className="mt-1 text-xs text-red-500">{message}</p>;
+}
 
 export default function DoctorProfile() {
   const [profile, setProfile] = useState(null);
@@ -8,7 +34,7 @@ export default function DoctorProfile() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
-
+  const [fieldErrors, setFieldErrors] = useState({});
   const [form, setForm] = useState({
     full_name: "",
     specialty: "",
@@ -37,152 +63,155 @@ export default function DoctorProfile() {
         setLoading(false);
       }
     };
-    fetchProfile();
+    void fetchProfile();
   }, []);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setForm({ ...form, [name]: name === "years_of_experience" || name === "consultation_duration_minutes" ? parseInt(value) || 0 : value });
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+    setFieldErrors((current) => ({ ...current, [name]: "" }));
+    setForm((current) => ({
+      ...current,
+      [name]: name === "years_of_experience" || name === "consultation_duration_minutes"
+        ? parseInt(value, 10) || 0
+        : value,
+    }));
   };
 
   const handleSave = async () => {
-    setSaving(true);
+    const nextFieldErrors = {};
+    const normalizedPhone = form.phone.replace(/[^\d+]/g, "");
+
     setError("");
     setSaved(false);
+    setFieldErrors({});
+
+    if (!form.full_name.trim()) nextFieldErrors.full_name = "Enter your full name";
+    if (!form.specialty.trim()) nextFieldErrors.specialty = "Enter your specialty";
+    if (normalizedPhone && !PHONE_REGEX.test(normalizedPhone)) nextFieldErrors.phone = "Use 10 to 15 digits";
+    if (form.years_of_experience < 0 || form.years_of_experience > 50) nextFieldErrors.years_of_experience = "Use a value from 0 to 50";
+    if (form.consultation_duration_minutes < 10 || form.consultation_duration_minutes > 120) nextFieldErrors.consultation_duration_minutes = "Use a value from 10 to 120";
+
+    if (Object.keys(nextFieldErrors).length > 0) {
+      setFieldErrors(nextFieldErrors);
+      return;
+    }
+
     try {
-      await api.put("/doctors/me", form);
+      setSaving(true);
+      const updatedProfile = await api.put("/doctors/me", {
+        ...form,
+        phone: normalizedPhone || null,
+        specialty: form.specialty.trim(),
+        bio: form.bio.trim() || null,
+      });
+      setProfile(updatedProfile);
+      setForm({
+        full_name: updatedProfile.full_name || "",
+        specialty: updatedProfile.specialty || "",
+        bio: updatedProfile.bio || "",
+        years_of_experience: updatedProfile.years_of_experience || 0,
+        consultation_duration_minutes: updatedProfile.consultation_duration_minutes || 30,
+        phone: updatedProfile.phone || "",
+      });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (err) {
-      setError(err.message || "Failed to save profile");
+      const parsedErrors = parseFieldErrors(err);
+      if (Object.keys(parsedErrors).length > 0) {
+        setFieldErrors(parsedErrors);
+      } else {
+        setError(err.message || "Failed to save profile");
+      }
     } finally {
       setSaving(false);
     }
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-500" />
-      </div>
-    );
+    return <div className="flex h-64 items-center justify-center"><div className="h-12 w-12 animate-spin rounded-full border-b-2 border-teal-500" /></div>;
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="mx-auto max-w-2xl space-y-6">
       <div>
         <h2 className="text-2xl font-semibold">My Profile</h2>
-        <p className="text-sm text-gray-400">Manage your doctor profile</p>
+        <p className="text-sm text-gray-400">Manage your doctor profile.</p>
       </div>
 
-      {error && (
-        <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">{error}</div>
-      )}
+      {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>}
 
-      <div className="bg-white rounded-2xl border p-6 space-y-6">
+      <div className="space-y-6 rounded-2xl border bg-white p-6">
         <div>
-          <label className="text-sm text-gray-500 mb-1 block">Full Name</label>
+          <label className="mb-1 block text-sm text-gray-500">Email</label>
+          <div className="flex items-center gap-3">
+            <Mail size={18} className="text-gray-400" />
+            <input value={profile?.email || ""} readOnly className="flex-1 rounded-xl bg-gray-100 px-4 py-2 text-sm text-gray-500 outline-none" />
+          </div>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-sm text-gray-500">Full Name</label>
           <div className="flex items-center gap-3">
             <User size={18} className="text-gray-400" />
-            <input
-              name="full_name"
-              value={form.full_name}
-              onChange={handleChange}
-              className="flex-1 px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
-            />
+            <input name="full_name" value={form.full_name} onChange={handleChange} className={fieldClass(Boolean(fieldErrors.full_name))} />
           </div>
+          <FieldError message={fieldErrors.full_name} />
         </div>
 
         <div>
-          <label className="text-sm text-gray-500 mb-1 block">Specialty</label>
+          <label className="mb-1 block text-sm text-gray-500">Specialty</label>
           <div className="flex items-center gap-3">
             <Award size={18} className="text-gray-400" />
-            <input
-              name="specialty"
-              value={form.specialty}
-              onChange={handleChange}
-              placeholder="e.g. Cardiologist"
-              className="flex-1 px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
-            />
+            <input name="specialty" value={form.specialty} onChange={handleChange} placeholder="e.g. Cardiologist" className={fieldClass(Boolean(fieldErrors.specialty))} />
           </div>
+          <FieldError message={fieldErrors.specialty} />
         </div>
 
         <div>
-          <label className="text-sm text-gray-500 mb-1 block">Bio</label>
-          <textarea
-            name="bio"
-            value={form.bio}
-            onChange={handleChange}
-            rows={4}
-            placeholder="Tell patients about yourself..."
-            className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none resize-none focus:ring-2 focus:ring-teal-400"
-          />
+          <label className="mb-1 block text-sm text-gray-500">Bio</label>
+          <textarea name="bio" value={form.bio} onChange={handleChange} rows={4} placeholder="Tell patients about yourself..." className={`${fieldClass(Boolean(fieldErrors.bio))} w-full resize-none`} />
+          <FieldError message={fieldErrors.bio} />
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="text-sm text-gray-500 mb-1 block">Years of Experience</label>
+            <label className="mb-1 block text-sm text-gray-500">Years of Experience</label>
             <div className="flex items-center gap-3">
               <Clock size={18} className="text-gray-400" />
-              <input
-                name="years_of_experience"
-                type="number"
-                min="0"
-                value={form.years_of_experience}
-                onChange={handleChange}
-                className="flex-1 px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
-              />
+              <input name="years_of_experience" type="number" min="0" max="50" value={form.years_of_experience} onChange={handleChange} className={fieldClass(Boolean(fieldErrors.years_of_experience))} />
             </div>
+            <FieldError message={fieldErrors.years_of_experience} />
           </div>
-
           <div>
-            <label className="text-sm text-gray-500 mb-1 block">Session Duration (min)</label>
+            <label className="mb-1 block text-sm text-gray-500">Session Duration (min)</label>
             <div className="flex items-center gap-3">
               <Clock size={18} className="text-gray-400" />
-              <input
-                name="consultation_duration_minutes"
-                type="number"
-                min="15"
-                step="15"
-                value={form.consultation_duration_minutes}
-                onChange={handleChange}
-                className="flex-1 px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
-              />
+              <input name="consultation_duration_minutes" type="number" min="10" max="120" step="5" value={form.consultation_duration_minutes} onChange={handleChange} className={fieldClass(Boolean(fieldErrors.consultation_duration_minutes))} />
             </div>
+            <FieldError message={fieldErrors.consultation_duration_minutes} />
           </div>
         </div>
 
         <div>
-          <label className="text-sm text-gray-500 mb-1 block">Phone</label>
+          <label className="mb-1 block text-sm text-gray-500">Phone</label>
           <div className="flex items-center gap-3">
             <Phone size={18} className="text-gray-400" />
-            <input
-              name="phone"
-              value={form.phone}
-              onChange={handleChange}
-              placeholder="+1 555-0100"
-              className="flex-1 px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
-            />
+            <input name="phone" type="tel" value={form.phone} onChange={handleChange} placeholder="+1 5550100" className={fieldClass(Boolean(fieldErrors.phone))} />
           </div>
+          <FieldError message={fieldErrors.phone} />
         </div>
 
         {profile?.department_name && (
           <div>
-            <label className="text-sm text-gray-500 mb-1 block">Department</label>
+            <label className="mb-1 block text-sm text-gray-500">Department</label>
             <div className="flex items-center gap-3">
               <Building size={18} className="text-gray-400" />
-              <span className="px-4 py-2 bg-gray-100 rounded-xl text-sm">{profile.department_name}</span>
+              <span className="rounded-xl bg-gray-100 px-4 py-2 text-sm">{profile.department_name}</span>
             </div>
           </div>
         )}
 
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className={`w-full py-3 rounded-xl flex items-center justify-center gap-2 transition ${
-            saved ? "bg-green-500 text-white" : "bg-teal-500 text-white hover:bg-teal-600"
-          } disabled:opacity-50`}
-        >
+        <button onClick={handleSave} disabled={saving} className={`flex w-full items-center justify-center gap-2 rounded-xl py-3 transition ${saved ? "bg-green-500 text-white" : "bg-teal-500 text-white hover:bg-teal-600"} disabled:opacity-50`}>
           {saved ? <><Check size={18} /> Saved</> : saving ? "Saving..." : <><Save size={18} /> Save Profile</>}
         </button>
       </div>
