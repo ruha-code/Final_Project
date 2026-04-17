@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from datetime import date, datetime, timedelta, time, timezone
 
 from app.core.database import get_db
@@ -56,10 +56,9 @@ async def list_doctors(
     is_available: bool | None = Query(
         default=None, description="Filter by availability"
     ),
+    search: str | None = Query(default=None, description="Search by name or specialty"),
     db: AsyncSession = Depends(get_db),
 ):
-    from sqlalchemy.orm import selectinload
-
     query = select(Doctor).options(
         selectinload(Doctor.user),
         selectinload(Doctor.department),
@@ -68,6 +67,14 @@ async def list_doctors(
         query = query.where(Doctor.department_id == department_id)
     if is_available is not None:
         query = query.where(Doctor.is_available == is_available)
+    if search:
+        from app.modules.auth.models import User as UserModel
+        query = query.join(Doctor.user).where(
+            or_(
+                UserModel.full_name.ilike(f"%{search}%"),
+                Doctor.specialty.ilike(f"%{search}%"),
+            )
+        )
 
     result = await db.execute(query)
     doctors = result.scalars().all()
@@ -85,8 +92,6 @@ async def setup_doctor_profile(
     current_user: User = Depends(doctor_only),
     db: AsyncSession = Depends(get_db),
 ):
-    from sqlalchemy.orm import selectinload
-
     result = await db.execute(select(Doctor).where(Doctor.user_id == current_user.id))
     if result.scalar_one_or_none():
         raise ConflictException("Doctor profile already exists for this account")
@@ -127,8 +132,6 @@ async def get_my_doctor_profile(
     current_user: User = Depends(doctor_only),
     db: AsyncSession = Depends(get_db),
 ):
-    from sqlalchemy.orm import selectinload
-
     result = await db.execute(
         select(Doctor)
         .options(selectinload(Doctor.user), selectinload(Doctor.department))
@@ -148,8 +151,6 @@ async def update_my_doctor_profile(
     current_user: User = Depends(doctor_only),
     db: AsyncSession = Depends(get_db),
 ):
-    from sqlalchemy.orm import selectinload
-
     result = await db.execute(
         select(Doctor)
         .options(selectinload(Doctor.user), selectinload(Doctor.department))
@@ -186,6 +187,13 @@ async def update_my_doctor_profile(
         .where(Doctor.user_id == current_user.id)
     )
     doctor = result.scalar_one()
+    await log(
+        db,
+        current_user.id,
+        Actions.UPDATE_DOCTOR_PROFILE,
+        entity_type="Doctor",
+        entity_id=doctor.id,
+    )
     return _build_detail(doctor)
 
 
@@ -391,7 +399,12 @@ async def update_doctor_admin(
             setattr(doctor, field, value)
 
     await db.commit()
-    await db.refresh(doctor)
+    result = await db.execute(
+        select(Doctor)
+        .options(selectinload(Doctor.user), selectinload(Doctor.department))
+        .where(Doctor.id == doctor_id)
+    )
+    doctor = result.scalar_one()
     await log(
         db, current_user.id, "UPDATE_DOCTOR", entity_type="Doctor", entity_id=doctor.id
     )
@@ -411,10 +424,10 @@ async def delete_doctor_admin(
     if not doctor:
         raise NotFoundException("Doctor not found")
 
-    user_id = doctor.user_id
+    user = doctor.user
     await db.delete(doctor)
-    await db.execute(select(User).where(User.id == user_id))
-    await db.delete(doctor.user)
+    await db.flush()          
+    await db.delete(user)
     await db.commit()
     await log(
         db, current_user.id, "DELETE_DOCTOR", entity_type="Doctor", entity_id=doctor_id

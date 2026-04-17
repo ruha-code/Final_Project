@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from typing import Optional
+from app.modules.auth.models import User as UserModel
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, RoleChecker
@@ -112,6 +113,31 @@ async def get_my_patient_profile(
         raise NotFoundException("Patient profile not found. Please set it up first.")
     return _build_detail(patient)
 
+
+@router.get(
+    "/me/vitals",
+    response_model=list[HealthVitalResponse],
+    summary="Get my vitals history (Patient)",
+)
+async def get_my_vitals(
+    limit: int = Query(default=50, ge=1, le=200, description="Max records to return"),
+    current_user: User = Depends(patient_only),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(Patient).where(Patient.user_id == current_user.id))
+    patient = result.scalar_one_or_none()
+    if not patient:
+        raise NotFoundException("Patient profile not found. Please set it up first.")
+
+    result = await db.execute(
+        select(HealthVital)
+        .where(HealthVital.patient_id == patient.id)
+        .order_by(HealthVital.recorded_at.desc())
+        .limit(limit)
+    )
+    return result.scalars().all()
+
+
 @router.put(
     "/me", response_model=PatientDetailResponse, summary="Update my patient profile"
 )
@@ -166,19 +192,17 @@ async def list_patients(
     current_user: User = Depends(RoleChecker(["ADMIN", "DOCTOR"])),
     db: AsyncSession = Depends(get_db),
 ):
-    query = select(Patient).options(selectinload(Patient.user))
+    query = select(Patient).options(selectinload(Patient.user)).join(Patient.user)
 
     if status:
         query = query.where(Patient.patient_status == status)
     if patient_type:
         query = query.where(Patient.patient_type == patient_type)
+    if search:
+        query = query.where(UserModel.full_name.ilike(f"%{search}%"))
 
     result = await db.execute(query)
     patients = result.scalars().all()
-
-    if search:
-        search_lower = search.lower()
-        patients = [p for p in patients if search_lower in p.user.full_name.lower()]
 
     return [_build_detail(p) for p in patients]
 
@@ -233,6 +257,7 @@ async def add_vitals(
 )
 async def get_vitals(
     patient_id: int,
+    limit: int = Query(default=50, ge=1, le=200, description="Max records to return"),
     current_user: User = Depends(RoleChecker(["ADMIN", "DOCTOR", "PATIENT"])),
     db: AsyncSession = Depends(get_db),
 ):
@@ -246,6 +271,7 @@ async def get_vitals(
         select(HealthVital)
         .where(HealthVital.patient_id == patient_id)
         .order_by(HealthVital.recorded_at.desc())
+        .limit(limit)
     )
     return result.scalars().all()
 
@@ -279,11 +305,17 @@ async def update_patient(
         setattr(patient, field, value)
 
     await db.commit()
-    await db.refresh(patient)
+    # Re-query to reload user relationship after commit (db.refresh won't load relations)
+    result = await db.execute(
+        select(Patient)
+        .options(selectinload(Patient.user))
+        .where(Patient.id == patient_id)
+    )
+    patient = result.scalar_one()
     await log(
         db,
         current_user.id,
-        "UPDATE_PATIENT",
+        Actions.UPDATE_PATIENT,
         entity_type="Patient",
         entity_id=patient.id,
     )
