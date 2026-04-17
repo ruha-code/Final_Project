@@ -49,6 +49,33 @@ The app will be available at:
 - Frontend: http://localhost:5173
 - Backend API: http://localhost:8000
 - API Docs: http://localhost:8000/docs
+- Mailpit inbox (dev emails): http://localhost:8025
+
+### Test Real Email with Gmail SMTP
+
+1. In your Google account, enable 2-Step Verification.
+2. Create an App Password (Mail).
+3. Set these values in `backend/.env`:
+
+```
+EMAILS_ENABLED=True
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_STARTTLS=True
+SMTP_USERNAME=your-gmail@gmail.com
+SMTP_PASSWORD=your-16-char-app-password
+EMAILS_FROM=your-gmail@gmail.com
+```
+
+4. Restart the API container:
+
+```
+docker compose up -d --build api
+```
+
+Notes:
+- `SMTP_PASSWORD` must be the Google App Password, not your normal Gmail login password.
+- For better deliverability, keep `EMAILS_FROM` the same as `SMTP_USERNAME`.
 
 ### Run locally (without Docker)
 

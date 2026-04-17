@@ -21,13 +21,15 @@ async def _send(to: str, subject: str, html: str) -> None:
     msg.attach(MIMEText(html, "html"))
 
     try:
+        smtp_username = settings.SMTP_USERNAME or None
+        smtp_password = settings.SMTP_PASSWORD or None
         await aiosmtplib.send(
             msg,
             hostname=settings.SMTP_HOST,
             port=settings.SMTP_PORT,
-            username=settings.SMTP_USERNAME,
-            password=settings.SMTP_PASSWORD,
-            start_tls=True,
+            username=smtp_username,
+            password=smtp_password,
+            start_tls=settings.SMTP_STARTTLS,
         )
         logger.info(f"[EMAIL] Sent '{subject}' → {to}")
     except Exception as exc:
