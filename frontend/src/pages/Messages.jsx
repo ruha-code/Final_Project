@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from "react";
 import { api } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import MessageBubble from "../components/MessageBubble";
-import ChatItem from "../components/ChatItem";
 
 function getInitials(name) {
   if (!name) return "?";
@@ -20,9 +19,14 @@ function Avatar({ name }) {
 function Messages() {
   const { user } = useAuth();
   const [conversations, setConversations] = useState([]);
+  const [doctors, setDoctors] = useState([]);
   const [activeConvId, setActiveConvId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [selectedDoctorId, setSelectedDoctorId] = useState("");
+  const [createLoading, setCreateLoading] = useState(false);
+  const [createError, setCreateError] = useState("");
   const [loading, setLoading] = useState(true);
   const bottomRef = useRef(null);
 
@@ -35,6 +39,14 @@ function Messages() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (user?.role !== "PATIENT") return;
+
+    api.get("/doctors")
+      .then(setDoctors)
+      .catch(console.error);
+  }, [user?.role]);
 
   useEffect(() => {
     if (!activeConvId) return;
@@ -58,10 +70,44 @@ function Messages() {
     }
   };
 
+  const handleCreateConversation = async () => {
+    if (!selectedDoctorId) {
+      setCreateError("Select a doctor to start a conversation");
+      return;
+    }
+
+    setCreateLoading(true);
+    setCreateError("");
+
+    try {
+      const conversation = await api.post("/messages/conversations", {
+        doctor_id: Number(selectedDoctorId),
+      });
+      setConversations((prev) => {
+        const existing = prev.some((item) => item.id === conversation.id);
+        return existing ? prev : [conversation, ...prev];
+      });
+      setActiveConvId(conversation.id);
+      setMessages([]);
+      setSelectedDoctorId("");
+    } catch (err) {
+      setCreateError(err.message || "Failed to start conversation");
+    } finally {
+      setCreateLoading(false);
+    }
+  };
+
   const activeConv = conversations.find((c) => c.id === activeConvId);
   const contactName = activeConv
     ? user?.role === "PATIENT" ? activeConv.doctor_name : activeConv.patient_name
     : "";
+  const filteredConversations = conversations.filter((conv) => {
+    const name = user?.role === "PATIENT" ? conv.doctor_name : conv.patient_name;
+    return name?.toLowerCase().includes(search.toLowerCase());
+  });
+  const availableDoctors = doctors.filter(
+    (doctor) => !conversations.some((conv) => conv.doctor_id === doctor.id),
+  );
 
   if (loading) {
     return (
@@ -77,16 +123,60 @@ function Messages() {
       <div className="w-80 bg-white rounded-2xl border shadow-sm p-4 flex flex-col">
         <div className="flex gap-2 mb-4">
           <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
             placeholder="Search..."
             className="flex-1 px-3 py-2 bg-gray-100 rounded-lg text-sm outline-none"
           />
         </div>
 
-        {conversations.length === 0 ? (
+        {user?.role === "PATIENT" && (
+          <div className="mb-4 p-3 bg-teal-50 rounded-xl space-y-3">
+            <div>
+              <p className="text-sm font-medium text-gray-700">Start a conversation</p>
+              <p className="text-xs text-gray-500 mt-1">
+                Choose a doctor to open a new chat.
+              </p>
+            </div>
+
+            <select
+              value={selectedDoctorId}
+              onChange={(e) => setSelectedDoctorId(e.target.value)}
+              className="w-full px-3 py-2 bg-white border rounded-lg text-sm outline-none focus:ring-2 focus:ring-teal-400"
+            >
+              <option value="">Select doctor</option>
+              {availableDoctors.map((doctor) => (
+                <option key={doctor.id} value={doctor.id}>
+                  {doctor.full_name}
+                </option>
+              ))}
+            </select>
+
+            {createError && (
+              <p className="text-xs text-red-500">{createError}</p>
+            )}
+
+            <button
+              onClick={handleCreateConversation}
+              disabled={createLoading || availableDoctors.length === 0}
+              className="w-full bg-teal-500 text-white py-2 rounded-lg text-sm hover:bg-teal-600 disabled:opacity-50"
+            >
+              {createLoading ? "Starting..." : "New Conversation"}
+            </button>
+
+            {availableDoctors.length === 0 && (
+              <p className="text-xs text-gray-500">
+                You already have conversations with all available doctors.
+              </p>
+            )}
+          </div>
+        )}
+
+        {filteredConversations.length === 0 ? (
           <p className="text-sm text-gray-400 text-center mt-4">No conversations yet</p>
         ) : (
           <div className="space-y-2 overflow-y-auto">
-            {conversations.map((conv) => {
+            {filteredConversations.map((conv) => {
               const name = user?.role === "PATIENT" ? conv.doctor_name : conv.patient_name;
               return (
                 <div
@@ -152,8 +242,19 @@ function Messages() {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">
-            Select a conversation
+          <div className="flex-1 flex items-center justify-center p-8 text-center">
+            {user?.role === "PATIENT" ? (
+              <div>
+                <p className="text-sm text-gray-500">Start a conversation with a doctor to begin messaging.</p>
+              </div>
+            ) : (
+              <div>
+                <p className="text-sm text-gray-500">No conversations yet.</p>
+                <p className="text-xs text-gray-400 mt-2">
+                  Patients can start a new chat from their side.
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>

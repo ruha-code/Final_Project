@@ -12,7 +12,12 @@ from app.core.dependencies import RoleChecker, get_current_user, oauth2_scheme
 from app.core.exceptions import ConflictException, UnauthorizedException
 from app.core.pagination import paginate
 from app.core.security import decode_access_token, hash_password, create_access_token
-from app.core.cache import blacklist_token
+from app.core.cache import (
+    blacklist_raw_token,
+    blacklist_token,
+    is_raw_token_blacklisted,
+    is_token_blacklisted,
+)
 from app.modules.auth.schemas import (
     RegisterSchema,
     LoginSchema,
@@ -89,10 +94,17 @@ async def login(
 async def refresh_access_token(
     body: RefreshRequest, db: AsyncSession = Depends(get_db)
 ):
+    if await is_raw_token_blacklisted(body.refresh_token):
+        raise UnauthorizedException("Refresh token has been revoked")
+
     payload = decode_access_token(body.refresh_token)
 
     if not payload or payload.get("type") != "refresh":
         raise UnauthorizedException("Invalid refresh token")
+
+    refresh_jti = payload.get("jti")
+    if refresh_jti and await is_token_blacklisted(refresh_jti):
+        raise UnauthorizedException("Refresh token has been revoked")
 
     user = await db.get(User, payload["user_id"])
     if not user or not user.is_active:
@@ -140,6 +152,7 @@ async def update_me(
 
 @router.post("/logout", summary="Logout — revoke current token")
 async def logout(
+    body: RefreshRequest | None = None,
     token: str = Depends(oauth2_scheme),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -152,6 +165,24 @@ async def logout(
         remaining = int(exp - datetime.utcnow().timestamp())
         if remaining > 0:
             await blacklist_token(jti, remaining)
+
+    if body and body.refresh_token:
+        refresh_payload = decode_access_token(body.refresh_token)
+        if (
+            refresh_payload
+            and refresh_payload.get("type") == "refresh"
+            and refresh_payload.get("user_id") == current_user.id
+        ):
+            refresh_exp = refresh_payload.get("exp")
+            if refresh_exp:
+                refresh_remaining = int(
+                    refresh_exp - datetime.utcnow().timestamp()
+                )
+                if refresh_remaining > 0:
+                    refresh_jti = refresh_payload.get("jti")
+                    if refresh_jti:
+                        await blacklist_token(refresh_jti, refresh_remaining)
+                    await blacklist_raw_token(body.refresh_token, refresh_remaining)
 
     await log(
         db=db,
