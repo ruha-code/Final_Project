@@ -12,6 +12,7 @@ from app.core.exceptions import ConflictException, ForbiddenException, NotFoundE
 from app.core.security import decode_access_token
 from app.core import event_bus
 from app.modules.auth.models import User
+from app.modules.appointments.models import Appointment, AppointmentStatus
 from app.modules.doctors.models import Doctor
 from app.modules.messages.models import Conversation, Message
 from app.modules.messages.schemas import (
@@ -134,8 +135,21 @@ async def create_conversation(
         raise NotFoundException("Set up your patient profile first")
 
     result = await db.execute(select(Doctor).where(Doctor.id == dto.doctor_id))
-    if not result.scalar_one_or_none():
+    doctor = result.scalar_one_or_none()
+    if not doctor:
         raise NotFoundException("Doctor not found")
+
+    result = await db.execute(
+        select(Appointment).where(
+            Appointment.patient_id == patient.id,
+            Appointment.doctor_id == dto.doctor_id,
+            Appointment.status != AppointmentStatus.CANCELLED,
+        )
+    )
+    if result.scalar_one_or_none() is None:
+        raise ForbiddenException(
+            "You can only message doctors you have an appointment with"
+        )
 
     result = await db.execute(
         select(Conversation).where(
