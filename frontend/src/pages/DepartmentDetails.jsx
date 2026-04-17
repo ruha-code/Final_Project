@@ -70,7 +70,7 @@ export default function DepartmentDetails() {
               <MapPin size={14} /> {department.location || "No location set"}
             </p>
             <p className="flex items-center gap-2">
-              <Users size={14} /> {department.staff_count || doctors.length} Staff
+              <Users size={14} /> {department.staff_count || doctors.length} Team Members
             </p>
           </div>
 

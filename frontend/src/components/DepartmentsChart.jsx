@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { api } from "../services/api";
 
-const roles = ["DOCTOR", "NURSE", "STAFF"];
+const teamSizes = ["Large team", "Core team", "Lean team"];
 
 function getColor(value) {
   if (value > 40) return "bg-teal-700";
@@ -22,14 +22,17 @@ export default function DepartmentsChart() {
       .finally(() => setLoading(false));
   }, []);
 
-  const totalStaff = departments.reduce((s, d) => s + (d.staff_count || 0), 0);
+  const totalTeamMembers = departments.reduce(
+    (sum, department) => sum + (department.staff_count || 0),
+    0,
+  );
 
-  const maxStaff = Math.max(...departments.map((d) => d.staff_count || 0), 1);
+  const maxTeamMembers = Math.max(...departments.map((d) => d.staff_count || 0), 1);
   const levels = [50, 45, 40, 35, 30, 25, 20, 15, 10, 5];
   const chartData = departments.slice(0, 6).map((dep) => ({
     name: dep.name || "Unknown",
-    staff: dep.staff_count || 0,
-    percentage: Math.round((dep.staff_count || 0) / maxStaff * 100),
+    teamMembers: dep.staff_count || 0,
+    percentage: Math.round((dep.staff_count || 0) / maxTeamMembers * 100),
   }));
 
   if (loading) {
@@ -44,14 +47,14 @@ export default function DepartmentsChart() {
     <div className="bg-white rounded-2xl border p-6">
       <div className="flex justify-between mb-6">
         <div>
-          <h3 className="font-semibold">Staff by Department</h3>
-          <p className="text-sm text-gray-400">Total Staff</p>
-          <p className="text-2xl font-bold text-teal-600">{totalStaff}</p>
+          <h3 className="font-semibold">Team by Department</h3>
+          <p className="text-sm text-gray-400">Total Team Members</p>
+          <p className="text-2xl font-bold text-teal-600">{totalTeamMembers}</p>
         </div>
 
         <div className="flex gap-4 text-xs text-gray-500 items-center">
-          {roles.map((r, i) => (
-            <div key={r} className="flex items-center gap-1">
+          {teamSizes.map((label, i) => (
+            <div key={label} className="flex items-center gap-1">
               <div
                 className={`w-2 h-2 rounded-full ${
                   i === 0
@@ -61,7 +64,7 @@ export default function DepartmentsChart() {
                       : "bg-teal-600"
                 }`}
               />
-              {r}
+              {label}
             </div>
           ))}
         </div>
@@ -82,11 +85,11 @@ export default function DepartmentsChart() {
                 return (
                   <div
                     key={colIndex}
-                    className={`h-6 flex-1 rounded-lg ${getColor(dep.staff)}`}
+                    className={`h-6 flex-1 rounded-lg ${getColor(dep.teamMembers)}`}
                     style={{ 
                       opacity: barHeight >= 100 ? 1 : barHeight > 0 ? 0.3 : 0 
                     }}
-                    title={`${dep.name}: ${dep.staff} staff`}
+                    title={`${dep.name}: ${dep.teamMembers} team members`}
                   />
                 );
               })}

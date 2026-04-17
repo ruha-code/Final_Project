@@ -32,7 +32,7 @@ function MiniStats({ departments }) {
       <h3 className="font-semibold text-sm">Department Insights</h3>
       <div className="space-y-3 text-sm">
         <div>
-          <p className="text-gray-500">Staff Load</p>
+          <p className="text-gray-500">Team Capacity</p>
           <div className="h-2 bg-gray-200 rounded-full">
             <div className="h-2 bg-teal-500 rounded-full" style={{ width: `${avg("patient_satisfaction")}%` }} />
           </div>
@@ -72,7 +72,7 @@ function DepartmentCard({ dep, onEdit, onDelete }) {
         <p className="text-sm text-gray-500">{dep.description || "—"}</p>
         <div className="flex justify-between items-center pt-3">
           <span className="text-xs bg-teal-100 text-teal-600 px-2 py-1 rounded-lg">
-            {dep.staff_count} Staff
+            {dep.staff_count} Team Members
           </span>
           <span className="text-sm text-teal-600 flex items-center gap-1 cursor-pointer" onClick={(e) => { e.stopPropagation(); navigate(`/departments/${dep.id}`); }}>
             View <ArrowRight size={14} />
@@ -208,8 +208,13 @@ export default function Departments() {
     d.name.toLowerCase().includes(search.toLowerCase())
   );
 
-  const totalStaff = departments.reduce((s, d) => s + (d.staff_count || 0), 0);
-  const avgTeam = departments.length ? Math.round(totalStaff / departments.length) : 0;
+  const totalTeamMembers = departments.reduce(
+    (sum, department) => sum + (department.staff_count || 0),
+    0,
+  );
+  const avgTeam = departments.length
+    ? Math.round(totalTeamMembers / departments.length)
+    : 0;
 
   if (loading) {
     return (
@@ -229,7 +234,7 @@ export default function Departments() {
       <div className="grid grid-cols-4 gap-6">
         <div className="col-span-1 space-y-4">
           <StatCard title="Total Departments" value={departments.length} icon={Building2} />
-          <StatCard title="Total Staff" value={totalStaff} icon={Layers} />
+          <StatCard title="Total Team Members" value={totalTeamMembers} icon={Layers} />
           <StatCard title="Avg Team Size" value={avgTeam} icon={Users} />
           <MiniStats departments={departments} />
         </div>

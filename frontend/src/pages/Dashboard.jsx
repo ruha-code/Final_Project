@@ -183,7 +183,7 @@ function Dashboard() {
             {
               title: "Doctors",
               value: stats.doctors,
-              info: "Active staff",
+              info: "Active clinicians",
             },
           ].map((item, i) => (
             <div
