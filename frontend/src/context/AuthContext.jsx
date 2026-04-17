@@ -55,8 +55,12 @@ export function AuthProvider({ children }) {
   };
 
   const logout = async () => {
+    const refreshToken = api.getRefreshToken();
+
     try {
-      await api.post("/auth/logout", {});
+      await api.post("/auth/logout", {
+        refresh_token: refreshToken || null,
+      });
     } catch {
       // Ignore logout failures and clear the local session anyway.
     }
