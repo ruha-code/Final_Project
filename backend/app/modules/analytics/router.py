@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends
 
 import h3
@@ -13,6 +15,8 @@ from app.core.cache import cache_get, cache_set, CacheKeys
 
 router = APIRouter(dependencies=[Depends(RoleChecker(["ADMIN"]))])
 
+logger = logging.getLogger("clinic.analytics")
+
 
 
 @router.get("/demand", response_model=list[DemandPoint])
@@ -20,7 +24,7 @@ async def get_demand(db: AsyncSession = Depends(get_db), current_user: User=Depe
     
     cached = await cache_get(CacheKeys.ANALYTICS_DEMAND)
     if cached:
-        print("[CACHE HIT] analytics:demand")
+        logger.debug("[CACHE HIT] analytics:demand")
         return [DemandPoint(**item) for item in cached]
 
     result = await db.execute(
@@ -52,24 +56,23 @@ async def get_demand(db: AsyncSession = Depends(get_db), current_user: User=Depe
         [p.model_dump() for p in response],
         ttl_seconds=300,
     )
-    print("[CACHE SET] analytics:demand (300s)")
+    logger.debug("[CACHE SET] analytics:demand (300s)")
 
     await log(db=db, user_id=current_user.id, action=Actions.VIEW_ANALYTICS)
     return response
 
 
 
-@router.get("/region/{h3_index}", response_model=list[RegionDetail])
+@router.get("/region/{h3_index}", response_model=RegionDetail)
 async def get_region_detail(
     h3_index: str,
     db: AsyncSession = Depends(get_db),
     current_user: User=Depends(get_current_user)
 ):
-    
     cache_key = CacheKeys.analytics_region(h3_index)
     cached = await cache_get(cache_key)
     if cached:
-        print(f"[CACHE HIT] {cache_key}")
+        logger.debug(f"[CACHE HIT] {cache_key}")
         return RegionDetail(**cached)
 
     neighbors = list(h3.k_ring(h3_index, 1))
@@ -105,7 +108,7 @@ async def get_region_detail(
     )
 
     await cache_set(cache_key, detail.model_dump(), ttl_seconds=300)
-    print(f"[CACHE SET] {cache_key} (300s)")
+    logger.debug(f"[CACHE SET] {cache_key} (300s)")
 
     await log(db=db, user_id=current_user.id, action=Actions.VIEW_ANALYTICS)
 
@@ -114,11 +117,11 @@ async def get_region_detail(
 
 
 @router.get("/doctors", response_model=list[DoctorStats])
-async def get_region_detail(db: AsyncSession = Depends(get_db),current_user: User=Depends(get_current_user)):
+async def get_doctors_stats(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
 
     cached = await cache_get(CacheKeys.ANALYTICS_DOCTORS)
     if cached:
-        print("[CACHE HIT] analytics:doctors")
+        logger.debug("[CACHE HIT] analytics:doctors")
         return [DoctorStats(**item) for item in cached]
 
 
@@ -156,7 +159,7 @@ async def get_region_detail(db: AsyncSession = Depends(get_db),current_user: Use
         [s.model_dump() for s in response],
         ttl_seconds=300,
     )
-    print("[CACHE SET] analytics:doctors (300s)")
+    logger.debug("[CACHE SET] analytics:doctors (300s)")
 
 
     await log(db=db, user_id=current_user.id, action=Actions.VIEW_ANALYTICS)
