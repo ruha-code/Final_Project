@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from datetime import date, datetime, timedelta, time
+from datetime import date, datetime, timedelta, time, timezone
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, RoleChecker
@@ -71,6 +71,28 @@ async def list_doctors(
     result = await db.execute(query)
     doctors = result.scalars().all()
     return [_build_detail(d) for d in doctors]
+
+
+@router.get(
+    "/{doctor_id}",
+    response_model=DoctorDetailResponse,
+    summary="Get doctor details",
+)
+async def get_doctor_by_id(
+    doctor_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    from sqlalchemy.orm import selectinload
+
+    result = await db.execute(
+        select(Doctor)
+        .options(selectinload(Doctor.user), selectinload(Doctor.department))
+        .where(Doctor.id == doctor_id)
+    )
+    doctor = result.scalar_one_or_none()
+    if not doctor:
+        raise NotFoundException("Doctor not found")
+    return _build_detail(doctor)
 
 
 @router.post(
@@ -271,6 +293,12 @@ async def get_my_schedule(
 async def get_available_slots(
     doctor_id: int,
     date: date = Query(..., description="Date YYYY-MM-DD"),
+    timezone_offset_minutes: int = Query(
+        default=0,
+        ge=-720,
+        le=840,
+        description="Browser timezone offset in minutes (Date.getTimezoneOffset)",
+    ),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(Doctor).where(Doctor.id == doctor_id))
@@ -297,23 +325,41 @@ async def get_available_slots(
     current = datetime.combine(date, schedule.start_time)
     end_boundary = datetime.combine(date, schedule.end_time)
     while current + timedelta(minutes=duration) <= end_boundary:
-        slots.append(current)
+        slots.append(current.strftime("%H:%M"))
         current += timedelta(minutes=duration)
 
-    day_start = datetime.combine(date, time(0, 0))
-    day_end = datetime.combine(date, time(23, 59, 59))
+    client_timezone = timezone(timedelta(minutes=-timezone_offset_minutes))
+    local_day_start = datetime.combine(date, time.min, tzinfo=client_timezone)
+    local_day_end = datetime.combine(date, time.max, tzinfo=client_timezone)
+
     result = await db.execute(
         select(Appointment).where(
             Appointment.doctor_id == doctor_id,
-            Appointment.appointment_time >= day_start,
-            Appointment.appointment_time <= day_end,
+            Appointment.appointment_time >= local_day_start.astimezone(timezone.utc),
+            Appointment.appointment_time <= local_day_end.astimezone(timezone.utc),
             Appointment.status != "CANCELLED",
         )
     )
-    booked_times = {
-        a.appointment_time.replace(tzinfo=None) for a in result.scalars().all()
-    }
-    available = [s for s in slots if s not in booked_times]
+    booked_times = set()
+    for appointment in result.scalars().all():
+        appointment_local = appointment.appointment_time.astimezone(client_timezone)
+        booked_times.add(appointment_local.strftime("%H:%M"))
+
+    now_local = datetime.now(timezone.utc).astimezone(client_timezone)
+    available = []
+
+    for slot in slots:
+        slot_hour, slot_minute = map(int, slot.split(":"))
+        slot_local_datetime = datetime.combine(
+            date,
+            time(slot_hour, slot_minute),
+            tzinfo=client_timezone,
+        )
+        if slot_local_datetime <= now_local:
+            continue
+        if slot in booked_times:
+            continue
+        available.append(slot)
 
     return AvailableSlotsResponse(
         doctor_id=doctor_id, date=str(date), available_slots=available
