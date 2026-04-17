@@ -102,7 +102,6 @@ const getSubtitle = () => {
       ADMIN: "Administrator",
       DOCTOR: "Doctor",
       PATIENT: "Patient",
-      STAFF: "Staff",
     };
     return labels[role] || role;
   };

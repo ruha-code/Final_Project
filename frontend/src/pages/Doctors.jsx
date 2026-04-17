@@ -43,10 +43,11 @@ function AddDoctorModal({ onClose, onCreated }) {
     setLoading(true);
     try {
       await api.post("/auth/admin/users/create-doctor", {
-        full_name: form.full_name,
-        username: form.username,
-        email: form.email,
+        full_name: form.full_name.trim(),
+        username: form.username.trim(),
+        email: form.email.trim(),
         password: form.password,
+        phone: form.phone.trim() || null,
       });
       onCreated();
       onClose();
@@ -114,6 +115,17 @@ function AddDoctorModal({ onClose, onCreated }) {
               value={form.password}
               onChange={handleChange}
               placeholder="Min 8 chars, include a digit"
+              className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-teal-400"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm text-gray-500 mb-1 block">Phone</label>
+            <input
+              name="phone"
+              value={form.phone}
+              onChange={handleChange}
+              placeholder="+1 555 123 4567"
               className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-teal-400"
             />
           </div>

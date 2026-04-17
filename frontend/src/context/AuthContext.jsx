@@ -8,7 +8,6 @@ export const ROLES = {
   ADMIN: "ADMIN",
   DOCTOR: "DOCTOR",
   PATIENT: "PATIENT",
-  STAFF: "STAFF",
 };
 
 export function AuthProvider({ children }) {
@@ -77,7 +76,6 @@ export function AuthProvider({ children }) {
   const isAdmin = () => user?.role === ROLES.ADMIN;
   const isDoctor = () => user?.role === ROLES.DOCTOR;
   const isPatient = () => user?.role === ROLES.PATIENT;
-  const isStaff = () => user?.role === ROLES.STAFF;
   const isDoctorOrAdmin = () => hasRole([ROLES.ADMIN, ROLES.DOCTOR]);
 
   return (
@@ -93,7 +91,6 @@ export function AuthProvider({ children }) {
         isAdmin,
         isDoctor,
         isPatient,
-        isStaff,
         isDoctorOrAdmin,
       }}
     >

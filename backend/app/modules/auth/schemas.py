@@ -14,6 +14,7 @@ class RegisterSchema(BaseModel):
     username: str
     email: EmailStr
     password: str
+    phone: Optional[str] = None
     role: UserRole = UserRole.PATIENT  # default: patient self-registration
 
     @field_validator("password")
@@ -38,6 +39,14 @@ class RegisterSchema(BaseModel):
         if len(v.strip()) < 2:
             raise ValueError("Full name must be at least 2 characters")
         return v.strip()
+
+    @field_validator("phone")
+    @classmethod
+    def phone_normalize(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        cleaned = v.strip()
+        return cleaned or None
 
 
 class LoginSchema(BaseModel):

@@ -35,7 +35,7 @@ export function DoctorRoute({ children }) {
 
 export function PatientRoute({ children }) {
   return (
-    <ProtectedRoute allowedRoles={["ADMIN", "DOCTOR", "PATIENT", "STAFF"]}>
+    <ProtectedRoute allowedRoles={["ADMIN", "DOCTOR", "PATIENT"]}>
       {children}
     </ProtectedRoute>
   );
