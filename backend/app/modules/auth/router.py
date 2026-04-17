@@ -311,6 +311,9 @@ async def update_user(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    from app.modules.doctors.models import Doctor
+    from app.modules.patients.models import Patient
+
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
@@ -329,6 +332,19 @@ async def update_user(
         user.phone = dto.phone
     if dto.role is not None:
         user.role = dto.role
+
+        if dto.role == UserRole.DOCTOR:
+            doctor_result = await db.execute(
+                select(Doctor).where(Doctor.user_id == user.id)
+            )
+            if doctor_result.scalar_one_or_none() is None:
+                db.add(Doctor(user_id=user.id))
+        elif dto.role == UserRole.PATIENT:
+            patient_result = await db.execute(
+                select(Patient).where(Patient.user_id == user.id)
+            )
+            if patient_result.scalar_one_or_none() is None:
+                db.add(Patient(user_id=user.id))
 
     await db.commit()
     await db.refresh(user)

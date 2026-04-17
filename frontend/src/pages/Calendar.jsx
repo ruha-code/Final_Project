@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "../services/api";
+import { useAuth } from "../context/AuthContext";
 
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December"];
@@ -11,6 +12,7 @@ const categoryColors = {
 };
 
 function Calendar() {
+  const { isAdmin } = useAuth();
   const now = new Date();
   const [currentYear, setCurrentYear] = useState(now.getFullYear());
   const [currentMonth, setCurrentMonth] = useState(now.getMonth() + 1);
@@ -103,12 +105,14 @@ function Calendar() {
             <button onClick={nextMonth} className="text-gray-400 hover:text-teal-500 text-lg">›</button>
           </div>
 
-          <button
-            onClick={() => setShowModal(true)}
-            className="w-full bg-teal-500 text-white py-2.5 rounded-xl text-sm hover:bg-teal-600 transition"
-          >
-            + New Event
-          </button>
+          {isAdmin() && (
+            <button
+              onClick={() => setShowModal(true)}
+              className="w-full bg-teal-500 text-white py-2.5 rounded-xl text-sm hover:bg-teal-600 transition"
+            >
+              + New Event
+            </button>
+          )}
 
           <div className="space-y-2 text-sm">
             {["all", "admin", "system", "training"].map((c) => (
@@ -191,7 +195,7 @@ function Calendar() {
       </div>
 
       {/* MODAL */}
-      {showModal && (
+      {isAdmin() && showModal && (
         <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white w-[400px] rounded-2xl shadow-xl p-6 space-y-5">
             <h2 className="text-lg font-semibold">Create Event</h2>
