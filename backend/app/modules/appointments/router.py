@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import and_, select
+from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from datetime import datetime, timedelta, date, time
 from typing import Optional
@@ -371,13 +371,12 @@ async def get_all_appointments(
 @router.put(
     "/{appointment_id}/admin-cancel",
     summary="Admin cancel appointment",
-    dependencies=[Depends(RoleChecker(["ADMIN"]))],
 )
 async def admin_cancel_appointment(
     appointment_id: int,
     reason: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(RoleChecker(["ADMIN"])),
 ):
     result = await db.execute(
         select(Appointment).where(Appointment.id == appointment_id)
@@ -395,7 +394,12 @@ async def admin_cancel_appointment(
         appointment.notes = reason
 
     await db.commit()
-    await db.refresh(appointment)
+
+    # reload with relations so we can send notification emails
+    result = await db.execute(
+        select(Appointment).options(*_load_opts()).where(Appointment.id == appointment.id)
+    )
+    appointment = result.scalar_one()
     await log(
         db,
         current_user.id,
@@ -403,6 +407,15 @@ async def admin_cancel_appointment(
         entity_type="Appointment",
         entity_id=appointment.id,
     )
+    await event_bus.publish("appointment_cancelled", {
+        "appointment_id": appointment.id,
+        "patient_email": appointment.patient.user.email,
+        "patient_name": appointment.patient.user.full_name,
+        "doctor_email": appointment.doctor.user.email,
+        "doctor_name": appointment.doctor.user.full_name,
+        "appointment_time": appointment.appointment_time.strftime("%B %d, %Y at %I:%M %p"),
+        "cancelled_by_name": "Admin",
+    })
     return {"message": "Appointment cancelled by admin"}
 
 

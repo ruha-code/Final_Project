@@ -4,8 +4,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
  
 from app.core.database import get_db
-from app.core.dependencies import get_current_user, RoleChecker
+from app.core.dependencies import RoleChecker
 from app.core.exceptions import NotFoundException, ConflictException, ForbiddenException
+from app.core import event_bus
 from app.modules.auth.models import User
 from app.modules.patients.models import Patient
 from app.modules.doctors.models import Doctor
@@ -134,19 +135,37 @@ async def send_message(
     current_user: User = Depends(RoleChecker(["PATIENT", "DOCTOR", "ADMIN"])),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(Conversation).where(Conversation.id == conv_id))
+    # load with relations upfront so we have recipient info for the email
+    result = await db.execute(
+        select(Conversation).options(*_load_opts()).where(Conversation.id == conv_id)
+    )
     conv = result.scalar_one_or_none()
     if not conv:
         raise NotFoundException("Conversation not found")
- 
+
     msg = Message(conversation_id=conv_id, sender_id=current_user.id, text=dto.text)
     db.add(msg)
     await db.commit()
- 
+
     result = await db.execute(
         select(Message).options(selectinload(Message.sender)).where(Message.id == msg.id)
     )
     msg = result.scalar_one()
+
+    # notify the other party by email (admin messages are skipped)
+    if current_user.role == "PATIENT" and conv.doctor:
+        await event_bus.publish("message_sent", {
+            "recipient_email": conv.doctor.user.email,
+            "recipient_name": f"Dr. {conv.doctor.user.full_name}",
+            "sender_name": current_user.full_name,
+        })
+    elif current_user.role == "DOCTOR" and conv.patient:
+        await event_bus.publish("message_sent", {
+            "recipient_email": conv.patient.user.email,
+            "recipient_name": conv.patient.user.full_name,
+            "sender_name": f"Dr. {current_user.full_name}",
+        })
+
     return MessageResponse(
         id=msg.id,
         conversation_id=msg.conversation_id,

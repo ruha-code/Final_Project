@@ -83,6 +83,16 @@ async def _on_appointment_completed(payload: dict) -> None:
     )
 
 
+async def _on_message_sent(payload: dict) -> None:
+    from app.core.email import send_new_message_notification
+
+    await send_new_message_notification(
+        recipient_email=payload["recipient_email"],
+        recipient_name=payload["recipient_name"],
+        sender_name=payload["sender_name"],
+    )
+
+
 async def _invalidate_analytics_cache(payload: dict) -> None:
     await cache_delete(CacheKeys.ANALYTICS_DEMAND)
     await cache_delete(CacheKeys.ANALYTICS_DOCTORS)
@@ -95,3 +105,5 @@ def setup() -> None:
     register("appointment_cancelled", _on_appointment_cancelled)
     register("appointment_cancelled", _invalidate_analytics_cache)
     register("appointment_completed", _on_appointment_completed)
+    register("appointment_completed", _invalidate_analytics_cache)  # clears doctor stats cache
+    register("message_sent", _on_message_sent)
