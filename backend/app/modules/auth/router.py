@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
@@ -162,7 +162,7 @@ async def logout(
     exp = payload.get("exp")
 
     if jti and exp:
-        remaining = int(exp - datetime.utcnow().timestamp())
+        remaining = int(exp - datetime.now(timezone.utc).timestamp())
         if remaining > 0:
             await blacklist_token(jti, remaining)
 
@@ -176,7 +176,7 @@ async def logout(
             refresh_exp = refresh_payload.get("exp")
             if refresh_exp:
                 refresh_remaining = int(
-                    refresh_exp - datetime.utcnow().timestamp()
+                    refresh_exp - datetime.now(timezone.utc).timestamp()
                 )
                 if refresh_remaining > 0:
                     refresh_jti = refresh_payload.get("jti")
@@ -200,13 +200,12 @@ async def logout(
     response_model=UserResponse,
     status_code=201,
     summary="Create a doctor account (Admin only)",
-    dependencies=[Depends(RoleChecker(["ADMIN"]))],
 )
 async def create_doctor_account(
     dto: RegisterSchema,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(RoleChecker(["ADMIN"])),
 ):
     from app.modules.doctors.models import Doctor
 
@@ -226,7 +225,7 @@ async def create_doctor_account(
         email=dto.email,
         phone=dto.phone,
         password_hash=hash_password(dto.password),
-        role="DOCTOR",
+        role=UserRole.DOCTOR,
         is_active=True,
     )
     db.add(user)
@@ -255,13 +254,12 @@ async def create_doctor_account(
     response_model=UserResponse,
     status_code=201,
     summary="Create an admin account (Admin only)",
-    dependencies=[Depends(RoleChecker(["ADMIN"]))],
 )
 async def create_admin_account(
     dto: RegisterSchema,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(RoleChecker(["ADMIN"])),
 ):
     result = await db.execute(select(User).where(User.email == dto.email))
     if result.scalar_one_or_none():
@@ -277,7 +275,7 @@ async def create_admin_account(
         email=dto.email,
         phone=dto.phone,
         password_hash=hash_password(dto.password),
-        role="ADMIN",
+        role=UserRole.ADMIN,
         is_active=True,
     )
     db.add(user)
@@ -335,14 +333,13 @@ async def get_user_by_id(user_id: int, db: AsyncSession = Depends(get_db)):
 @router.put(
     "/admin/users/{user_id}",
     response_model=UserResponse,
-    dependencies=[Depends(RoleChecker(["ADMIN"]))],
 )
 async def update_user(
     user_id: int,
     dto: AdminUserUpdateSchema,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(RoleChecker(["ADMIN"])),
 ):
     from app.modules.doctors.models import Doctor
     from app.modules.patients.models import Patient
@@ -392,14 +389,12 @@ async def update_user(
     return UserResponse.model_validate(user)
 
 
-@router.put(
-    "/admin/users/{user_id}/deactivate", dependencies=[Depends(RoleChecker(["ADMIN"]))]
-)
+@router.put("/admin/users/{user_id}/deactivate")
 async def deactivate_user(
     user_id: int,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(RoleChecker(["ADMIN"])),
 ):
     if current_user.id == user_id:
         raise HTTPException(status_code=400, detail="You cannot deactivate yourself")
@@ -420,13 +415,11 @@ async def deactivate_user(
     return {"message": "User deactivated"}
 
 
-@router.put(
-    "/admin/users/{user_id}/activate", dependencies=[Depends(RoleChecker(["ADMIN"]))]
-)
+@router.put("/admin/users/{user_id}/activate")
 async def activate_user(
     user_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(RoleChecker(["ADMIN"])),
 ):
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
