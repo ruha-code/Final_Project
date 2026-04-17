@@ -6,7 +6,7 @@ from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, RoleChecker
 from app.core.pagination import paginate
 from app.modules.audit.models import AuditLog
 from app.modules.audit.schemas import AuditLogResponse
@@ -75,7 +75,7 @@ async def get_audit_logs(
     start_date: Optional[datetime] = Query(default=None),
     end_date: Optional[datetime] = Query(default=None),
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(RoleChecker(["ADMIN"])),
 ):
     query = select(AuditLog)
 

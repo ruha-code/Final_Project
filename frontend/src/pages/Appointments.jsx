@@ -346,28 +346,30 @@ function Appointments() {
   const [search, setSearch] = useState("");
   const [showBooking, setShowBooking] = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
-
-  const fetchAppointments = async () => {
-    try {
-      setLoading(true);
-      let data;
-      if (isAdmin()) {
-        data = await api.get("/appointments/admin/all?page=1&page_size=100");
-        setAppointments(data.items || []);
-      } else {
-        data = await api.get("/appointments/my");
-        setAppointments(Array.isArray(data) ? data : []);
-      }
-    } catch (err) {
-      console.error("Failed to fetch appointments:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [reloadKey, setReloadKey] = useState(0);
+  const triggerReload = () => setReloadKey((current) => current + 1);
 
   useEffect(() => {
-    fetchAppointments();
-  }, [isAdmin, isDoctor]);
+    const fetchAppointments = async () => {
+      try {
+        setLoading(true);
+        let data;
+        if (isAdmin()) {
+          data = await api.get("/appointments/admin/all?page=1&page_size=100");
+          setAppointments(data.items || []);
+        } else {
+          data = await api.get("/appointments/my");
+          setAppointments(Array.isArray(data) ? data : []);
+        }
+      } catch (err) {
+        console.error("Failed to fetch appointments:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void fetchAppointments();
+  }, [isAdmin, isDoctor, reloadKey]);
 
   const handleCancel = async (id) => {
     if (actionLoading) return;
@@ -378,7 +380,7 @@ function Appointments() {
       } else {
         await api.put(`/appointments/${id}/cancel`);
       }
-      fetchAppointments();
+      triggerReload();
     } catch (err) {
       console.error("Failed to cancel:", err);
     } finally {
@@ -394,7 +396,7 @@ function Appointments() {
     } catch (err) {
       console.error("Failed to complete:", err);
     }
-    fetchAppointments();
+    triggerReload();
     setActionLoading(null);
   };
 
@@ -404,7 +406,7 @@ function Appointments() {
     setActionLoading(id);
     try {
       await api.delete(`/appointments/${id}`);
-      fetchAppointments();
+      triggerReload();
     } catch (err) {
       console.error("Failed to delete:", err);
     } finally {
@@ -573,7 +575,7 @@ function Appointments() {
       {showBooking && (
         <BookingModal
           onClose={() => setShowBooking(false)}
-          onBooked={fetchAppointments}
+          onBooked={triggerReload}
         />
       )}
     </>

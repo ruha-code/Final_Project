@@ -64,7 +64,7 @@ export default function Analytics() {
     ? Math.round((doctorStats.reduce((s, d) => s + d.completion_rate, 0) / doctorStats.length) * 100)
     : 0;
 
-  const chartData = doctorStats.map((d, i) => ({
+  const chartData = doctorStats.map((d) => ({
     name: `Doctor ${d.doctor_id}`,
     completed: d.completed,
     cancelled: d.cancelled,

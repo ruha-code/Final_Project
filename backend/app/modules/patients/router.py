@@ -6,7 +6,7 @@ from typing import Optional
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, RoleChecker
-from app.core.exceptions import NotFoundException, ConflictException
+from app.core.exceptions import NotFoundException, ConflictException, ForbiddenException
 from app.modules.audit.router import Actions, log
 from app.modules.auth.models import User
 from app.modules.patients.models import Patient, HealthVital
@@ -134,11 +134,21 @@ async def update_my_patient_profile(
     if not patient:
         raise NotFoundException("Patient profile not found. Please set it up first.")
 
-    for field, value in dto.model_dump(exclude_none=True).items():
+    updates = dto.model_dump(exclude_none=True)
+
+    if "full_name" in updates:
+        current_user.full_name = updates.pop("full_name")
+
+    for field, value in updates.items():
         setattr(patient, field, value)
 
     await db.commit()
-    await db.refresh(patient)
+    result = await db.execute(
+        select(Patient)
+        .options(selectinload(Patient.user))
+        .where(Patient.user_id == current_user.id)
+    )
+    patient = result.scalar_one()
     await log(
         db,
         current_user.id,
@@ -236,6 +246,12 @@ async def get_vitals(
     current_user: User = Depends(RoleChecker(["ADMIN", "DOCTOR", "PATIENT"])),
     db: AsyncSession = Depends(get_db),
 ):
+    if current_user.role == "PATIENT":
+        result = await db.execute(select(Patient).where(Patient.user_id == current_user.id))
+        patient = result.scalar_one_or_none()
+        if not patient or patient.id != patient_id:
+            raise ForbiddenException("You can only view your own vitals")
+
     result = await db.execute(
         select(HealthVital)
         .where(HealthVital.patient_id == patient_id)

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
-import { Phone, Mail, MapPin, HeartPulse, Plus, Activity, Thermometer, Scale } from "lucide-react";
+import { Phone, Mail, MapPin, HeartPulse, Activity } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { api } from "../services/api";
 import { useAuth } from "../context/AuthContext";
@@ -125,7 +125,7 @@ export default function PatientDetails() {
           ["Weight", latest.weight ? `${latest.weight} kg` : "—", "bg-blue-50 text-blue-600"],
           ["Temperature", latest.temperature ? `${latest.temperature}°C` : "—", "bg-red-50 text-red-500"],
           ["Blood Pressure", latest.systolic_bp ? `${latest.systolic_bp}/${latest.diastolic_bp}` : "—", "bg-purple-50 text-purple-600"],
-        ].map(([title, val, color]) => (
+        ].map(([title, val]) => (
           <div key={title} className="bg-white border rounded-xl p-4">
             <p className="text-xs text-gray-400">{title}</p>
             <p className="font-semibold text-lg">{val}</p>

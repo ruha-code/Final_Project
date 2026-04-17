@@ -47,7 +47,7 @@ async def register(
 ):
     result = await auth_service.register(dto)
 
-    if dto.role == UserRole.PATIENT:
+    if result["role"] == UserRole.PATIENT:
         from app.modules.patients.models import Patient
 
         patient = Patient(user_id=result["user_id"])

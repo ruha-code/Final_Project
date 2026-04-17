@@ -271,29 +271,31 @@ export default function AdminUsers() {
   const [modal, setModal] = useState(null); // "DOCTOR" | "ADMIN" | null
   const [editUser, setEditUser] = useState(null);
   const [actionLoading, setActionLoading] = useState(null);
-
-  const fetchUsers = async () => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      params.set("page", page);
-      params.set("page_size", "10");
-      if (roleFilter) params.set("role", roleFilter);
-      if (search) params.set("search", search);
-
-      const data = await api.get(`/auth/admin/users?${params.toString()}`);
-      setUsers(data.items || []);
-      setTotalPages(data.pages || 1);
-    } catch (err) {
-      console.error("Failed to fetch users:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [reloadKey, setReloadKey] = useState(0);
+  const triggerReload = () => setReloadKey((current) => current + 1);
 
   useEffect(() => {
-    fetchUsers();
-  }, [page, roleFilter, search]);
+    const fetchUsers = async () => {
+      try {
+        setLoading(true);
+        const params = new URLSearchParams();
+        params.set("page", String(page));
+        params.set("page_size", "10");
+        if (roleFilter) params.set("role", roleFilter);
+        if (search) params.set("search", search);
+
+        const data = await api.get(`/auth/admin/users?${params.toString()}`);
+        setUsers(data.items || []);
+        setTotalPages(data.pages || 1);
+      } catch (err) {
+        console.error("Failed to fetch users:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void fetchUsers();
+  }, [page, roleFilter, search, reloadKey]);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -309,7 +311,7 @@ export default function AdminUsers() {
       } else {
         await api.put(`/auth/admin/users/${userId}/activate`);
       }
-      fetchUsers();
+      triggerReload();
     } catch (err) {
       console.error("Failed to toggle user:", err);
     } finally {
@@ -327,7 +329,7 @@ export default function AdminUsers() {
     setActionLoading(userId);
     try {
       await api.delete(`/auth/admin/users/${userId}`);
-      fetchUsers();
+      triggerReload();
     } catch (err) {
       console.error("Failed to delete user:", err);
     } finally {
@@ -521,7 +523,7 @@ export default function AdminUsers() {
         <CreateUserModal
           role={modal}
           onClose={() => setModal(null)}
-          onCreated={fetchUsers}
+          onCreated={triggerReload}
         />
       )}
 
@@ -529,7 +531,7 @@ export default function AdminUsers() {
         <EditUserModal
           user={editUser}
           onClose={() => setEditUser(null)}
-          onSaved={fetchUsers}
+          onSaved={triggerReload}
         />
       )}
     </>

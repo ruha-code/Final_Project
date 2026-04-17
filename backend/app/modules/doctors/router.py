@@ -158,21 +158,33 @@ async def update_my_doctor_profile(
     if not doctor:
         raise NotFoundException("Doctor profile not found.")
 
-    if dto.department_id is not None:
-        doctor.department_id = dto.department_id
-    if dto.specialty is not None:
-        doctor.specialty = dto.specialty
-    if dto.years_of_experience is not None:
-        doctor.years_of_experience = dto.years_of_experience
-    if dto.consultation_duration_minutes is not None:
-        doctor.consultation_duration_minutes = dto.consultation_duration_minutes
-    if dto.bio is not None:
-        doctor.bio = dto.bio
-    if dto.is_available is not None:
-        doctor.is_available = dto.is_available
+    updates = dto.model_dump(exclude_none=True)
+
+    if "full_name" in updates:
+        current_user.full_name = updates.pop("full_name")
+    if "phone" in updates:
+        current_user.phone = updates.pop("phone")
+
+    if "department_id" in updates:
+        doctor.department_id = updates.pop("department_id")
+    if "specialty" in updates:
+        doctor.specialty = updates.pop("specialty")
+    if "years_of_experience" in updates:
+        doctor.years_of_experience = updates.pop("years_of_experience")
+    if "consultation_duration_minutes" in updates:
+        doctor.consultation_duration_minutes = updates.pop("consultation_duration_minutes")
+    if "bio" in updates:
+        doctor.bio = updates.pop("bio")
+    if "is_available" in updates:
+        doctor.is_available = updates.pop("is_available")
 
     await db.commit()
-    await db.refresh(doctor)
+    result = await db.execute(
+        select(Doctor)
+        .options(selectinload(Doctor.user), selectinload(Doctor.department))
+        .where(Doctor.user_id == current_user.id)
+    )
+    doctor = result.scalar_one()
     return _build_detail(doctor)
 
 

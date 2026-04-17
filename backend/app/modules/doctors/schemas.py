@@ -20,6 +20,8 @@ class DoctorProfileCreate(BaseModel):
  
  
 class DoctorProfileUpdate(BaseModel):
+    full_name: Optional[str] = None
+    phone: Optional[str] = None
     department_id: Optional[int] = None
     specialty: Optional[str] = None
     years_of_experience: Optional[int] = None

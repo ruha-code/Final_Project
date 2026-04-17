@@ -21,15 +21,17 @@ function Calendar() {
   const [showModal, setShowModal] = useState(false);
   const [newEvent, setNewEvent] = useState({ title: "", date: "", time: "", category: "ADMIN" });
   const [error, setError] = useState(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
   const today = now.getDate();
   const isCurrentMonth = currentYear === now.getFullYear() && currentMonth === (now.getMonth() + 1);
 
-  const fetchEvents = () => {
-    api.get(`/calendar?month=${currentMonth}&year=${currentYear}`)
-      .then((data) => {
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        const data = await api.get(`/calendar?month=${currentMonth}&year=${currentYear}`);
         const converted = data.map((e) => ({
           id: e.id,
           title: e.title,
@@ -39,16 +41,14 @@ function Calendar() {
         }));
         setEvents(converted);
         setError(null);
-      })
-      .catch((err) => {
+      } catch (err) {
         console.error(err);
         setError("Failed to load calendar events");
-      });
-  };
+      }
+    };
 
-  useEffect(() => {
-    fetchEvents();
-  }, [currentMonth, currentYear]);
+    void fetchEvents();
+  }, [currentMonth, currentYear, reloadKey]);
 
   const getEvents = (day) =>
     events.filter((e) => e.date === day && (filter === "all" || e.category === filter.toUpperCase()));
@@ -66,7 +66,7 @@ function Calendar() {
         event_time: newEvent.time || null,
         category: newEvent.category,
       });
-      fetchEvents();
+      setReloadKey((current) => current + 1);
     } catch (err) {
       console.error(err);
     }

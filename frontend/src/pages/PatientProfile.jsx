@@ -3,7 +3,6 @@ import { api } from "../services/api";
 import { Save, Check, User, Mail, Phone, MapPin, Heart, AlertCircle } from "lucide-react";
 
 export default function PatientProfile() {
-  const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -26,7 +25,6 @@ export default function PatientProfile() {
     const fetchProfile = async () => {
       try {
         const data = await api.get("/patients/me");
-        setProfile(data);
         setForm({
           full_name: data.full_name || "",
           date_of_birth: data.date_of_birth || "",

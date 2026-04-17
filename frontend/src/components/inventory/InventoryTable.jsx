@@ -16,7 +16,6 @@ const STATUS_LABELS = {
 };
 
 function ItemModal({ onClose, onSaved, editData }) {
-  const { isAdmin } = useAuth();
   const [form, setForm] = useState({
     name: editData?.name || "",
     category: editData?.category || "MEDICATIONS",
@@ -139,26 +138,32 @@ export default function InventoryTable({ search = "", status = "All", onRefresh 
   const [activeMenu, setActiveMenu] = useState(null);
   const [modal, setModal] = useState(null);
   const [editData, setEditData] = useState(null);
-
-  const fetchInventory = async () => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      if (search) params.set("search", search);
-      if (status !== "All") params.set("status", status.toUpperCase());
-      const data = await api.get(`/inventory?${params.toString()}`);
-      setItems(data);
-    } catch (err) {
-      console.error("Failed to fetch inventory:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [reloadKey, setReloadKey] = useState(0);
+  const triggerReload = () => setReloadKey((current) => current + 1);
 
   useEffect(() => {
-    const timer = setTimeout(fetchInventory, 300);
+    const timer = setTimeout(() => {
+      const fetchInventory = async () => {
+        try {
+          setLoading(true);
+          const params = new URLSearchParams();
+          if (search) params.set("search", search);
+          if (status !== "All") params.set("status", status.toUpperCase());
+          const query = params.toString();
+          const data = await api.get(query ? `/inventory?${query}` : "/inventory");
+          setItems(data);
+        } catch (err) {
+          console.error("Failed to fetch inventory:", err);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      void fetchInventory();
+    }, 300);
+
     return () => clearTimeout(timer);
-  }, [search, status]);
+  }, [search, status, reloadKey]);
 
   if (loading) {
     return (
@@ -273,7 +278,7 @@ export default function InventoryTable({ search = "", status = "All", onRefresh 
                     if (!window.confirm("Delete this item?")) return;
                     try {
                       await api.delete(`/inventory/${item.id}`);
-                      fetchInventory();
+                      triggerReload();
                     } catch (err) { console.error(err); }
                   }}
                   className="block w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-50"
@@ -295,7 +300,10 @@ export default function InventoryTable({ search = "", status = "All", onRefresh 
       {modal && (
         <ItemModal
           onClose={() => { setModal(null); setEditData(null); }}
-          onSaved={() => { fetchInventory(); if (onRefresh) onRefresh(); }}
+          onSaved={() => {
+            triggerReload();
+            if (onRefresh) onRefresh();
+          }}
           editData={editData}
         />
       )}

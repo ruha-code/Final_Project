@@ -17,8 +17,8 @@ from app.modules.messages.schemas import (
 )
  
 router = APIRouter()
- 
- 
+
+
 def _build_conv(conv: Conversation) -> ConversationResponse:
     last = conv.messages[-1] if conv.messages else None
     return ConversationResponse(
@@ -39,6 +39,29 @@ def _load_opts():
         selectinload(Conversation.doctor).selectinload(Doctor.user),
         selectinload(Conversation.messages),
     ]
+
+
+async def _ensure_conversation_access(
+    conv: Conversation, current_user: User, db: AsyncSession
+) -> None:
+    if current_user.role == "ADMIN":
+        return
+
+    if current_user.role == "PATIENT":
+        result = await db.execute(select(Patient).where(Patient.user_id == current_user.id))
+        patient = result.scalar_one_or_none()
+        if not patient or conv.patient_id != patient.id:
+            raise ForbiddenException("This conversation does not belong to you")
+        return
+
+    if current_user.role == "DOCTOR":
+        result = await db.execute(select(Doctor).where(Doctor.user_id == current_user.id))
+        doctor = result.scalar_one_or_none()
+        if not doctor or conv.doctor_id != doctor.id:
+            raise ForbiddenException("This conversation does not belong to you")
+        return
+
+    raise ForbiddenException("Not enough permissions")
  
  
 @router.get("/conversations", response_model=list[ConversationResponse], summary="Get my conversations")
@@ -113,6 +136,8 @@ async def get_messages(
     conv = result.scalar_one_or_none()
     if not conv:
         raise NotFoundException("Conversation not found")
+
+    await _ensure_conversation_access(conv, current_user, db)
  
     msgs = []
     for m in sorted(conv.messages, key=lambda x: x.sent_at):
@@ -142,6 +167,8 @@ async def send_message(
     conv = result.scalar_one_or_none()
     if not conv:
         raise NotFoundException("Conversation not found")
+
+    await _ensure_conversation_access(conv, current_user, db)
 
     msg = Message(conversation_id=conv_id, sender_id=current_user.id, text=dto.text)
     db.add(msg)

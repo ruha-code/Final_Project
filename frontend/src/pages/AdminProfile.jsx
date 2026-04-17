@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "../services/api";
-import { Save, Check, User, Mail, Phone, Shield } from "lucide-react";
+import { Save, Check, User, Mail, Phone } from "lucide-react";
 
 export default function AdminProfile() {
   const [loading, setLoading] = useState(true);
@@ -10,6 +10,7 @@ export default function AdminProfile() {
 
   const [form, setForm] = useState({
     full_name: "",
+    email: "",
     phone: "",
     avatar_url: "",
   });
@@ -20,6 +21,7 @@ export default function AdminProfile() {
         const data = await api.get("/auth/me");
         setForm({
           full_name: data.full_name || "",
+          email: data.email || "",
           phone: data.phone || "",
           avatar_url: data.avatar_url || "",
         });

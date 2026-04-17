@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect } from "react";
 import { api } from "../services/api";
 
@@ -57,7 +58,7 @@ export function AuthProvider({ children }) {
     try {
       await api.post("/auth/logout", {});
     } catch {
-    
+      // Ignore logout failures and clear the local session anyway.
     }
     api.clearTokens();
     setUser(null);

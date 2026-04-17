@@ -35,6 +35,9 @@ class PatientProfileCreate(BaseModel):
 
 
 class PatientProfileUpdate(BaseModel):
+    full_name: Optional[str] = None
+    date_of_birth: Optional[date] = None
+    gender: Optional[Gender] = None
     phone: Optional[str] = None
     address: Optional[str] = None
     blood_type: Optional[str] = None

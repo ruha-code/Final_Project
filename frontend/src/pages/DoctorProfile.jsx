@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "../services/api";
-import { Save, Check, User, Mail, Phone, Award, Clock, Building } from "lucide-react";
+import { Save, Check, User, Phone, Award, Clock, Building } from "lucide-react";
 
 export default function DoctorProfile() {
   const [profile, setProfile] = useState(null);

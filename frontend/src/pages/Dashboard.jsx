@@ -70,11 +70,15 @@ function Dashboard() {
         setLoading(true);
 
         if (isAdmin() || isDoctor()) {
+          const appointmentsRequest = isAdmin()
+            ? "/appointments/admin/all?page=1&page_size=100"
+            : "/appointments/my";
+
           const [patients, doctors, apptPage, calendar] =
             await Promise.allSettled([
               api.get("/patients"),
               api.get("/doctors"),
-              api.get("/appointments/admin/all?page=1&page_size=100"),
+              api.get(appointmentsRequest),
               api.get("/calendar"),
             ]);
 
@@ -82,7 +86,12 @@ function Dashboard() {
           const doctorList = doctors.status === "fulfilled" ? doctors.value : [];
           const apptData =
             apptPage.status === "fulfilled"
-              ? apptPage.value
+              ? (isAdmin()
+                  ? apptPage.value
+                  : {
+                      items: Array.isArray(apptPage.value) ? apptPage.value : [],
+                      total: Array.isArray(apptPage.value) ? apptPage.value.length : 0,
+                    })
               : { items: [], total: 0 };
           const calendarData =
             calendar.status === "fulfilled" ? calendar.value : [];
@@ -111,7 +120,6 @@ function Dashboard() {
           ]);
 
           const appointmentsList = appointments.status === "fulfilled" ? appointments.value : [];
-          const apptData = Array.isArray(appointmentsList) ? appointmentsList : { items: [] };
           const calendarData =
             calendar.status === "fulfilled" ? calendar.value : [];
 

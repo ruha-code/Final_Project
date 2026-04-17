@@ -25,7 +25,7 @@ export default function MyPatients() {
   useEffect(() => {
     const fetchPatients = async () => {
       try {
-        const appointments = await api.get(`/appointments?doctor_id=${user.id}`);
+        const appointments = await api.get("/appointments/my");
         const patientIds = [...new Set(appointments.map(a => a.patient_id))];
         const allPatients = await api.get("/patients");
         const myPatients = allPatients.filter(p => patientIds.includes(p.id));
