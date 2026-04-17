@@ -100,10 +100,11 @@ async def _invalidate_analytics_cache(payload: dict) -> None:
 
 
 def setup() -> None:
+    _handlers.clear()
     register("appointment_created", _on_appointment_created)
     register("appointment_created", _invalidate_analytics_cache)
     register("appointment_cancelled", _on_appointment_cancelled)
     register("appointment_cancelled", _invalidate_analytics_cache)
     register("appointment_completed", _on_appointment_completed)
-    register("appointment_completed", _invalidate_analytics_cache)  # clears doctor stats cache
+    register("appointment_completed", _invalidate_analytics_cache)  
     register("message_sent", _on_message_sent)

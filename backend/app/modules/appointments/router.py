@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
-from datetime import datetime, timedelta, date, time
+from datetime import datetime, timedelta, date, time, timezone
 from typing import Optional
 
 from app.core.database import get_db
@@ -67,12 +67,32 @@ async def _check_doctor_conflict(doctor_id, start, duration, db):
         select(Appointment).where(
             Appointment.doctor_id == doctor_id,
             Appointment.status != AppointmentStatus.CANCELLED,
-            Appointment.appointment_time >= start,
             Appointment.appointment_time < end,
         )
     )
-    return result.scalar_one_or_none() is not None
+    for existing in result.scalars().all():
+        existing_start = existing.appointment_time
+        existing_end = existing_start + timedelta(minutes=existing.duration_minutes)
+        if existing_end > start:
+            return True
+    return False
 
+
+async def _check_patient_conflict(patient_id, start, duration, db):
+    end = start + timedelta(minutes=duration)
+    result = await db.execute(
+        select(Appointment).where(
+            Appointment.patient_id == patient_id,
+            Appointment.status != AppointmentStatus.CANCELLED,
+            Appointment.appointment_time < end,
+        )
+    )
+    for existing in result.scalars().all():
+        existing_start = existing.appointment_time
+        existing_end = existing_start + timedelta(minutes=existing.duration_minutes)
+        if existing_end > start:
+            return True
+    return False
 
 async def _check_patient_conflict(patient_id, start, duration, db):
     end = start + timedelta(minutes=duration)
@@ -124,7 +144,7 @@ async def book_appointment(
 
     if not (schedule.start_time <= appt_time.time() < schedule.end_time):
         raise ValidationException(
-            f"Outside working hours ({schedule.start_time}–{schedule.end_time})"
+            f"Outside working hours ({schedule.start_time}вЂ“{schedule.end_time})"
         )
 
     if await _check_doctor_conflict(
@@ -395,7 +415,6 @@ async def admin_cancel_appointment(
 
     await db.commit()
 
-    # reload with relations so we can send notification emails
     result = await db.execute(
         select(Appointment).options(*_load_opts()).where(Appointment.id == appointment.id)
     )
