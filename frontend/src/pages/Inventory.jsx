@@ -31,6 +31,7 @@ function getActivityText(action) {
   if (action === "INVENTORY_ADD") return "Item added";
   if (action === "INVENTORY_REMOVE") return "Item removed";
   if (action === "INVENTORY_LOW") return "Low stock alert";
+  if (action === "INVENTORY_UPDATE") return "Inventory updated";
   return "Inventory updated";
 }
 
@@ -110,8 +111,11 @@ export default function Inventory() {
 
     const fetchActivities = async () => {
       try {
-        const data = await api.get("/audit/audit-logs?page=1&page_size=10");
-        setActivities(data.items || []);
+        const data = await api.get("/audit/audit-logs?page=1&page_size=50");
+        const inventoryActivities = (data.items || [])
+          .filter((item) => item.action?.startsWith("INVENTORY_"))
+          .slice(0, 10);
+        setActivities(inventoryActivities);
       } catch (err) {
         console.error("Failed to fetch activities:", err);
       }
