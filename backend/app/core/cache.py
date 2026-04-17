@@ -1,4 +1,5 @@
 import json
+import hashlib
 from typing import Any
 import redis.asyncio as aioredis
 from app.core.config import settings
@@ -49,6 +50,20 @@ async def blacklist_token(jti: str, ttl_seconds: int) -> None:
 async def is_token_blacklisted(jti: str) -> bool:
     r = await get_redis()
     return await r.exists(f"blacklist:{jti}") > 0
+
+
+def _token_fingerprint(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+async def blacklist_raw_token(token: str, ttl_seconds: int) -> None:
+    r = await get_redis()
+    await r.set(f"blacklist:raw:{_token_fingerprint(token)}", "1", ex=ttl_seconds)
+
+
+async def is_raw_token_blacklisted(token: str) -> bool:
+    r = await get_redis()
+    return await r.exists(f"blacklist:raw:{_token_fingerprint(token)}") > 0
 
 
 # Cache key constants — never hardcode strings in routers

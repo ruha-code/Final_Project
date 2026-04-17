@@ -33,9 +33,14 @@ class AuthService:
         await self.db.commit()
         await self.db.refresh(user)
  
-        jti = str(uuid.uuid4())
-        access_token = create_access_token({"user_id": user.id, "role": user.role, "jti": jti})
-        refresh_token = create_refresh_token({"user_id": user.id, "role": user.role})
+        access_jti = str(uuid.uuid4())
+        refresh_jti = str(uuid.uuid4())
+        access_token = create_access_token(
+            {"user_id": user.id, "role": user.role, "jti": access_jti}
+        )
+        refresh_token = create_refresh_token(
+            {"user_id": user.id, "role": user.role, "jti": refresh_jti}
+        )
  
         return {
             "access_token": access_token,
@@ -55,9 +60,14 @@ class AuthService:
         if not user.is_active:
             raise UnauthorizedException("Account is deactivated")
  
-        jti = str(uuid.uuid4())
-        access_token = create_access_token({"user_id": user.id, "role": user.role, "jti": jti})
-        refresh_token = create_refresh_token({"user_id": user.id, "role": user.role})
+        access_jti = str(uuid.uuid4())
+        refresh_jti = str(uuid.uuid4())
+        access_token = create_access_token(
+            {"user_id": user.id, "role": user.role, "jti": access_jti}
+        )
+        refresh_token = create_refresh_token(
+            {"user_id": user.id, "role": user.role, "jti": refresh_jti}
+        )
  
         return {
             "access_token": access_token,
