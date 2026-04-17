@@ -40,7 +40,7 @@ export default function PatientProfile() {
           emergency_contact_phone: data.emergency_contact_phone || "",
         });
       } catch (err) {
-        if (err.message?.includes("not found") || err.message?.includes("not found")) {
+        if (err.message?.includes("not found")) {
           setError("Patient profile not found. Please contact admin to set up your profile.");
         } else {
           setError(err.message || "Failed to load profile");

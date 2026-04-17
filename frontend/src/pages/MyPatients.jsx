@@ -25,8 +25,11 @@ export default function MyPatients() {
   useEffect(() => {
     const fetchPatients = async () => {
       try {
+        const appointments = await api.get(`/appointments?doctor_id=${user.id}`);
+        const patientIds = [...new Set(appointments.map(a => a.patient_id))];
         const allPatients = await api.get("/patients");
-        setPatients(allPatients);
+        const myPatients = allPatients.filter(p => patientIds.includes(p.id));
+        setPatients(myPatients);
       } catch (err) {
         console.error("Failed to fetch patients:", err);
       } finally {
@@ -34,7 +37,7 @@ export default function MyPatients() {
       }
     };
     fetchPatients();
-  }, []);
+  }, [user.id]);
 
   const filtered = patients.filter((p) => {
     const matchSearch = !search || 

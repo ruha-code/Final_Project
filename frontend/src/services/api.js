@@ -26,7 +26,13 @@ class ApiService {
         return this.request(endpoint, options, true); 
       }
       this.clearTokens();
+      window.location.href = "/";
       throw new Error("Unauthorized");
+    }
+
+    if (response.status === 403) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || "Access forbidden");
     }
 
     if (!response.ok) {

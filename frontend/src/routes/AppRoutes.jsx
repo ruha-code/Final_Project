@@ -1,4 +1,5 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 import MainLayout from "../layouts/MainLayout";
 import Dashboard from "../pages/Dashboard";
@@ -28,12 +29,17 @@ import {
   DoctorRoute,
 } from "../components/ProtectedRoute";
 
+function AuthRoute({ children }) {
+  const { isAuthenticated } = useAuth();
+  return isAuthenticated ? <Navigate to="/dashboard" replace /> : children;
+}
+
 function AppRoutes() {
   return (
     <Routes>
       {/* AUTH */}
-      <Route path="/" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+      <Route path="/" element={<AuthRoute><Login /></AuthRoute>} />
+      <Route path="/register" element={<AuthRoute><Register /></AuthRoute>} />
 
       {/* Dashboard - All authenticated users */}
       <Route
@@ -259,6 +265,9 @@ function AppRoutes() {
           </AdminRoute>
         }
       />
+
+      {/* 404 */}
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
 }

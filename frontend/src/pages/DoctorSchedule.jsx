@@ -80,6 +80,15 @@ export default function DoctorSchedule() {
     setSaving(true);
     setError("");
     setSaved(false);
+
+    const invalidSlot = schedule.find(s => s.is_available && s.start_time >= s.end_time);
+    if (invalidSlot) {
+      const dayLabel = DAYS.find(d => d.value === invalidSlot.day_of_week)?.label;
+      setError(`Invalid time for ${dayLabel}: End time must be after start time`);
+      setSaving(false);
+      return;
+    }
+
     try {
       const slotsToSend = schedule.map((s) => ({
         day_of_week: s.day_of_week,

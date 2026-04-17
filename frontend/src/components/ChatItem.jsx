@@ -1,4 +1,17 @@
+function getInitials(name) {
+  if (!name) return "?";
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase();
+}
+
 function ChatItem({ chat, isActive, onClick }) {
+  const name = chat.name || chat.doctor_name || chat.patient_name || "Unknown";
+  const text = chat.text || chat.last_message || "";
+  const time = chat.time || "";
+
   return (
     <div
       onClick={onClick}
@@ -7,18 +20,25 @@ function ChatItem({ chat, isActive, onClick }) {
       }`}
     >
       <div className="flex items-center gap-3">
-        <img
-          src={chat.avatar}
-          className="w-10 h-10 rounded-full object-cover"
-        />
+        {chat.avatar ? (
+          <img
+            src={chat.avatar}
+            className="w-10 h-10 rounded-full object-cover"
+            alt=""
+          />
+        ) : (
+          <div className="w-10 h-10 rounded-full bg-teal-100 text-teal-600 flex items-center justify-center text-sm font-semibold">
+            {getInitials(name)}
+          </div>
+        )}
 
         <div>
-          <p className="text-sm font-medium">{chat.name}</p>
-          <p className="text-xs text-gray-400 truncate w-36">{chat.text}</p>
+          <p className="text-sm font-medium">{name}</p>
+          <p className="text-xs text-gray-400 truncate w-36">{text}</p>
         </div>
       </div>
 
-      <span className="text-xs text-gray-400">{chat.time}</span>
+      {time && <span className="text-xs text-gray-400">{time}</span>}
     </div>
   );
 }
