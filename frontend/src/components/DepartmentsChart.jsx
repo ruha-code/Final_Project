@@ -24,10 +24,12 @@ export default function DepartmentsChart() {
 
   const totalStaff = departments.reduce((s, d) => s + (d.staff_count || 0), 0);
 
+  const maxStaff = Math.max(...departments.map((d) => d.staff_count || 0), 1);
   const levels = [50, 45, 40, 35, 30, 25, 20, 15, 10, 5];
   const chartData = departments.slice(0, 6).map((dep) => ({
     name: dep.name || "Unknown",
     staff: dep.staff_count || 0,
+    percentage: Math.round((dep.staff_count || 0) / maxStaff * 100),
   }));
 
   if (loading) {
@@ -73,16 +75,18 @@ export default function DepartmentsChart() {
         </div>
 
         <div className="flex-1">
-          {levels.map((level, rowIndex) => (
+          {levels.map((level) => (
             <div key={level} className="flex gap-2 mb-2">
               {chartData.map((dep, colIndex) => {
-                const value = Math.floor((dep.staff / 50) * 50);
+                const barHeight = dep.percentage >= level ? 100 : ((dep.percentage / level) * 100);
                 return (
                   <div
                     key={colIndex}
-                    className={`h-6 flex-1 rounded-lg ${getColor(
-                      value,
-                    )} hover:scale-105 transition`}
+                    className={`h-6 flex-1 rounded-lg ${getColor(dep.staff)}`}
+                    style={{ 
+                      opacity: barHeight >= 100 ? 1 : barHeight > 0 ? 0.3 : 0 
+                    }}
+                    title={`${dep.name}: ${dep.staff} staff`}
                   />
                 );
               })}

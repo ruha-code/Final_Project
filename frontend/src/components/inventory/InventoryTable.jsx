@@ -24,6 +24,7 @@ function ItemModal({ onClose, onSaved, editData }) {
     unit: editData?.unit || "pcs",
     stock_percentage: editData?.stock_percentage || 0,
     status: editData?.status || "AVAILABLE",
+    expires_at: editData?.expires_at ? editData.expires_at.split("T")[0] : "",
   });
   const [saving, setSaving] = useState(false);
 
@@ -31,10 +32,19 @@ function ItemModal({ onClose, onSaved, editData }) {
     if (!form.name) return;
     setSaving(true);
     try {
+      const payload = {
+        name: form.name,
+        category: form.category,
+        quantity: form.quantity,
+        unit: form.unit,
+        stock_percentage: form.stock_percentage,
+        status: form.status,
+        ...(form.expires_at && { expires_at: form.expires_at }),
+      };
       if (editData) {
-        await api.put(`/inventory/${editData.id}`, form);
+        await api.put(`/inventory/${editData.id}`, payload);
       } else {
-        await api.post("/inventory", form);
+        await api.post("/inventory", payload);
       }
       onSaved();
       onClose();
@@ -97,11 +107,11 @@ function ItemModal({ onClose, onSaved, editData }) {
               />
             </div>
             <div>
-              <label className="text-sm text-gray-500 mb-1 block">Stock %</label>
+              <label className="text-sm text-gray-500 mb-1 block">Expiry Date</label>
               <input
-                type="number"
-                value={form.stock_percentage}
-                onChange={(e) => setForm({...form, stock_percentage: parseInt(e.target.value) || 0})}
+                type="date"
+                value={form.expires_at}
+                onChange={(e) => setForm({...form, expires_at: e.target.value})}
                 className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
               />
             </div>
@@ -161,9 +171,10 @@ export default function InventoryTable({ search = "", status = "All", onRefresh 
   return (
     <div className="bg-white rounded-2xl border overflow-hidden">
       {/* HEADER */}
-      <div className="grid grid-cols-4 px-6 py-3 text-xs text-gray-400 bg-gray-50">
+      <div className="grid grid-cols-5 px-6 py-3 text-xs text-gray-400 bg-gray-50">
         <span>Item</span>
         <span>Stock</span>
+        <span>Expiry</span>
         <span>Status</span>
         <div className="flex justify-end">
           {isAdmin() && (
@@ -181,7 +192,7 @@ export default function InventoryTable({ search = "", status = "All", onRefresh 
       {items.map((item) => (
         <div
           key={item.id}
-          className="grid grid-cols-4 items-center px-6 py-4 border-t hover:bg-gray-50 relative"
+          className="grid grid-cols-5 items-center px-6 py-4 border-t hover:bg-gray-50 relative"
         >
           {/* ITEM */}
           <div className="flex items-center gap-3">
@@ -222,6 +233,11 @@ export default function InventoryTable({ search = "", status = "All", onRefresh 
               />
             </div>
           </div>
+
+          {/* EXPIRY */}
+          <span className={`text-xs ${item.expires_at && new Date(item.expires_at) <= new Date(Date.now() + 30*24*60*60*1000) ? "text-orange-500" : "text-gray-500"}`}>
+            {item.expires_at ? new Date(item.expires_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—"}
+          </span>
 
           {/* STATUS */}
           <span
