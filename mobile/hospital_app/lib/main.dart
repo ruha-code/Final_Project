@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:hospital_app/features/presentation/screens/main_part/dashboard_screen.dart';
+import 'package:hospital_app/features/presentation/screens/main_part/main_screen.dart';
 import 'package:hospital_app/features/presentation/screens/register_part/login_screen.dart';
 import 'package:hospital_app/features/presentation/screens/register_part/register_screen.dart';
 
-void main(){
-  runApp(MyApp());
+void main() {
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -16,9 +16,9 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       initialRoute: '/login',
       routes: {
-        '/register': (context) => const RegisterScreen(),
         '/login': (context) => const LoginScreen(),
-        '/dashboard': (context) => const DashboardScreen(),
+        '/register': (context) => const RegisterScreen(),
+        '/dashboard': (context) => const MainScreen(),
       },
     );
   }

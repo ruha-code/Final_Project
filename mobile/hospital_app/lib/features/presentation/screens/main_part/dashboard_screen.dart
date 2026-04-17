@@ -1,4 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:hospital_app/features/presentation/screens/main_part/widgets/app_constant.dart';
+import 'package:hospital_app/features/presentation/screens/main_part/widgets/bottom_nav_bar.dart';
+import 'package:hospital_app/features/presentation/screens/main_part/widgets/section_header.dart';
+import 'package:hospital_app/features/presentation/screens/main_part/widgets/stat_card.dart';
+import 'package:hospital_app/features/presentation/screens/main_part/widgets/top_nav_bar.dart';
+
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
@@ -20,9 +26,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 16),
-              _buildTopBar(),
+              const TopNavBar(),
               const SizedBox(height: 24),
-              _buildHeader(),
+              const SectionHeader(
+                title: 'Dashboard',
+                subtitle: 'Hello Ruslan, welcome back!',
+              ),
               const SizedBox(height: 20),
               _buildStatsRow(),
               const SizedBox(height: 24),
@@ -34,94 +43,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
       ),
-      bottomNavigationBar: _buildBottomNav(),
-    );
-  }
-
-  Widget _buildTopBar() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Row(
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: const Color(0xFFEDE9FE),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(Icons.grid_view_rounded,
-                  color: Color(0xFF7C3AED), size: 18),
-            ),
-            const SizedBox(width: 8),
-            const Text(
-              'Medlink',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF1A1A2E),
-              ),
-            ),
-          ],
-        ),
-        Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF5F5F5),
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: const Icon(Icons.search, size: 18, color: Colors.black54),
-            ),
-            const SizedBox(width: 10),
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: const Color(0xFF1DB87A),
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: const Center(
-                child: Text(
-                  'R',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 15,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildHeader() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: const [
-        Text(
-          'Dashboard',
-          style: TextStyle(
-            fontSize: 26,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF1A1A2E),
-          ),
-        ),
-        SizedBox(height: 4),
-        Text(
-          'Hello Ruslan, welcome back!',
-          style: TextStyle(
-            fontSize: 13,
-            color: Colors.black45,
-          ),
-        ),
-      ],
+      bottomNavigationBar: BottomNavBar(
+        selectedIndex: _selectedIndex,
+        onTap: (i) => setState(() => _selectedIndex = i),
+      ),
     );
   }
 
@@ -129,92 +54,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
-        children: [
-          _buildStatCard(
+        children: const [
+          StatCard(
             title: 'Total Patients',
             value: '8,340',
             change: '15% vs last week',
-            isPositive: true,
-            accentColor: const Color(0xFF1DB87A),
+            accentColor: AppColors.primary,
           ),
-          const SizedBox(width: 12),
-          _buildStatCard(
+          SizedBox(width: 12),
+          StatCard(
             title: 'Appointments',
             value: '1,275',
             change: '8% vs yesterday',
-            isPositive: true,
-            accentColor: const Color(0xFF6C63FF),
+            accentColor: AppColors.accent,
           ),
-          const SizedBox(width: 12),
-          _buildStatCard(
+          SizedBox(width: 12),
+          StatCard(
             title: 'Active',
             value: '2',
             change: 'Today',
-            isPositive: true,
-            accentColor: const Color(0xFFFF6584),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatCard({
-    required String title,
-    required String value,
-    required String change,
-    required bool isPositive,
-    required Color accentColor,
-  }) {
-    return Container(
-      width: 145,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFF0F0F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 4,
-            height: 28,
-            decoration: BoxDecoration(
-              color: accentColor,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 12,
-              color: Colors.black45,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF1A1A2E),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            change,
-            style: TextStyle(
-              fontSize: 11,
-              color: isPositive ? const Color(0xFF1DB87A) : Colors.red,
-            ),
+            accentColor: AppColors.pink,
           ),
         ],
       ),
@@ -235,18 +94,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFF0F0F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      decoration: AppDecorations.card,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -255,7 +103,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF1A1A2E),
+              color: AppColors.textPrimary, 
             ),
           ),
           const SizedBox(height: 20),
@@ -274,7 +122,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       days[i],
                       style: const TextStyle(
                         fontSize: 11,
-                        color: Colors.black45,
+                        color: AppColors.textSecondary,
                       ),
                     ),
                   ],
@@ -286,11 +134,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _buildLegendItem(const Color(0xFF1DB87A), '< 30'),
+              _buildLegendItem(AppColors.primary, '< 30'),
               const SizedBox(width: 16),
-              _buildLegendItem(const Color(0xFF6C63FF), '31-50'),
+              _buildLegendItem(AppColors.accent, '31-50'),
               const SizedBox(width: 16),
-              _buildLegendItem(const Color(0xFF2D2D3A), '51+'),
+              _buildLegendItem(AppColors.dark, '51+'),
             ],
           ),
         ],
@@ -299,11 +147,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildStackedBar(List<double> segments) {
-    final colors = [
-      const Color(0xFF1DB87A),
-      const Color(0xFF6C63FF),
-      const Color(0xFF2D2D3A),
-    ];
+    final colors = [AppColors.primary, AppColors.accent, AppColors.dark];
     return SizedBox(
       width: 28,
       child: Column(
@@ -330,10 +174,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Container(
           width: 10,
           height: 10,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-          ),
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 4),
         Text(
@@ -347,18 +188,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildRevenueChart() {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFF0F0F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      decoration: AppDecorations.card,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -367,14 +197,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF1A1A2E),
+              color: AppColors.textPrimary,
             ),
           ),
           const SizedBox(height: 16),
           SizedBox(
             height: 120,
             child: CustomPaint(
-              painter: RevenueChartPainter(),
+              painter: _RevenueChartPainter(),
               size: const Size(double.infinity, 120),
             ),
           ),
@@ -382,76 +212,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
-
-  Widget _buildBottomNav() {
-    final items = [
-      {'icon': Icons.home_rounded, 'label': 'Home'},
-      {'icon': Icons.calendar_today_rounded, 'label': 'Appts'},
-      {'icon': Icons.people_rounded, 'label': 'Patients'},
-      {'icon': Icons.medical_services_rounded, 'label': 'Doctors'},
-      {'icon': Icons.more_horiz_rounded, 'label': 'More'},
-    ];
-
-    return Container(
-      height: 72,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(
-          top: BorderSide(color: Colors.grey.shade200),
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: List.generate(items.length, (i) {
-          final selected = i == _selectedIndex;
-          return GestureDetector(
-            onTap: () => setState(() => _selectedIndex = i),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  items[i]['icon'] as IconData,
-                  size: 22,
-                  color: selected
-                      ? const Color(0xFF1DB87A)
-                      : Colors.black38,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  items[i]['label'] as String,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: selected
-                        ? const Color(0xFF1DB87A)
-                        : Colors.black38,
-                    fontWeight:
-                        selected ? FontWeight.w600 : FontWeight.w400,
-                  ),
-                ),
-              ],
-            ),
-          );
-        }),
-      ),
-    );
-  }
 }
 
-class RevenueChartPainter extends CustomPainter {
+class _RevenueChartPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final points = [0.7, 0.5, 0.6, 0.4, 0.45, 0.3, 0.2, 0.15, 0.1];
     final dx = size.width / (points.length - 1);
+    final coords = List.generate(
+        points.length, (i) => Offset(i * dx, size.height * points[i]));
 
-    final coords = List.generate(points.length, (i) {
-      return Offset(i * dx, size.height * points[i]);
-    });
-
-    final fillPath = Path();
-    fillPath.moveTo(0, size.height);
-    fillPath.lineTo(coords[0].dx, coords[0].dy);
+    final fillPath = Path()
+      ..moveTo(0, size.height)
+      ..lineTo(coords[0].dx, coords[0].dy);
     for (int i = 0; i < coords.length - 1; i++) {
-      final cp1 = Offset((coords[i].dx + coords[i + 1].dx) / 2, coords[i].dy);
+      final cp1 =
+          Offset((coords[i].dx + coords[i + 1].dx) / 2, coords[i].dy);
       final cp2 =
           Offset((coords[i].dx + coords[i + 1].dx) / 2, coords[i + 1].dy);
       fillPath.cubicTo(
@@ -460,40 +236,43 @@ class RevenueChartPainter extends CustomPainter {
     fillPath.lineTo(size.width, size.height);
     fillPath.close();
 
-    final fillPaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          const Color(0xFF1DB87A).withValues(alpha: 0.25),
-          const Color(0xFF1DB87A).withValues(alpha: 0.0),
-        ],
-      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
-    canvas.drawPath(fillPath, fillPaint);
+    canvas.drawPath(
+      fillPath,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            AppColors.primary.withValues(alpha: 0.25),
+            AppColors.primary.withValues(alpha: 0.0),
+          ],
+        ).createShader(Rect.fromLTWH(0, 0, size.width, size.height)),
+    );
 
-    final linePath = Path();
-    linePath.moveTo(coords[0].dx, coords[0].dy);
+    final linePath = Path()..moveTo(coords[0].dx, coords[0].dy);
     for (int i = 0; i < coords.length - 1; i++) {
-      final cp1 = Offset((coords[i].dx + coords[i + 1].dx) / 2, coords[i].dy);
+      final cp1 =
+          Offset((coords[i].dx + coords[i + 1].dx) / 2, coords[i].dy);
       final cp2 =
           Offset((coords[i].dx + coords[i + 1].dx) / 2, coords[i + 1].dy);
       linePath.cubicTo(
           cp1.dx, cp1.dy, cp2.dx, cp2.dy, coords[i + 1].dx, coords[i + 1].dy);
     }
 
-    final linePaint = Paint()
-      ..color = const Color(0xFF1DB87A)
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-    canvas.drawPath(linePath, linePaint);
+    canvas.drawPath(
+      linePath,
+      Paint()
+        ..color = AppColors.primary
+        ..strokeWidth = 2
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round,
+    );
 
-    final dotPaint = Paint()..color = const Color(0xFF1DB87A);
+    final dotPaint = Paint()..color = AppColors.primary;
     final dotBorder = Paint()
       ..color = Colors.white
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
-
     for (final p in coords) {
       canvas.drawCircle(p, 4, dotPaint);
       canvas.drawCircle(p, 4, dotBorder);
