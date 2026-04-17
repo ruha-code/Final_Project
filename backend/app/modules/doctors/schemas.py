@@ -14,11 +14,26 @@ class DoctorProfileCreate(BaseModel):
     @field_validator("consultation_duration_minutes")
     @classmethod
     def validate_duration(cls, v: int) -> int:
-        if not 15 <= v <= 120:
-            raise ValueError("Consultation duration must be between 15 and 120 minutes")
+        if not 10 <= v <= 120:
+            raise ValueError("Consultation duration must be between 10 and 120 minutes")
         return v
- 
- 
+
+    @field_validator("years_of_experience")
+    @classmethod
+    def validate_experience(cls, v: Optional[int]) -> Optional[int]:
+        if v is not None and not 0 <= v <= 50:
+            raise ValueError("Years of experience must be between 0 and 50")
+        return v
+
+    @field_validator("specialty", "bio", "license_number")
+    @classmethod
+    def strip_optional_strings(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        cleaned = v.strip()
+        return cleaned or None
+
+
 class DoctorProfileUpdate(BaseModel):
     full_name: Optional[str] = None
     phone: Optional[str] = None
@@ -28,6 +43,38 @@ class DoctorProfileUpdate(BaseModel):
     consultation_duration_minutes: Optional[int] = None
     bio: Optional[str] = None
     is_available: Optional[bool] = None
+
+    @field_validator("consultation_duration_minutes")
+    @classmethod
+    def validate_duration(cls, v: Optional[int]) -> Optional[int]:
+        if v is not None and not 10 <= v <= 120:
+            raise ValueError("Consultation duration must be between 10 and 120 minutes")
+        return v
+
+    @field_validator("years_of_experience")
+    @classmethod
+    def validate_experience(cls, v: Optional[int]) -> Optional[int]:
+        if v is not None and not 0 <= v <= 50:
+            raise ValueError("Years of experience must be between 0 and 50")
+        return v
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        cleaned = v.strip()
+        if not cleaned:
+            raise ValueError("Phone number cannot be empty")
+        return cleaned
+
+    @field_validator("full_name", "specialty", "bio")
+    @classmethod
+    def strip_optional_strings(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        cleaned = v.strip()
+        return cleaned or None
  
  
 class DoctorResponse(BaseModel):

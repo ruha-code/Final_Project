@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from sqlalchemy import select
 from datetime import date, datetime, timedelta, time, timezone
 
@@ -71,28 +72,6 @@ async def list_doctors(
     result = await db.execute(query)
     doctors = result.scalars().all()
     return [_build_detail(d) for d in doctors]
-
-
-@router.get(
-    "/{doctor_id}",
-    response_model=DoctorDetailResponse,
-    summary="Get doctor details",
-)
-async def get_doctor_by_id(
-    doctor_id: int,
-    db: AsyncSession = Depends(get_db),
-):
-    from sqlalchemy.orm import selectinload
-
-    result = await db.execute(
-        select(Doctor)
-        .options(selectinload(Doctor.user), selectinload(Doctor.department))
-        .where(Doctor.id == doctor_id)
-    )
-    doctor = result.scalar_one_or_none()
-    if not doctor:
-        raise NotFoundException("Doctor not found")
-    return _build_detail(doctor)
 
 
 @router.post(
@@ -286,6 +265,26 @@ async def get_my_schedule(
 
 
 @router.get(
+    "/{doctor_id}",
+    response_model=DoctorDetailResponse,
+    summary="Get doctor details",
+)
+async def get_doctor_by_id(
+    doctor_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Doctor)
+        .options(selectinload(Doctor.user), selectinload(Doctor.department))
+        .where(Doctor.id == doctor_id)
+    )
+    doctor = result.scalar_one_or_none()
+    if not doctor:
+        raise NotFoundException("Doctor not found")
+    return _build_detail(doctor)
+
+
+@router.get(
     "/{doctor_id}/available-slots",
     response_model=AvailableSlotsResponse,
     summary="Get available slots for a doctor",
@@ -367,9 +366,6 @@ async def get_available_slots(
 
 
 # Admin endpoints for doctor management
-from app.core.dependencies import RoleChecker
-
-
 @router.put(
     "/{doctor_id}", response_model=DoctorDetailResponse, summary="Update doctor (Admin)"
 )

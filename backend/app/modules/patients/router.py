@@ -46,8 +46,6 @@ def _build_detail(patient: Patient) -> PatientDetailResponse:
         avatar_url=patient.user.avatar_url,
     )
 
-
-# ── POST /patients/profile ────────────────────────────────────────────────────
 @router.post(
     "/profile",
     response_model=PatientDetailResponse,
@@ -97,7 +95,6 @@ async def setup_patient_profile(
     return _build_detail(patient)
 
 
-# ── GET /patients/me ──────────────────────────────────────────────────────────
 @router.get(
     "/me", response_model=PatientDetailResponse, summary="Get my patient profile"
 )
@@ -115,8 +112,6 @@ async def get_my_patient_profile(
         raise NotFoundException("Patient profile not found. Please set it up first.")
     return _build_detail(patient)
 
-
-# ── PUT /patients/me ──────────────────────────────────────────────────────────
 @router.put(
     "/me", response_model=PatientDetailResponse, summary="Update my patient profile"
 )
@@ -159,7 +154,6 @@ async def update_my_patient_profile(
     return _build_detail(patient)
 
 
-# ── GET /patients (Admin) ─────────────────────────────────────────────────────
 @router.get(
     "",
     response_model=list[PatientDetailResponse],
@@ -188,8 +182,6 @@ async def list_patients(
 
     return [_build_detail(p) for p in patients]
 
-
-# ── GET /patients/{id} ────────────────────────────────────────────────────────
 @router.get(
     "/{patient_id}",
     response_model=PatientDetailResponse,
@@ -211,7 +203,6 @@ async def get_patient_by_id(
     return _build_detail(patient)
 
 
-# ── POST /patients/{id}/vitals ────────────────────────────────────────────────
 @router.post(
     "/{patient_id}/vitals",
     response_model=HealthVitalResponse,
@@ -235,7 +226,6 @@ async def add_vitals(
     return vital
 
 
-# ── GET /patients/{id}/vitals ─────────────────────────────────────────────────
 @router.get(
     "/{patient_id}/vitals",
     response_model=list[HealthVitalResponse],
@@ -260,16 +250,15 @@ async def get_vitals(
     return result.scalars().all()
 
 
-# ── PUT /patients/{id} (Admin) ────────────────────────────────────────────────
 @router.put(
     "/{patient_id}",
     response_model=PatientDetailResponse,
-    summary="Update patient (Admin)",
+    summary="Update patient (Admin or Doctor)",
 )
 async def update_patient(
     patient_id: int,
     dto: PatientProfileUpdate,
-    current_user: User = Depends(RoleChecker(["ADMIN"])),
+    current_user: User = Depends(RoleChecker(["ADMIN", "DOCTOR"])),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -281,7 +270,12 @@ async def update_patient(
     if not patient:
         raise NotFoundException("Patient not found")
 
-    for field, value in dto.model_dump(exclude_none=True).items():
+    updates = dto.model_dump(exclude_none=True)
+
+    if "full_name" in updates:
+        patient.user.full_name = updates.pop("full_name")
+
+    for field, value in updates.items():
         setattr(patient, field, value)
 
     await db.commit()
@@ -295,8 +289,6 @@ async def update_patient(
     )
     return _build_detail(patient)
 
-
-# ── DELETE /patients/{id} (Admin) ──────────────────────────────────────────────
 @router.delete("/{patient_id}", status_code=204, summary="Delete patient (Admin)")
 async def delete_patient(
     patient_id: int,

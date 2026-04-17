@@ -281,6 +281,50 @@ async def get_my_appointments(
 
 
 @router.put(
+    "/{appointment_id}/start",
+    response_model=AppointmentResponse,
+    summary="Start an appointment (Doctor)",
+)
+async def start_appointment(
+    appointment_id: int,
+    current_user: User = Depends(RoleChecker(["DOCTOR"])),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(Appointment).where(Appointment.id == appointment_id))
+    appointment = result.scalar_one_or_none()
+    if not appointment:
+        raise NotFoundException("Appointment not found")
+
+    result = await db.execute(select(Doctor).where(Doctor.user_id == current_user.id))
+    doctor = result.scalar_one_or_none()
+    if not doctor or appointment.doctor_id != doctor.id:
+        raise ForbiddenException("This is not your appointment")
+
+    if appointment.status == AppointmentStatus.CANCELLED:
+        raise ValidationException("Cannot start a cancelled appointment")
+    if appointment.status == AppointmentStatus.COMPLETED:
+        raise ValidationException("Appointment is already completed")
+    if appointment.status == AppointmentStatus.ONGOING:
+        raise ValidationException("Appointment is already in progress")
+
+    appointment.status = AppointmentStatus.ONGOING
+    await db.commit()
+
+    result = await db.execute(
+        select(Appointment).options(*_load_opts()).where(Appointment.id == appointment.id)
+    )
+    appointment = result.scalar_one()
+    await log(
+        db,
+        current_user.id,
+        "START_APPOINTMENT",
+        entity_type="Appointment",
+        entity_id=appointment.id,
+    )
+    return appointment
+
+
+@router.put(
     "/{appointment_id}/cancel",
     response_model=AppointmentResponse,
     summary="Cancel an appointment",
