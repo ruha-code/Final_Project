@@ -71,6 +71,9 @@ export default function PatientProfile() {
     const fetchProfile = async () => {
       try {
         const data = await api.get("/patients/me");
+        const profileIncomplete =
+          !data.date_of_birth || !data.gender || !data.phone;
+
         setForm({
           full_name: data.full_name || "",
           date_of_birth: data.date_of_birth || "",
@@ -83,6 +86,7 @@ export default function PatientProfile() {
           emergency_contact_name: data.emergency_contact_name || "",
           emergency_contact_phone: data.emergency_contact_phone || "",
         });
+        setIsNewProfile(profileIncomplete);
       } catch (err) {
         if (err.message?.includes("not found") || err.message?.includes("set it up")) {
           setIsNewProfile(true);
@@ -260,7 +264,6 @@ export default function PatientProfile() {
               <option value="">Select</option>
               <option value="MALE">Male</option>
               <option value="FEMALE">Female</option>
-              <option value="OTHER">Other</option>
             </select>
             <FieldError message={fieldErrors.gender} />
           </div>

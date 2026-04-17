@@ -71,6 +71,10 @@ function buildApiError(status, payload) {
   return new ApiError(message, status, payload);
 }
 
+function shouldAttemptRefresh(endpoint) {
+  return !["/auth/login", "/auth/register", "/auth/refresh"].includes(endpoint);
+}
+
 class ApiService {
   constructor() {
     this.baseURL = API_BASE_URL;
@@ -91,7 +95,7 @@ class ApiService {
 
     const response = await fetch(url, config);
 
-    if (response.status === 401 && !_isRetry) {
+    if (response.status === 401 && !_isRetry && shouldAttemptRefresh(endpoint)) {
       const refreshed = await this._tryRefresh();
       if (refreshed) {
         return this.request(endpoint, options, true);
