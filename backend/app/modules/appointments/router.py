@@ -1,24 +1,21 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
-from sqlalchemy.orm import selectinload
-from datetime import datetime, timedelta, date, time, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Optional
 
-from app.core.database import get_db
-from app.core.dependencies import get_current_user, RoleChecker
-from app.core.exceptions import (
-    NotFoundException,
-    ConflictException,
-    ValidationException,
-    ForbiddenException,
-)
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
 from app.core import event_bus
+from app.core.database import get_db
+from app.core.dependencies import RoleChecker, get_current_user
+from app.core.exceptions import (
+    ConflictException,
+    ForbiddenException,
+    NotFoundException,
+    ValidationException,
+)
 from app.core.pagination import paginate
-from app.modules.audit.router import Actions, log
-from app.modules.auth.models import User
-from app.modules.patients.models import Patient
-from app.modules.doctors.models import Doctor, DoctorSchedule
 from app.modules.appointments.models import (
     Appointment,
     AppointmentStatus,
@@ -30,6 +27,10 @@ from app.modules.appointments.schemas import (
     AppointmentResponse,
     CompleteRequest,
 )
+from app.modules.audit.router import Actions, log
+from app.modules.auth.models import User
+from app.modules.doctors.models import Doctor, DoctorSchedule
+from app.modules.patients.models import Patient
 
 router = APIRouter()
 
@@ -67,7 +68,28 @@ def _normalize_utc(dt: datetime) -> datetime:
     return dt.astimezone(timezone.utc)
 
 
-async def _check_doctor_conflict(doctor_id, start, duration, db):
+def _strip_timezone(value: time) -> time:
+    return value.replace(tzinfo=None)
+
+
+def _is_within_schedule(
+    start_time: time,
+    duration_minutes: int,
+    schedule: DoctorSchedule,
+) -> bool:
+    local_start = datetime.combine(date.min, _strip_timezone(start_time))
+    local_end = local_start + timedelta(minutes=duration_minutes)
+    schedule_start = datetime.combine(date.min, schedule.start_time)
+    schedule_end = datetime.combine(date.min, schedule.end_time)
+    return schedule_start <= local_start and local_end <= schedule_end
+
+
+async def _check_doctor_conflict(
+    doctor_id: int,
+    start: datetime,
+    duration: int,
+    db: AsyncSession,
+) -> bool:
     start = _normalize_utc(start)
     end = start + timedelta(minutes=duration)
     result = await db.execute(
@@ -85,7 +107,12 @@ async def _check_doctor_conflict(doctor_id, start, duration, db):
     return False
 
 
-async def _check_patient_conflict(patient_id, start, duration, db):
+async def _check_patient_conflict(
+    patient_id: int,
+    start: datetime,
+    duration: int,
+    db: AsyncSession,
+) -> bool:
     start = _normalize_utc(start)
     end = start + timedelta(minutes=duration)
     result = await db.execute(
@@ -120,8 +147,10 @@ async def book_appointment(
     if not doctor:
         raise NotFoundException("Doctor not found")
 
-    appt_time = _normalize_utc(dto.appointment_time)
-    day_of_week = appt_time.weekday()
+    local_appt_time = dto.appointment_time
+    appt_time = _normalize_utc(local_appt_time)
+    day_of_week = local_appt_time.weekday()
+    local_start_time = _strip_timezone(local_appt_time.timetz())
 
     result = await db.execute(
         select(DoctorSchedule).where(
@@ -134,18 +163,28 @@ async def book_appointment(
     if not schedule:
         raise ValidationException("Doctor is not available on this day")
 
-    if not (schedule.start_time <= appt_time.time() < schedule.end_time):
+    if not _is_within_schedule(
+        local_start_time,
+        doctor.consultation_duration_minutes,
+        schedule,
+    ):
         raise ValidationException(
-            f"Outside working hours ({schedule.start_time}вЂ“{schedule.end_time})"
+            f"Outside working hours ({schedule.start_time}-{schedule.end_time})"
         )
 
     if await _check_doctor_conflict(
-        doctor.id, appt_time, doctor.consultation_duration_minutes, db
+        doctor.id,
+        appt_time,
+        doctor.consultation_duration_minutes,
+        db,
     ):
         raise ConflictException("Doctor is already booked at this time")
 
     if await _check_patient_conflict(
-        patient.id, appt_time, doctor.consultation_duration_minutes, db
+        patient.id,
+        appt_time,
+        doctor.consultation_duration_minutes,
+        db,
     ):
         raise ConflictException("You already have an appointment at this time")
 
@@ -174,21 +213,26 @@ async def book_appointment(
         entity_type="Appointment",
         entity_id=appointment.id,
     )
-    await event_bus.publish("appointment_created", {
-        "appointment_id": appointment.id,
-        "patient_email": appointment.patient.user.email,
-        "patient_name": appointment.patient.user.full_name,
-        "doctor_email": appointment.doctor.user.email,
-        "doctor_name": appointment.doctor.user.full_name,
-        "appointment_time": appointment.appointment_time.strftime("%B %d, %Y at %I:%M %p"),
-        "appointment_type": appointment.appointment_type,
-        "reason": appointment.reason,
-    })
+    await event_bus.publish(
+        "appointment_created",
+        {
+            "appointment_id": appointment.id,
+            "patient_email": appointment.patient.user.email,
+            "patient_name": appointment.patient.user.full_name,
+            "doctor_email": appointment.doctor.user.email,
+            "doctor_name": appointment.doctor.user.full_name,
+            "appointment_time": local_appt_time.strftime("%B %d, %Y at %I:%M %p"),
+            "appointment_type": appointment.appointment_type,
+            "reason": appointment.reason,
+        },
+    )
     return _build_detail(appointment)
 
 
 @router.get(
-    "/my", response_model=list[AppointmentDetailResponse], summary="Get my appointments"
+    "/my",
+    response_model=list[AppointmentDetailResponse],
+    summary="Get my appointments",
 )
 async def get_my_appointments(
     status: Optional[str] = Query(default=None),
@@ -198,9 +242,7 @@ async def get_my_appointments(
     db: AsyncSession = Depends(get_db),
 ):
     if current_user.role == "PATIENT":
-        result = await db.execute(
-            select(Patient).where(Patient.user_id == current_user.id)
-        )
+        result = await db.execute(select(Patient).where(Patient.user_id == current_user.id))
         patient = result.scalar_one_or_none()
         if not patient:
             raise NotFoundException("Patient profile not found")
@@ -210,9 +252,7 @@ async def get_my_appointments(
             .where(Appointment.patient_id == patient.id)
         )
     else:
-        result = await db.execute(
-            select(Doctor).where(Doctor.user_id == current_user.id)
-        )
+        result = await db.execute(select(Doctor).where(Doctor.user_id == current_user.id))
         doctor = result.scalar_one_or_none()
         if not doctor:
             raise NotFoundException("Doctor profile not found")
@@ -226,16 +266,18 @@ async def get_my_appointments(
         query = query.where(Appointment.status == status.upper())
     if from_date:
         query = query.where(
-            Appointment.appointment_time >= datetime.combine(from_date, time.min)
+            Appointment.appointment_time
+            >= datetime.combine(from_date, time.min, tzinfo=timezone.utc)
         )
     if to_date:
         query = query.where(
-            Appointment.appointment_time <= datetime.combine(to_date, time.max)
+            Appointment.appointment_time
+            <= datetime.combine(to_date, time.max, tzinfo=timezone.utc)
         )
 
     query = query.order_by(Appointment.appointment_time)
     result = await db.execute(query)
-    return [_build_detail(a) for a in result.scalars().all()]
+    return [_build_detail(appointment) for appointment in result.scalars().all()]
 
 
 @router.put(
@@ -248,24 +290,18 @@ async def cancel_appointment(
     current_user: User = Depends(RoleChecker(["PATIENT", "DOCTOR"])),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(Appointment).where(Appointment.id == appointment_id)
-    )
+    result = await db.execute(select(Appointment).where(Appointment.id == appointment_id))
     appointment = result.scalar_one_or_none()
     if not appointment:
         raise NotFoundException("Appointment not found")
 
     if current_user.role == "PATIENT":
-        result = await db.execute(
-            select(Patient).where(Patient.user_id == current_user.id)
-        )
+        result = await db.execute(select(Patient).where(Patient.user_id == current_user.id))
         patient = result.scalar_one_or_none()
         if not patient or appointment.patient_id != patient.id:
             raise ForbiddenException("This is not your appointment")
     else:
-        result = await db.execute(
-            select(Doctor).where(Doctor.user_id == current_user.id)
-        )
+        result = await db.execute(select(Doctor).where(Doctor.user_id == current_user.id))
         doctor = result.scalar_one_or_none()
         if not doctor or appointment.doctor_id != doctor.id:
             raise ForbiddenException("This is not your appointment")
@@ -274,7 +310,7 @@ async def cancel_appointment(
         raise ValidationException(f"Appointment is already {appointment.status}")
 
     appointment.status = AppointmentStatus.CANCELLED
-    appointment.cancelled_at = datetime.utcnow()
+    appointment.cancelled_at = datetime.now(timezone.utc)
     appointment.cancelled_by = current_user.id
     await db.commit()
 
@@ -289,15 +325,18 @@ async def cancel_appointment(
         entity_type="Appointment",
         entity_id=appointment.id,
     )
-    await event_bus.publish("appointment_cancelled", {
-        "appointment_id": appointment.id,
-        "patient_email": appointment.patient.user.email,
-        "patient_name": appointment.patient.user.full_name,
-        "doctor_email": appointment.doctor.user.email,
-        "doctor_name": appointment.doctor.user.full_name,
-        "appointment_time": appointment.appointment_time.strftime("%B %d, %Y at %I:%M %p"),
-        "cancelled_by_name": current_user.full_name,
-    })
+    await event_bus.publish(
+        "appointment_cancelled",
+        {
+            "appointment_id": appointment.id,
+            "patient_email": appointment.patient.user.email,
+            "patient_name": appointment.patient.user.full_name,
+            "doctor_email": appointment.doctor.user.email,
+            "doctor_name": appointment.doctor.user.full_name,
+            "appointment_time": appointment.appointment_time.strftime("%B %d, %Y at %I:%M %p"),
+            "cancelled_by_name": current_user.full_name,
+        },
+    )
     return appointment
 
 
@@ -312,9 +351,7 @@ async def complete_appointment(
     current_user: User = Depends(RoleChecker(["DOCTOR"])),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(Appointment).where(Appointment.id == appointment_id)
-    )
+    result = await db.execute(select(Appointment).where(Appointment.id == appointment_id))
     appointment = result.scalar_one_or_none()
     if not appointment:
         raise NotFoundException("Appointment not found")
@@ -330,7 +367,7 @@ async def complete_appointment(
         raise ValidationException("Appointment is already completed")
 
     appointment.status = AppointmentStatus.COMPLETED
-    appointment.completed_at = datetime.utcnow()
+    appointment.completed_at = datetime.now(timezone.utc)
     if dto.notes:
         appointment.notes = dto.notes
 
@@ -347,14 +384,17 @@ async def complete_appointment(
         entity_type="Appointment",
         entity_id=appointment.id,
     )
-    await event_bus.publish("appointment_completed", {
-        "appointment_id": appointment.id,
-        "patient_email": appointment.patient.user.email,
-        "patient_name": appointment.patient.user.full_name,
-        "doctor_name": appointment.doctor.user.full_name,
-        "appointment_time": appointment.appointment_time.strftime("%B %d, %Y at %I:%M %p"),
-        "notes": appointment.notes,
-    })
+    await event_bus.publish(
+        "appointment_completed",
+        {
+            "appointment_id": appointment.id,
+            "patient_email": appointment.patient.user.email,
+            "patient_name": appointment.patient.user.full_name,
+            "doctor_name": appointment.doctor.user.full_name,
+            "appointment_time": appointment.appointment_time.strftime("%B %d, %Y at %I:%M %p"),
+            "notes": appointment.notes,
+        },
+    )
     return appointment
 
 
@@ -376,7 +416,7 @@ async def get_all_appointments(
     if doctor_id:
         query = query.where(Appointment.doctor_id == doctor_id)
     result = await paginate(query, page, page_size, db)
-    result.items = [_build_detail(a) for a in result.items]
+    result.items = [_build_detail(appointment) for appointment in result.items]
     return result
 
 
@@ -390,9 +430,7 @@ async def admin_cancel_appointment(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(RoleChecker(["ADMIN"])),
 ):
-    result = await db.execute(
-        select(Appointment).where(Appointment.id == appointment_id)
-    )
+    result = await db.execute(select(Appointment).where(Appointment.id == appointment_id))
     appointment = result.scalar_one_or_none()
     if not appointment:
         raise HTTPException(status_code=404, detail="Appointment not found")
@@ -400,7 +438,7 @@ async def admin_cancel_appointment(
         raise HTTPException(status_code=400, detail="Already cancelled")
 
     appointment.status = AppointmentStatus.CANCELLED
-    appointment.cancelled_at = datetime.utcnow()
+    appointment.cancelled_at = datetime.now(timezone.utc)
     appointment.cancelled_by = current_user.id
     if reason:
         appointment.notes = reason
@@ -418,15 +456,18 @@ async def admin_cancel_appointment(
         entity_type="Appointment",
         entity_id=appointment.id,
     )
-    await event_bus.publish("appointment_cancelled", {
-        "appointment_id": appointment.id,
-        "patient_email": appointment.patient.user.email,
-        "patient_name": appointment.patient.user.full_name,
-        "doctor_email": appointment.doctor.user.email,
-        "doctor_name": appointment.doctor.user.full_name,
-        "appointment_time": appointment.appointment_time.strftime("%B %d, %Y at %I:%M %p"),
-        "cancelled_by_name": "Admin",
-    })
+    await event_bus.publish(
+        "appointment_cancelled",
+        {
+            "appointment_id": appointment.id,
+            "patient_email": appointment.patient.user.email,
+            "patient_name": appointment.patient.user.full_name,
+            "doctor_email": appointment.doctor.user.email,
+            "doctor_name": appointment.doctor.user.full_name,
+            "appointment_time": appointment.appointment_time.strftime("%B %d, %Y at %I:%M %p"),
+            "cancelled_by_name": "Admin",
+        },
+    )
     return {"message": "Appointment cancelled by admin"}
 
 
@@ -440,9 +481,7 @@ async def delete_appointment(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    result = await db.execute(
-        select(Appointment).where(Appointment.id == appointment_id)
-    )
+    result = await db.execute(select(Appointment).where(Appointment.id == appointment_id))
     appointment = result.scalar_one_or_none()
     if not appointment:
         raise HTTPException(status_code=404, detail="Appointment not found")
