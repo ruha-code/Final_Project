@@ -50,6 +50,23 @@ class PatientProfileUpdate(BaseModel):
     emergency_contact_name: Optional[str] = None
     emergency_contact_phone: Optional[str] = None
 
+    @field_validator("date_of_birth")
+    @classmethod
+    def validate_dob(cls, v: Optional[date]) -> Optional[date]:
+        if v is not None and v >= date.today():
+            raise ValueError("Date of birth must be in the past")
+        return v
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        cleaned = v.strip()
+        if not cleaned:
+            raise ValueError("Phone number cannot be empty")
+        return cleaned
+
 
 class PatientResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
