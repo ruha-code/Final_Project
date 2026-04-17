@@ -1,6 +1,8 @@
 part of 'appointment_bloc.dart';
 
 @immutable
-sealed class AppointmentState {}
+class AppointmentState {
+  final int selectedFilter;
 
-final class AppointmentInitial extends AppointmentState {}
+  const AppointmentState({required this.selectedFilter});
+}
