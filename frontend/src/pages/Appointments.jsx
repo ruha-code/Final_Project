@@ -458,9 +458,10 @@ function Appointments() {
 
   const filtered = appointments.filter((item) => {
     const matchFilter = filter === "All" ? true : item.status === filter.toUpperCase().replace("CANCELED", "CANCELLED");
-    const matchSearch =
-      (item.patient_name?.toLowerCase().includes(search.toLowerCase())) ||
-      (item.doctor_name?.toLowerCase().includes(search.toLowerCase()));
+    const q = search.toLowerCase();
+    const matchSearch = !q ||
+      (item.patient_name?.toLowerCase().includes(q)) ||
+      (item.doctor_name?.toLowerCase().includes(q));
     return matchFilter && matchSearch;
   });
 

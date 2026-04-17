@@ -25,7 +25,7 @@ function MiniStats({ departments }) {
   const avg = (key) => {
     if (!departments.length) return 0;
     const values = departments.map((d) => d[key] || 0);
-    return Math.round((values.reduce((s, v) => s + v, 0) / values.length) * 100);
+    return Math.round(values.reduce((s, v) => s + v, 0) / values.length);
   };
 
   const allZero =
@@ -115,13 +115,13 @@ function MetricInput({ label, value, onChange }) {
     <div>
       <div className="flex justify-between text-xs text-gray-500 mb-1">
         <label>{label}</label>
-        <span>{Math.round((value || 0) * 100)}%</span>
+        <span>{Math.round(value || 0)}%</span>
       </div>
       <input
         type="range"
         min="0"
-        max="1"
-        step="0.01"
+        max="100"
+        step="1"
         value={value || 0}
         onChange={(e) => onChange(parseFloat(e.target.value))}
         className="w-full accent-teal-500"
