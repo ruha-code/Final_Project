@@ -77,11 +77,11 @@ function AppRoutes() {
         }
       />
 
-      {/* Calendar - All authenticated users */}
+      {/* Calendar - Admin and Doctor only */}
       <Route
         path="/calendar"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute allowedRoles={["ADMIN", "DOCTOR"]}>
             <MainLayout>
               <Calendar />
             </MainLayout>

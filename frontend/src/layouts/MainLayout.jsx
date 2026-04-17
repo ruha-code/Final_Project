@@ -127,7 +127,7 @@ const getSubtitle = () => {
             {isDoctor() && menuItem("/my-patients", "My Patients")}
             {isDoctor() && menuItem("/doctor/profile", "My Profile")}
             {isPatient() && menuItem("/patient/profile", "My Profile")}
-            {menuItem("/calendar", "Calendar")}
+            {(isAdmin() || isDoctor()) && menuItem("/calendar", "Calendar")}
             {isAdmin() && menuItem("/inventory", "Inventory")}
             {menuItem("/messages", "Messages")}
             {isAdmin() && (
