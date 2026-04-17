@@ -114,14 +114,11 @@ function Dashboard() {
             Array.isArray(calendarData) ? calendarData.slice(0, 3) : [],
           );
         } else {
-          const [appointments, calendar] = await Promise.allSettled([
+          const [appointments] = await Promise.allSettled([
             api.get("/appointments/my"),
-            api.get("/calendar"),
           ]);
 
           const appointmentsList = appointments.status === "fulfilled" ? appointments.value : [];
-          const calendarData =
-            calendar.status === "fulfilled" ? calendar.value : [];
 
           setStats({
             totalPatients: 0,
@@ -134,9 +131,7 @@ function Dashboard() {
           setTopDoctors([]);
           setBarData([]);
           setLineData(appointmentsByMonth);
-          setAgendaItems(
-            Array.isArray(calendarData) ? calendarData.slice(0, 3) : [],
-          );
+          setAgendaItems([]);
         }
       } catch (err) {
         setError("Failed to load dashboard data");

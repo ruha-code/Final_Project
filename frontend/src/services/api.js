@@ -1,5 +1,76 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
+class ApiError extends Error {
+  constructor(message, status, data = null) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.data = data;
+  }
+}
+
+function formatValidationDetail(detail) {
+  if (!Array.isArray(detail)) return null;
+
+  const messages = detail
+    .map((item) => {
+      if (typeof item === "string") return item;
+      if (!item || typeof item !== "object") return null;
+
+      const location = Array.isArray(item.loc)
+        ? item.loc
+            .filter(
+              (segment) =>
+                typeof segment === "string" &&
+                !["body", "query", "path", "response"].includes(segment),
+            )
+            .at(-1)
+        : "";
+
+      const fieldLabel = location
+        ? location
+            .split("_")
+            .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+            .join(" ")
+        : "";
+
+      const cleanedMessage = item.msg
+        ? item.msg
+            .replace(/^Value error,\s*/i, "")
+            .replace(/^Assertion failed,\s*/i, "")
+            .trim()
+        : "";
+
+      if (!cleanedMessage) {
+        return fieldLabel || null;
+      }
+
+      if (fieldLabel) {
+        const normalizedLabel = fieldLabel.toLowerCase();
+        if (cleanedMessage.toLowerCase().includes(normalizedLabel)) {
+          return cleanedMessage;
+        }
+        return `${fieldLabel}: ${cleanedMessage}`;
+      }
+
+      return cleanedMessage;
+    })
+    .filter(Boolean);
+
+  return messages.length > 0 ? messages.join(", ") : null;
+}
+
+function buildApiError(status, payload) {
+  const message =
+    formatValidationDetail(payload?.detail) ||
+    payload?.message ||
+    payload?.detail ||
+    payload?.error ||
+    `Request failed: ${status}`;
+
+  return new ApiError(message, status, payload);
+}
+
 class ApiService {
   constructor() {
     this.baseURL = API_BASE_URL;
@@ -23,26 +94,30 @@ class ApiService {
     if (response.status === 401 && !_isRetry) {
       const refreshed = await this._tryRefresh();
       if (refreshed) {
-        return this.request(endpoint, options, true); 
+        return this.request(endpoint, options, true);
       }
       this.clearTokens();
       window.location.href = "/";
-      throw new Error("Unauthorized");
+      throw new ApiError("Unauthorized", 401);
     }
 
+    const payload = await response.json().catch(() => null);
+
     if (response.status === 403) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.detail || "Access forbidden");
+      if (endpoint === "/auth/me") {
+        this.clearTokens();
+        window.location.href = "/";
+      }
+      throw buildApiError(403, payload);
     }
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.detail || `Request failed: ${response.status}`);
+      throw buildApiError(response.status, payload);
     }
 
     if (response.status === 204) return null;
 
-    return await response.json();
+    return payload;
   }
 
   async _tryRefresh() {
@@ -119,9 +194,23 @@ class ApiService {
     localStorage.removeItem("refresh_token");
   }
 
+  getWebSocketUrl(endpoint, params = {}) {
+    const wsBaseUrl = this.baseURL.replace(/^http/, "ws");
+    const url = new URL(`${wsBaseUrl}${endpoint}`);
+
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== "") {
+        url.searchParams.set(key, String(value));
+      }
+    });
+
+    return url.toString();
+  }
+
   removeToken() {
     this.clearTokens();
   }
 }
 
 export const api = new ApiService();
+export { ApiError };

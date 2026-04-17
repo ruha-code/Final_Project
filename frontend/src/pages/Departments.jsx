@@ -96,7 +96,7 @@ function DepartmentCard({ dep, onEdit, onDelete }) {
             {dep.staff_count} Team Members
           </span>
           <span className="text-sm text-teal-600 flex items-center gap-1 cursor-pointer" onClick={(e) => { e.stopPropagation(); navigate(`/departments/${dep.id}`); }}>
-            View <ArrowRight size={14} />
+            View Doctors <ArrowRight size={14} />
           </span>
         </div>
         {isAdmin() && (

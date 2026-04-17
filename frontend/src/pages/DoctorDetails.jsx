@@ -1,169 +1,188 @@
-import { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
-import { Phone, Mail, MapPin, Users, Calendar, Star, Clock } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { Calendar, Clock, Mail, MapPin, Phone, Star } from "lucide-react";
+
+import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
+import {
+  addDaysToDateString,
+  formatDisplayShortDate,
+  getBrowserTimezoneOffsetMinutes,
+  getTodayLocalDate,
+} from "../utils/dateTime";
 
-const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-
-function getInitials(name) {
+function initials(name) {
   if (!name) return "?";
-  return name.split(" ").map((n) => n[0]).join("").toUpperCase();
+  return name.split(" ").map((value) => value[0]).join("").slice(0, 2).toUpperCase();
 }
 
 export default function DoctorDetails() {
+  const navigate = useNavigate();
   const { id } = useParams();
-  const [doc, setDoc] = useState(null);
+  const { isPatient } = useAuth();
+
+  const [doctor, setDoctor] = useState(null);
   const [schedule, setSchedule] = useState([]);
+  const [selectedDate, setSelectedDate] = useState("");
+  const [selectedSlot, setSelectedSlot] = useState("");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchDoctor = async () => {
       try {
-        // Load all doctors and find ours (backend has no GET /doctors/:id)
-        const doctors = await api.get("/doctors");
-        const found = doctors.find((d) => d.id === Number(id));
-        setDoc(found || null);
+        setLoading(true);
+        setError("");
+        const doctorData = await api.get(`/doctors/${id}`);
+        setDoctor(doctorData);
 
-        // Try to load available slots for the next 5 days to show schedule
-        if (found) {
-          const today = new Date();
-          const scheduleData = [];
-          for (let i = 0; i < 7; i++) {
-            const d = new Date(today);
-            d.setDate(d.getDate() + i);
-            const dateStr = d.toISOString().split("T")[0];
-            try {
-              const slotsRes = await api.get(`/doctors/${found.id}/available-slots?date=${dateStr}`);
-              if (slotsRes.available_slots?.length > 0) {
-                scheduleData.push({
-                  date: dateStr,
-                  dayName: d.toLocaleDateString("en-GB", { weekday: "long" }),
-                  dateFormatted: d.toLocaleDateString("en-GB", { day: "numeric", month: "short" }),
-                  slots: slotsRes.available_slots,
-                });
-              }
-            } catch {
-              // ignore
-            }
-          }
-          setSchedule(scheduleData);
+        const today = getTodayLocalDate();
+        const nextDays = await Promise.all(
+          Array.from({ length: 7 }, (_, index) => {
+            const date = addDaysToDateString(today, index);
+            return api
+              .get(`/doctors/${id}/available-slots?date=${date}&timezone_offset_minutes=${getBrowserTimezoneOffsetMinutes()}`)
+              .then((result) => ({
+                date,
+                slots: result?.available_slots || [],
+              }));
+          }),
+        );
+
+        const availableDays = nextDays.filter((item) => item.slots.length > 0);
+        setSchedule(availableDays);
+        if (availableDays[0]) {
+          setSelectedDate(availableDays[0].date);
         }
       } catch (err) {
-        console.error(err);
+        setError(err.message || "Failed to load doctor");
       } finally {
         setLoading(false);
       }
     };
-    fetchData();
+
+    void fetchDoctor();
   }, [id]);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-500" />
+      <div className="flex h-64 items-center justify-center">
+        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-teal-500" />
       </div>
     );
   }
 
-  if (!doc) return <div className="text-gray-400 p-6">Doctor not found</div>;
+  if (error) {
+    return <div className="rounded-2xl bg-red-50 p-4 text-sm text-red-700">{error}</div>;
+  }
+
+  if (!doctor) {
+    return <div className="rounded-2xl bg-white p-6 text-sm text-gray-500">Doctor not found.</div>;
+  }
+
+  const selectedDay = schedule.find((item) => item.date === selectedDate);
 
   return (
     <div className="space-y-6">
-      {/* HEADER */}
-      <div className="grid grid-cols-4 gap-6">
-        {/* PROFILE */}
-        <div className="bg-white rounded-2xl border p-6 text-center">
-          {doc.avatar_url ? (
-            <img src={doc.avatar_url} alt="" className="w-32 h-32 mx-auto rounded-2xl object-cover" />
+      <div className="grid gap-6 lg:grid-cols-[1.1fr_1.2fr_0.9fr]">
+        <div className="rounded-3xl border bg-white p-6 text-center shadow-sm">
+          {doctor.avatar_url ? (
+            <img src={doctor.avatar_url} alt={doctor.full_name} className="mx-auto h-32 w-32 rounded-3xl object-cover" />
           ) : (
-            <div className="w-32 h-32 mx-auto rounded-2xl bg-teal-100 text-teal-600 flex items-center justify-center text-3xl font-bold">
-              {getInitials(doc.full_name)}
+            <div className="mx-auto flex h-32 w-32 items-center justify-center rounded-3xl bg-teal-100 text-3xl font-bold text-teal-700">
+              {initials(doctor.full_name)}
             </div>
           )}
-          <h2 className="mt-4 font-semibold text-lg">{doc.full_name}</h2>
-          <p className="text-sm text-gray-500">{doc.specialty || "—"}</p>
-          <div className="text-xs text-gray-400 mt-1">
-            {doc.years_of_experience ? `${doc.years_of_experience}+ years` : "—"}
-          </div>
-          <span className={`mt-3 inline-block px-3 py-1 text-xs rounded-lg ${doc.is_available ? "bg-teal-100 text-teal-600" : "bg-gray-100 text-gray-500"}`}>
-            {doc.is_available ? "Available" : "Unavailable"}
+          <h1 className="mt-4 text-xl font-semibold text-gray-900">{doctor.full_name}</h1>
+          <p className="text-sm text-gray-500">{doctor.specialty || "General physician"}</p>
+          <p className="mt-1 text-xs text-gray-400">{doctor.department_name || "No department assigned"}</p>
+          <span className={`mt-4 inline-flex rounded-lg px-3 py-1 text-xs font-medium ${doctor.is_available ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+            {doctor.is_available ? "Accepting bookings" : "Unavailable"}
           </span>
         </div>
 
-        {/* INFO */}
-        <div className="col-span-2 bg-white rounded-2xl border p-6 space-y-4">
-          <h3 className="font-semibold">About</h3>
-          <p className="text-sm text-gray-500">{doc.bio || "No bio available."}</p>
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <p className="flex gap-2 items-center">
-              <Phone size={16} className="text-teal-500" /> {doc.phone || "—"}
-            </p>
-            <p className="flex gap-2 items-center">
-              <Mail size={16} className="text-teal-500" /> {doc.email}
-            </p>
-            <p className="flex gap-2 items-center col-span-2">
-              <MapPin size={16} className="text-teal-500" /> {doc.department_name || "No department"}
-            </p>
+        <div className="rounded-3xl border bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-gray-900">About</h2>
+          <p className="mt-3 text-sm leading-6 text-gray-500">{doctor.bio || "No bio available yet."}</p>
+          <div className="mt-6 grid gap-4 text-sm text-gray-600 sm:grid-cols-2">
+            <p className="flex items-center gap-2"><Phone size={16} className="text-teal-500" /> {doctor.phone || "No phone provided"}</p>
+            <p className="flex items-center gap-2"><Mail size={16} className="text-teal-500" /> {doctor.email}</p>
+            <p className="flex items-center gap-2 sm:col-span-2"><MapPin size={16} className="text-teal-500" /> {doctor.department_name || "No department assigned"}</p>
           </div>
         </div>
 
-        {/* STATS */}
         <div className="space-y-4">
-          <div className="bg-white p-5 rounded-2xl border flex gap-3 items-center">
-            <Users className="text-teal-500" />
-            <div>
-              <p className="text-xs text-gray-400">Department</p>
-              <p className="font-semibold text-sm">{doc.department_name || "—"}</p>
-            </div>
+          <div className="rounded-3xl border bg-white p-5 shadow-sm">
+            <p className="text-xs uppercase tracking-wide text-gray-400">Consultation</p>
+            <p className="mt-2 text-2xl font-semibold text-gray-900">{doctor.consultation_duration_minutes} min</p>
           </div>
-          <div className="bg-white p-5 rounded-2xl border flex gap-3 items-center">
-            <Calendar className="text-teal-500" />
-            <div>
-              <p className="text-xs text-gray-400">Consultation</p>
-              <p className="font-semibold">{doc.consultation_duration_minutes} min</p>
-            </div>
+          <div className="rounded-3xl border bg-white p-5 shadow-sm">
+            <p className="text-xs uppercase tracking-wide text-gray-400">Experience</p>
+            <p className="mt-2 text-2xl font-semibold text-gray-900">{doctor.years_of_experience || 0}+ yrs</p>
           </div>
-          <div className="bg-white p-5 rounded-2xl border flex gap-3 items-center">
-            <Star className="text-yellow-400" />
-            <div>
-              <p className="text-xs text-gray-400">Rating</p>
-              <p className="font-semibold">{doc.rating?.toFixed(1) || "0.0"}</p>
-            </div>
+          <div className="rounded-3xl border bg-white p-5 shadow-sm">
+            <p className="flex items-center gap-2 text-xs uppercase tracking-wide text-gray-400"><Star size={14} className="text-yellow-500" /> Rating</p>
+            <p className="mt-2 text-2xl font-semibold text-gray-900">{doctor.rating?.toFixed(1) || "0.0"}</p>
+            <p className="mt-1 text-sm text-gray-500">Patient rating</p>
           </div>
         </div>
       </div>
 
-      {/* SCHEDULE */}
-      <div className="bg-white rounded-2xl border p-6">
-        <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-          <Clock size={16} /> Available Schedule (Next 7 Days)
-        </h3>
+      <div className="rounded-3xl border bg-white p-6 shadow-sm">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900"><Clock size={18} /> Available Slots</h2>
+            <p className="text-sm text-gray-500">Select a time and continue straight to booking.</p>
+          </div>
+          {isPatient() && (
+            <button
+              onClick={() => navigate("/appointments", { state: { bookDoctorId: doctor.id, bookDate: selectedDate, bookTime: selectedSlot } })}
+              disabled={!selectedDate || !selectedSlot}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-teal-500 px-5 py-3 text-sm font-medium text-white hover:bg-teal-600 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Calendar size={16} /> Book Appointment
+            </button>
+          )}
+        </div>
 
         {schedule.length === 0 ? (
-          <p className="text-sm text-gray-400">No available slots in the next 7 days.</p>
+          <p className="mt-4 text-sm text-gray-400">No available slots in the next 7 days.</p>
         ) : (
-          <div className="space-y-4">
-            {schedule.map((day) => (
-              <div key={day.date}>
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-sm font-medium text-gray-700">{day.dayName}</span>
-                  <span className="text-xs text-gray-400">{day.dateFormatted}</span>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {day.slots.map((slot) => {
-                    const t = new Date(slot);
-                    return (
-                      <span
-                        key={slot}
-                        className="px-3 py-1.5 bg-teal-50 text-teal-600 text-xs rounded-lg"
-                      >
-                        {t.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
-                      </span>
-                    );
-                  })}
-                </div>
+          <div className="mt-6 grid gap-6 lg:grid-cols-[220px_1fr]">
+            <div className="space-y-2">
+              {schedule.map((item) => (
+                <button
+                  key={item.date}
+                  onClick={() => {
+                    setSelectedDate(item.date);
+                    setSelectedSlot("");
+                  }}
+                  className={`flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-sm ${selectedDate === item.date ? "bg-teal-500 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+                >
+                  <span>{formatDisplayShortDate(item.date)}</span>
+                  <span className="text-xs opacity-80">{item.slots.length} slots</span>
+                </button>
+              ))}
+            </div>
+            <div className="rounded-2xl bg-gray-50 p-4">
+              <p className="mb-3 text-sm font-medium text-gray-700">
+                {selectedDate ? `Available times for ${formatDisplayShortDate(selectedDate)}` : "Select a date"}
+              </p>
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                {(selectedDay?.slots || []).map((slot) => (
+                  <button
+                    key={slot}
+                    onClick={() => setSelectedSlot(slot)}
+                    className={`rounded-xl px-3 py-2 text-sm ${selectedSlot === slot ? "bg-teal-500 text-white" : "bg-white text-gray-700 hover:bg-teal-50"}`}
+                  >
+                    {slot}
+                  </button>
+                ))}
               </div>
-            ))}
+              {selectedDay && selectedDay.slots.length === 0 && (
+                <p className="text-sm text-gray-400">No slots for this day.</p>
+              )}
+            </div>
           </div>
         )}
       </div>

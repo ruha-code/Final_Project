@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useParams } from "react-router-dom";
 import { MapPin, Users } from "lucide-react";
 import { api } from "../services/api";
+import { useAuth } from "../context/AuthContext";
 
 const FALLBACK_IMG = "https://images.unsplash.com/photo-1584982751601-97dcc096659c";
 
@@ -11,7 +13,9 @@ function getInitials(name) {
 }
 
 export default function DepartmentDetails() {
+  const navigate = useNavigate();
   const { id } = useParams();
+  const { isPatient } = useAuth();
   const [department, setDepartment] = useState(null);
   const [doctors, setDoctors] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -116,9 +120,20 @@ export default function DepartmentDetails() {
                     <p className="text-sm font-medium">{doc.full_name}</p>
                     <p className="text-xs text-gray-400">{doc.specialty || "General"}</p>
                   </div>
-                  <span className={`text-xs px-2 py-1 rounded-lg ${doc.is_available ? "bg-teal-100 text-teal-600" : "bg-gray-100 text-gray-400"}`}>
-                    {doc.is_available ? "Available" : "Away"}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs px-2 py-1 rounded-lg ${doc.is_available ? "bg-teal-100 text-teal-600" : "bg-gray-100 text-gray-400"}`}>
+                      {doc.is_available ? "Available" : "Away"}
+                    </span>
+                    {isPatient() && (
+                      <button
+                        onClick={() => navigate("/appointments", { state: { bookDoctorId: doc.id } })}
+                        disabled={!doc.is_available}
+                        className="rounded-lg bg-teal-500 px-2.5 py-1 text-xs text-white hover:bg-teal-600 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Book
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

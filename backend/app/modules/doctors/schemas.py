@@ -93,4 +93,4 @@ class ScheduleSlotResponse(BaseModel):
 class AvailableSlotsResponse(BaseModel):
     doctor_id: int
     date: str
-    available_slots: list[datetime]
+    available_slots: list[str]

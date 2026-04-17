@@ -153,7 +153,7 @@ function AddDoctorModal({ onClose, onCreated }) {
 
 export default function Doctors() {
   const navigate = useNavigate();
-  const { isAdmin } = useAuth();
+  const { isAdmin, isPatient } = useAuth();
 
   const [doctors, setDoctors] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -338,9 +338,11 @@ export default function Doctors() {
                 </div>
 
                 {/* STATUS */}
-                <div className="mt-2 mb-3">
-                  <StatusBadge isAvailable={doc.is_available} />
-                </div>
+                {!isPatient() && (
+                  <div className="mt-2 mb-3">
+                    <StatusBadge isAvailable={doc.is_available} />
+                  </div>
+                )}
 
                 {/* AVATAR */}
                 <div
@@ -378,6 +380,26 @@ export default function Doctors() {
                     </p>
                   )}
                 </div>
+
+                {isPatient() && (
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => navigate(`/doctors/${doc.id}`)}
+                      className="rounded-xl bg-gray-100 px-3 py-2 text-sm text-gray-700 hover:bg-gray-200"
+                    >
+                      View Profile
+                    </button>
+                    <button
+                      onClick={() =>
+                        navigate("/appointments", { state: { bookDoctorId: doc.id } })
+                      }
+                      disabled={!doc.is_available}
+                      className="rounded-xl bg-teal-500 px-3 py-2 text-sm text-white hover:bg-teal-600 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Book
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>

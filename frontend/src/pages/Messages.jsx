@@ -29,6 +29,7 @@ function Messages() {
   const [selectedDoctorId, setSelectedDoctorId] = useState("");
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState("");
+  const [sendError, setSendError] = useState("");
   const [loading, setLoading] = useState(true);
   const bottomRef = useRef(null);
   const pollRef = useRef(null);
@@ -50,7 +51,16 @@ function Messages() {
 
   useEffect(() => {
     if (user?.role !== "PATIENT") return;
-    api.get("/doctors").then(setDoctors).catch(console.error);
+    Promise.all([api.get("/doctors"), api.get("/appointments/my")])
+      .then(([doctorList, appointments]) => {
+        const allowedDoctorIds = new Set(
+          (appointments || [])
+            .filter((appointment) => appointment.status !== "CANCELLED")
+            .map((appointment) => appointment.doctor_id),
+        );
+        setDoctors((doctorList || []).filter((doctor) => allowedDoctorIds.has(doctor.id)));
+      })
+      .catch(console.error);
   }, [user?.role]);
 
   const fetchMessages = async (convId) => {
@@ -89,11 +99,12 @@ function Messages() {
   const handleSend = async () => {
     if (!input.trim() || !activeConvId) return;
     try {
+      setSendError("");
       const msg = await api.post(`/messages/conversations/${activeConvId}/messages`, { text: input });
       setMessages((prev) => [...prev, msg]);
       setInput("");
     } catch (err) {
-      console.error(err);
+      setSendError(err.message || "Failed to send message");
     }
   };
 
@@ -187,7 +198,7 @@ function Messages() {
 
             {availableDoctors.length === 0 && (
               <p className="text-xs text-gray-500">
-                You already have conversations with all available doctors.
+                You can only start chats with doctors you have appointments with.
               </p>
             )}
           </div>
@@ -246,6 +257,11 @@ function Messages() {
             </div>
 
             <div className="p-4 border-t flex gap-2">
+              {sendError && (
+                <div className="absolute bottom-20 left-1/2 -translate-x-1/2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600 shadow">
+                  {sendError}
+                </div>
+              )}
               <input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
