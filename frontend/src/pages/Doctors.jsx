@@ -247,15 +247,17 @@ export default function Doctors() {
           <h2 className="text-2xl font-semibold">Doctors</h2>
 
           <div className="flex gap-3">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-gray-100 px-4 py-2 rounded-xl text-sm"
-            >
-              <option>All</option>
-              <option>Available</option>
-              <option>Unavailable</option>
-            </select>
+            {!isPatient() && (
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="bg-gray-100 px-4 py-2 rounded-xl text-sm"
+              >
+                <option>All</option>
+                <option>Available</option>
+                <option>Unavailable</option>
+              </select>
+            )}
 
             {isAdmin() && (
               <button

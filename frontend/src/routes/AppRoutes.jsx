@@ -183,11 +183,11 @@ function AppRoutes() {
           }
         />
 
-        {/* Departments - All authenticated users */}
+        {/* Departments - Admin and Doctor only */}
         <Route
           path="/departments"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["ADMIN", "DOCTOR"]}>
               <MainLayout>
                 <Departments />
               </MainLayout>
@@ -198,7 +198,7 @@ function AppRoutes() {
         <Route
           path="/departments/:id"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["ADMIN", "DOCTOR"]}>
               <MainLayout>
                 <DepartmentDetails />
               </MainLayout>

@@ -1,41 +1,40 @@
 import {
-  LineChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
   Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  CartesianGrid,
 } from "recharts";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+
 import { api } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
 function groupPatientsByAge(patients) {
   const groups = { "0-17": 0, "18-35": 0, "36-50": 0, "51+": 0 };
-  patients.forEach((p) => {
-    if (!p.date_of_birth) return;
-    const age = Math.floor((Date.now() - new Date(p.date_of_birth).getTime()) / (1000 * 60 * 60 * 24 * 365.25));
-    if (age < 18) groups["0-17"]++;
-    else if (age < 36) groups["18-35"]++;
-    else if (age < 51) groups["36-50"]++;
-    else groups["51+"]++;
+  patients.forEach((patient) => {
+    if (!patient.date_of_birth) return;
+    const age = Math.floor(
+      (Date.now() - new Date(patient.date_of_birth).getTime()) /
+        (1000 * 60 * 60 * 24 * 365.25),
+    );
+    if (age < 18) groups["0-17"] += 1;
+    else if (age < 36) groups["18-35"] += 1;
+    else if (age < 51) groups["36-50"] += 1;
+    else groups["51+"] += 1;
   });
-  return [
-    { name: "0-17", count: groups["0-17"] },
-    { name: "18-35", count: groups["18-35"] },
-    { name: "36-50", count: groups["36-50"] },
-    { name: "51+", count: groups["51+"] },
-  ];
+  return Object.entries(groups).map(([name, count]) => ({ name, count }));
 }
 
 function groupAppointmentsByMonth(appointments) {
   const months = {};
-  appointments.forEach((a) => {
-    if (!a.appointment_time) return;
-    const date = new Date(a.appointment_time);
+  appointments.forEach((appointment) => {
+    if (!appointment.appointment_time) return;
+    const date = new Date(appointment.appointment_time);
     const key = date.toLocaleDateString("en-US", { month: "short" });
     months[key] = (months[key] || 0) + 1;
   });
@@ -44,8 +43,463 @@ function groupAppointmentsByMonth(appointments) {
 
 function formatAppointmentDate(isoString) {
   if (!isoString) return "—";
-  const d = new Date(isoString);
-  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  const value = new Date(isoString);
+  return value.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+  });
+}
+
+function formatAppointmentTime(isoString) {
+  if (!isoString) return "—";
+  const value = new Date(isoString);
+  return value.toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatFullDate(isoString) {
+  if (!isoString) return "—";
+  const value = new Date(isoString);
+  return value.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function getStatusClass(status) {
+  if (status === "COMPLETED") return "bg-green-100 text-green-700";
+  if (status === "SCHEDULED") return "bg-purple-100 text-purple-600";
+  if (status === "ONGOING") return "bg-blue-100 text-blue-600";
+  return "bg-red-100 text-red-500";
+}
+
+function SummaryCard({ title, value, subtitle }) {
+  return (
+    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+      <p className="text-xs text-gray-400">{title}</p>
+      <h2 className="mt-2 text-2xl font-semibold text-gray-800">{value}</h2>
+      <p className="mt-3 w-fit rounded-full bg-teal-50 px-3 py-1 text-xs text-teal-600">
+        {subtitle}
+      </p>
+    </div>
+  );
+}
+
+function PatientDashboard({ appointments, user }) {
+  const sortedAppointments = [...appointments].sort(
+    (first, second) =>
+      new Date(first.appointment_time).getTime() -
+      new Date(second.appointment_time).getTime(),
+  );
+
+  const now = Date.now();
+  const upcomingAppointment = sortedAppointments.find(
+    (appointment) =>
+      appointment.status !== "CANCELLED" &&
+      new Date(appointment.appointment_time).getTime() >= now,
+  );
+
+  const lastVisit = [...appointments]
+    .filter(
+      (appointment) =>
+        appointment.status === "COMPLETED" ||
+        (appointment.status !== "CANCELLED" &&
+          new Date(appointment.appointment_time).getTime() < now),
+    )
+    .sort(
+      (first, second) =>
+        new Date(second.appointment_time).getTime() -
+        new Date(first.appointment_time).getTime(),
+    )[0];
+
+  const doctorSource = upcomingAppointment || lastVisit;
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+        <h2 className="text-lg font-semibold text-gray-800">
+          Welcome, {user?.full_name || "Patient"}
+        </h2>
+        <p className="mt-2 text-sm text-gray-500">
+          Here is a simple overview of your care and upcoming visit.
+        </p>
+      </div>
+
+      <div className="grid gap-5 md:grid-cols-3">
+        <SummaryCard
+          title="Upcoming Appointment"
+          value={
+            upcomingAppointment
+              ? `${formatAppointmentDate(upcomingAppointment.appointment_time)} • ${formatAppointmentTime(upcomingAppointment.appointment_time)}`
+              : "No appointment"
+          }
+          subtitle={
+            upcomingAppointment
+              ? `${upcomingAppointment.doctor_name}`
+              : "Book your next visit"
+          }
+        />
+        <SummaryCard
+          title="Last Visit"
+          value={
+            lastVisit ? formatFullDate(lastVisit.appointment_time) : "No visits yet"
+          }
+          subtitle={
+            lastVisit
+              ? `${lastVisit.doctor_name}`
+              : "Your visit history will appear here"
+          }
+        />
+        <SummaryCard
+          title="Doctor Info"
+          value={doctorSource?.doctor_name || "No doctor assigned"}
+          subtitle={
+            doctorSource?.doctor_specialty ||
+            "Choose a doctor from the doctors page"
+          }
+        />
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-gray-700">
+              Upcoming Appointment
+            </h2>
+            {upcomingAppointment && (
+              <span
+                className={`rounded-full px-3 py-1 text-xs ${getStatusClass(upcomingAppointment.status)}`}
+              >
+                {upcomingAppointment.status}
+              </span>
+            )}
+          </div>
+
+          {!upcomingAppointment ? (
+            <p className="text-sm text-gray-400">
+              You have no upcoming appointment right now.
+            </p>
+          ) : (
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between rounded-xl bg-gray-50 px-4 py-3">
+                <span className="text-gray-500">Doctor</span>
+                <span className="font-medium text-gray-800">
+                  {upcomingAppointment.doctor_name}
+                </span>
+              </div>
+              <div className="flex justify-between rounded-xl bg-gray-50 px-4 py-3">
+                <span className="text-gray-500">Specialty</span>
+                <span className="font-medium text-gray-800">
+                  {upcomingAppointment.doctor_specialty || "General physician"}
+                </span>
+              </div>
+              <div className="flex justify-between rounded-xl bg-gray-50 px-4 py-3">
+                <span className="text-gray-500">Date</span>
+                <span className="font-medium text-gray-800">
+                  {formatFullDate(upcomingAppointment.appointment_time)}
+                </span>
+              </div>
+              <div className="flex justify-between rounded-xl bg-gray-50 px-4 py-3">
+                <span className="text-gray-500">Time</span>
+                <span className="font-medium text-gray-800">
+                  {formatAppointmentTime(upcomingAppointment.appointment_time)}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-sm font-semibold text-gray-700">Last Visit</h2>
+
+          {!lastVisit ? (
+            <p className="text-sm text-gray-400">
+              Once you complete your first visit, details will appear here.
+            </p>
+          ) : (
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between rounded-xl bg-gray-50 px-4 py-3">
+                <span className="text-gray-500">Doctor</span>
+                <span className="font-medium text-gray-800">
+                  {lastVisit.doctor_name}
+                </span>
+              </div>
+              <div className="flex justify-between rounded-xl bg-gray-50 px-4 py-3">
+                <span className="text-gray-500">Specialty</span>
+                <span className="font-medium text-gray-800">
+                  {lastVisit.doctor_specialty || "General physician"}
+                </span>
+              </div>
+              <div className="flex justify-between rounded-xl bg-gray-50 px-4 py-3">
+                <span className="text-gray-500">Visit Date</span>
+                <span className="font-medium text-gray-800">
+                  {formatFullDate(lastVisit.appointment_time)}
+                </span>
+              </div>
+              <div className="flex justify-between rounded-xl bg-gray-50 px-4 py-3">
+                <span className="text-gray-500">Status</span>
+                <span
+                  className={`rounded-full px-3 py-1 text-xs ${getStatusClass(lastVisit.status)}`}
+                >
+                  {lastVisit.status}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdminDoctorDashboard({
+  agendaItems,
+  barData,
+  isAdmin,
+  isDoctor,
+  lineData,
+  recentAppointments,
+  stats,
+  topDoctors,
+}) {
+  return (
+    <div className="flex gap-6">
+      <div className="flex-1 space-y-6">
+        <div className="grid grid-cols-3 gap-5">
+          {[
+            {
+              title: "Total Patients",
+              value: stats.totalPatients.toLocaleString(),
+              info: "Registered patients",
+            },
+            {
+              title: "Appointments",
+              value: stats.appointments.toLocaleString(),
+              info: "Total in system",
+            },
+            {
+              title: "Doctors",
+              value: stats.doctors,
+              info: "Active clinicians",
+            },
+          ].map((item) => (
+            <div
+              key={item.title}
+              className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
+            >
+              <p className="text-xs text-gray-400">{item.title}</p>
+              <h2 className="mt-2 text-2xl font-semibold text-gray-800">
+                {item.value}
+              </h2>
+              <div className="mt-3 w-fit rounded-full bg-teal-50 px-3 py-1 text-xs text-teal-600">
+                {item.info}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-2 gap-6">
+          <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition hover:shadow-md">
+            <h2 className="mb-4 text-sm font-semibold">Patient by Age Stages</h2>
+            <div className="h-56">
+              <ResponsiveContainer>
+                <BarChart data={barData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar
+                    dataKey="count"
+                    fill="#14b8a6"
+                    radius={[6, 6, 0, 0]}
+                    name="Patients"
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition hover:shadow-md">
+            <h2 className="mb-4 text-sm font-semibold">Appointments by Month</h2>
+            <div className="h-56">
+              <ResponsiveContainer>
+                <LineChart data={lineData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Line
+                    dataKey="count"
+                    stroke="#0f766e"
+                    strokeWidth={3}
+                    name="Appointments"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex justify-between">
+            <h2 className="text-sm font-semibold text-gray-700">
+              Recent Appointments
+            </h2>
+          </div>
+
+          <div className="space-y-2">
+            <div className="mb-2 grid grid-cols-5 px-4 text-xs text-gray-400">
+              <span>Patient</span>
+              <span>Doctor</span>
+              <span>Type</span>
+              <span>Date</span>
+              <span>Status</span>
+            </div>
+
+            {recentAppointments.length === 0 ? (
+              <p className="px-4 py-3 text-sm text-gray-400">No appointments yet</p>
+            ) : (
+              recentAppointments.map((item) => (
+                <div
+                  key={item.id}
+                  className="grid grid-cols-5 items-center rounded-xl bg-gray-50 px-4 py-3 transition hover:bg-gray-100"
+                >
+                  <span className="font-medium text-gray-700">
+                    {item.patient_name}
+                  </span>
+                  <span className="text-gray-500">{item.doctor_name}</span>
+                  <span className="capitalize text-gray-500">
+                    {item.appointment_type?.toLowerCase()}
+                  </span>
+                  <span className="text-gray-500">
+                    {formatAppointmentDate(item.appointment_time)}
+                  </span>
+                  <span
+                    className={`w-fit rounded-full px-3 py-1 text-xs ${getStatusClass(item.status)}`}
+                  >
+                    {item.status.charAt(0) + item.status.slice(1).toLowerCase()}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="w-80 space-y-6">
+        <div className="rounded-2xl border border-gray-100 bg-white/90 p-5 shadow-sm transition hover:shadow-md">
+          <h2 className="mb-4 text-sm font-semibold">
+            {new Date().toLocaleDateString("en-GB", {
+              month: "long",
+              year: "numeric",
+            })}
+          </h2>
+          <div className="mb-2 grid grid-cols-7 gap-2 text-center text-xs text-gray-400">
+            {["S", "M", "T", "W", "T", "F", "S"].map((day) => (
+              <span key={day}>{day}</span>
+            ))}
+          </div>
+          <div className="grid grid-cols-7 gap-2 text-center text-sm">
+            {[
+              ...Array(
+                new Date(
+                  new Date().getFullYear(),
+                  new Date().getMonth() + 1,
+                  0,
+                ).getDate(),
+              ),
+            ].map((_, index) => (
+              <div
+                key={index}
+                className={`cursor-pointer rounded-lg p-2 ${
+                  index + 1 === new Date().getDate()
+                    ? "bg-teal-500 text-white shadow-sm"
+                    : "hover:bg-gray-100"
+                }`}
+              >
+                {index + 1}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+          <h2 className="mb-4 text-sm font-semibold">Agenda</h2>
+          {agendaItems.length === 0 ? (
+            <p className="text-xs text-gray-400">No upcoming events</p>
+          ) : (
+            <div className="space-y-3">
+              {agendaItems.map((event, index) => {
+                const value = new Date(event.event_date);
+                return (
+                  <div
+                    key={`${event.title}-${index}`}
+                    className="flex gap-3 rounded-xl bg-teal-50 p-3"
+                  >
+                    <div className="w-10 text-center">
+                      <p className="text-sm font-semibold text-gray-800">
+                        {value.getDate()}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {value.toLocaleDateString("en-GB", { weekday: "short" })}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-800">
+                        {event.title}
+                      </p>
+                      <p className="text-xs capitalize text-gray-400">
+                        {event.category?.toLowerCase()}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {(isAdmin() || isDoctor()) && (
+          <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+            <h2 className="mb-4 text-sm font-semibold">Doctors' Schedule</h2>
+            {topDoctors.length === 0 ? (
+              <p className="text-xs text-gray-400">No doctors registered</p>
+            ) : (
+              <div className="space-y-4">
+                {topDoctors.map((doctor) => (
+                  <div
+                    key={doctor.id}
+                    className="flex items-center justify-between"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-gray-800">
+                        {doctor.full_name}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {doctor.department_name || doctor.specialty || "—"}
+                      </p>
+                    </div>
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-medium ${
+                        doctor.is_available
+                          ? "bg-green-100 text-green-700"
+                          : "bg-red-100 text-red-500"
+                      }`}
+                    >
+                      {doctor.is_available ? "Available" : "Unavailable"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function Dashboard() {
@@ -74,7 +528,7 @@ function Dashboard() {
             ? "/appointments/admin/all?page=1&page_size=100"
             : "/appointments/my";
 
-          const [patients, doctors, apptPage, calendar] =
+          const [patients, doctors, appointments, calendar] =
             await Promise.allSettled([
               api.get("/patients"),
               api.get("/doctors"),
@@ -82,55 +536,51 @@ function Dashboard() {
               api.get("/calendar"),
             ]);
 
-          const patientList = patients.status === "fulfilled" ? patients.value : [];
+          const patientList =
+            patients.status === "fulfilled" ? patients.value : [];
           const doctorList = doctors.status === "fulfilled" ? doctors.value : [];
-          const apptData =
-            apptPage.status === "fulfilled"
-              ? (isAdmin()
-                  ? apptPage.value
-                  : {
-                      items: Array.isArray(apptPage.value) ? apptPage.value : [],
-                      total: Array.isArray(apptPage.value) ? apptPage.value.length : 0,
-                    })
+          const appointmentData =
+            appointments.status === "fulfilled"
+              ? isAdmin()
+                ? appointments.value
+                : {
+                    items: Array.isArray(appointments.value)
+                      ? appointments.value
+                      : [],
+                    total: Array.isArray(appointments.value)
+                      ? appointments.value.length
+                      : 0,
+                  }
               : { items: [], total: 0 };
           const calendarData =
             calendar.status === "fulfilled" ? calendar.value : [];
 
-          const patientCount = patientList.length;
-          const appointmentsByMonth = groupAppointmentsByMonth(apptData.items || []);
-          const patientsByAge = groupPatientsByAge(patientList);
-
           setStats({
-            totalPatients: patientCount,
+            totalPatients: patientList.length,
             doctors: doctorList.length,
-            appointments: apptData.total ?? apptData.items?.length ?? 0,
+            appointments:
+              appointmentData.total ?? appointmentData.items?.length ?? 0,
           });
-
-          setRecentAppointments(apptData.items?.slice(0, 5) || []);
+          setRecentAppointments(appointmentData.items?.slice(0, 5) || []);
           setTopDoctors(doctorList.slice(0, 3));
-          setBarData(patientsByAge);
-          setLineData(appointmentsByMonth);
+          setBarData(groupPatientsByAge(patientList));
+          setLineData(groupAppointmentsByMonth(appointmentData.items || []));
           setAgendaItems(
             Array.isArray(calendarData) ? calendarData.slice(0, 3) : [],
           );
         } else {
-          const [appointments] = await Promise.allSettled([
-            api.get("/appointments/my"),
-          ]);
-
-          const appointmentsList = appointments.status === "fulfilled" ? appointments.value : [];
+          const appointments = await api.get("/appointments/my");
+          const appointmentList = Array.isArray(appointments) ? appointments : [];
 
           setStats({
             totalPatients: 0,
             doctors: 0,
-            appointments: Array.isArray(appointmentsList) ? appointmentsList.length : 0,
+            appointments: appointmentList.length,
           });
-
-          const appointmentsByMonth = groupAppointmentsByMonth(appointmentsList);
-          setRecentAppointments(Array.isArray(appointmentsList) ? appointmentsList.slice(0, 5) : []);
+          setRecentAppointments(appointmentList);
           setTopDoctors([]);
           setBarData([]);
-          setLineData(appointmentsByMonth);
+          setLineData([]);
           setAgendaItems([]);
         }
       } catch (err) {
@@ -141,282 +591,36 @@ function Dashboard() {
       }
     };
 
-    fetchAll();
+    void fetchAll();
   }, [isAdmin, isDoctor]);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-500"></div>
+      <div className="flex h-64 items-center justify-center">
+        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-teal-500"></div>
       </div>
     );
   }
 
   if (error) {
-    return (
-      <div className="bg-red-100 text-red-700 p-4 rounded-lg">{error}</div>
-    );
+    return <div className="rounded-lg bg-red-100 p-4 text-red-700">{error}</div>;
+  }
+
+  if (!isAdmin() && !isDoctor()) {
+    return <PatientDashboard appointments={recentAppointments} user={user} />;
   }
 
   return (
-    <div className="flex gap-6">
-      {/* LEFT */}
-      <div className="flex-1 space-y-6">
-        {/* CARDS */}
-        <div className={`grid gap-5 ${isAdmin() || isDoctor() ? "grid-cols-3" : "grid-cols-1"}`}>
-          {(isAdmin() || isDoctor()) ? [
-            {
-              title: "Total Patients",
-              value: stats.totalPatients.toLocaleString(),
-              info: "Registered patients",
-            },
-            {
-              title: "Appointments",
-              value: stats.appointments.toLocaleString(),
-              info: "Total in system",
-            },
-            {
-              title: "Doctors",
-              value: stats.doctors,
-              info: "Active clinicians",
-            },
-          ].map((item, i) => (
-            <div
-              key={i}
-              className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
-            >
-              <p className="text-xs text-gray-400">{item.title}</p>
-              <h2 className="text-2xl font-semibold mt-2 text-gray-800">
-                {item.value}
-              </h2>
-              <div className="mt-3 bg-teal-50 text-teal-600 text-xs px-3 py-1 rounded-full w-fit">
-                {item.info}
-              </div>
-            </div>
-          )) : (
-            <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-              <p className="text-xs text-gray-400">My Appointments</p>
-              <h2 className="text-2xl font-semibold mt-2 text-gray-800">
-                {stats.appointments}
-              </h2>
-              <div className="mt-3 bg-teal-50 text-teal-600 text-xs px-3 py-1 rounded-full w-fit">
-                Total appointments
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* CHARTS */}
-        {(isAdmin() || isDoctor()) ? (
-          <div className="grid grid-cols-2 gap-6">
-            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition">
-              <h2 className="text-sm font-semibold mb-4">
-                Patient by Age Stages
-              </h2>
-              <div className="h-56">
-                <ResponsiveContainer>
-                  <BarChart data={barData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="count" fill="#14b8a6" radius={[6, 6, 0, 0]} name="Patients" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition">
-              <h2 className="text-sm font-semibold mb-4">Appointments by Month</h2>
-              <div className="h-56">
-                <ResponsiveContainer>
-                  <LineChart data={lineData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Line dataKey="count" stroke="#0f766e" strokeWidth={3} name="Appointments" />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-            <h2 className="text-sm font-semibold mb-4">
-              Welcome, {user?.full_name || "Patient"}!
-            </h2>
-            <p className="text-gray-500">
-              Your health dashboard is ready. Track your appointments and health information.
-            </p>
-          </div>
-        )}
-
-        {/* RECENT APPOINTMENTS TABLE */}
-        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-sm font-semibold text-gray-700">
-              {isAdmin() || isDoctor() ? "Recent Appointments" : "My Appointments"}
-            </h2>
-          </div>
-
-          <div className="space-y-2">
-            <div className="grid grid-cols-5 text-xs text-gray-400 px-4 mb-2">
-              <span>Patient</span>
-              <span>Doctor</span>
-              <span>Type</span>
-              <span>Date</span>
-              <span>Status</span>
-            </div>
-
-            {recentAppointments.length === 0 ? (
-              <p className="text-sm text-gray-400 px-4 py-3">
-                No appointments yet
-              </p>
-            ) : (
-              recentAppointments.map((item) => (
-                <div
-                  key={item.id}
-                  className="grid grid-cols-5 items-center bg-gray-50 px-4 py-3 rounded-xl hover:bg-gray-100 transition"
-                >
-                  <span className="font-medium text-gray-700">
-                    {item.patient_name}
-                  </span>
-                  <span className="text-gray-500">{item.doctor_name}</span>
-                  <span className="text-gray-500 capitalize">
-                    {item.appointment_type?.toLowerCase()}
-                  </span>
-                  <span className="text-gray-500">
-                    {formatAppointmentDate(item.appointment_time)}
-                  </span>
-                  <span
-                    className={`text-xs px-3 py-1 rounded-full w-fit ${
-                      item.status === "COMPLETED"
-                        ? "bg-green-100 text-green-700 font-medium"
-                        : item.status === "SCHEDULED"
-                          ? "bg-purple-100 text-purple-600"
-                          : item.status === "ONGOING"
-                            ? "bg-blue-100 text-blue-600"
-                            : "bg-red-100 text-red-500"
-                    }`}
-                  >
-                    {item.status.charAt(0) + item.status.slice(1).toLowerCase()}
-                  </span>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* RIGHT */}
-      <div className="w-80 space-y-6">
-        {/* CALENDAR */}
-        <div className="bg-white/90 backdrop-blur p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition">
-          <h2 className="text-sm font-semibold mb-4">
-            {new Date().toLocaleDateString("en-GB", {
-              month: "long",
-              year: "numeric",
-            })}
-          </h2>
-          <div className="grid grid-cols-7 text-xs text-center gap-2 text-gray-400 mb-2">
-            {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
-              <span key={i}>{d}</span>
-            ))}
-          </div>
-          <div className="grid grid-cols-7 text-sm text-center gap-2">
-            {[
-              ...Array(
-                new Date(
-                  new Date().getFullYear(),
-                  new Date().getMonth() + 1,
-                  0,
-                ).getDate(),
-              ),
-            ].map((_, i) => (
-              <div
-                key={i}
-                className={`p-2 rounded-lg cursor-pointer ${
-                  i + 1 === new Date().getDate()
-                    ? "bg-teal-500 text-white shadow-sm"
-                    : "hover:bg-gray-100"
-                }`}
-              >
-                {i + 1}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* AGENDA */}
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-          <h2 className="text-sm font-semibold mb-4">Agenda</h2>
-          {agendaItems.length === 0 ? (
-            <p className="text-xs text-gray-400">No upcoming events</p>
-          ) : (
-            <div className="space-y-3">
-              {agendaItems.map((evt, i) => {
-                const d = new Date(evt.event_date);
-                return (
-                  <div key={i} className="flex gap-3 bg-teal-50 p-3 rounded-xl">
-                    <div className="text-center w-10">
-                      <p className="text-sm font-semibold text-gray-800">
-                        {d.getDate()}
-                      </p>
-                      <p className="text-xs text-gray-400">
-                        {d.toLocaleDateString("en-GB", { weekday: "short" })}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-800">
-                        {evt.title}
-                      </p>
-                      <p className="text-xs text-gray-400 capitalize">
-                        {evt.category?.toLowerCase()}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* DOCTORS SCHEDULE */}
-        {(isAdmin() || isDoctor()) && (
-          <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-            <h2 className="text-sm font-semibold mb-4">Doctors' Schedule</h2>
-            {topDoctors.length === 0 ? (
-              <p className="text-xs text-gray-400">No doctors registered</p>
-            ) : (
-              <div className="space-y-4">
-                {topDoctors.map((doc) => (
-                  <div key={doc.id} className="flex justify-between items-center">
-                    <div>
-                      <p className="text-sm font-medium text-gray-800">
-                        {doc.full_name}
-                      </p>
-                      <p className="text-xs text-gray-400">
-                        {doc.department_name || doc.specialty || "—"}
-                      </p>
-                    </div>
-                    <span
-                      className={`text-xs px-3 py-1 rounded-full font-medium ${
-                        doc.is_available
-                          ? "bg-green-100 text-green-700"
-                          : "bg-red-100 text-red-500"
-                      }`}
-                    >
-                      {doc.is_available ? "Available" : "Unavailable"}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
+    <AdminDoctorDashboard
+      agendaItems={agendaItems}
+      barData={barData}
+      isAdmin={isAdmin}
+      isDoctor={isDoctor}
+      lineData={lineData}
+      recentAppointments={recentAppointments}
+      stats={stats}
+      topDoctors={topDoctors}
+    />
   );
 }
 
