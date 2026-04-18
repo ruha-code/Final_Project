@@ -1,23 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hospital_app/features/presentation/bloc/doctor/doctor_bloc.dart';
+import 'package:hospital_app/features/presentation/screens/main_part/doctor_detail_screen.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/app_constant.dart';
-import 'package:hospital_app/features/presentation/screens/main_part/widgets/bottom_nav_bar.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/doctor_card.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/filter_tabs.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/section_header.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/top_nav_bar.dart';
 
-class DoctorsScreen extends StatefulWidget {
+class DoctorsScreen extends StatelessWidget {
   const DoctorsScreen({super.key});
 
-  @override
-  State<DoctorsScreen> createState() => _DoctorsScreenState();
-}
-
-class _DoctorsScreenState extends State<DoctorsScreen> {
-  int _selectedFilter = 0;
-  int _selectedNavIndex = 3;
-
-  final _filters = [
+  static const _filters = [
     'All',
     'General',
     'Pediatrics',
@@ -26,7 +20,7 @@ class _DoctorsScreenState extends State<DoctorsScreen> {
     'Orthopedics',
   ];
 
-  final _doctors = const [
+  static const _doctors = [
     _DoctorData(
       name: 'Dr. Amelia Hart',
       initials: 'A',
@@ -65,9 +59,9 @@ class _DoctorsScreenState extends State<DoctorsScreen> {
     ),
   ];
 
-  List<_DoctorData> get _filtered {
-    if (_selectedFilter == 0) return _doctors;
-    final label = _filters[_selectedFilter];
+  List<_DoctorData> _filtered(int selectedFilter) {
+    if (selectedFilter == 0) return _doctors;
+    final label = _filters[selectedFilter];
     return _doctors.where((d) => d.specialty == label).toList();
   }
 
@@ -76,55 +70,83 @@ class _DoctorsScreenState extends State<DoctorsScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 16),
-              TopNavBar(
-                actions: [
-                  const MedlinkNotificationButton(),
-                  const SizedBox(width: 10),
-                  const MedlinkGridButton(),
-                  const SizedBox(width: 10),
+        child: BlocBuilder<DoctorBloc, DoctorState>(
+          builder: (context, state) {
+            final filtered = _filtered(state.selectedFilter);
+            return SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 16),
+                  TopNavBar(
+                    actions: const [
+                      MedlinkNotificationButton(),
+                      SizedBox(width: 10),
+                      MedlinkGridButton(),
+                      SizedBox(width: 10),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  const SectionHeader(
+                    title: 'Doctors',
+                    subtitle: 'Manage your data easily',
+                  ),
+                  const SizedBox(height: 20),
+                  FilterTabs(
+                    labels: _filters,
+                    selectedIndex: state.selectedFilter,
+                    onTap: (i) => context
+                        .read<DoctorBloc>()
+                        .add(DoctorFilterChanged(i)),
+                    scrollable: true,
+                  ),
+                  const SizedBox(height: 16),
+                  ...filtered.map((d) => DoctorCard(
+                        name: d.name,
+                        initials: d.initials,
+                        avatarColor: d.avatarColor,
+                        specialty: d.specialty,
+                        schedule: d.schedule,
+                        availability: d.availability,
+                        availabilityColor: d.availabilityColor,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => DoctorDetailScreen(
+                                doctor: DoctorDetailData(
+                                  name: d.name,
+                                  initials: d.initials,
+                                  avatarColor: d.avatarColor,
+                                  specialty: d.specialty,
+                                  experience: '15 years exp.',
+                                  availability: d.availability,
+                                  availabilityColor: d.availabilityColor,
+                                  description: 'Specializes in ${d.specialty.toLowerCase()}, diagnosis, treatment and patient care.',
+                                  phone: '+7 7XX XXX XXXX',
+                                  email: '${d.name.split(' ').last.toLowerCase()}@medlink.com',
+                                  location: 'Almaty, Kazakhstan',
+                                  patients: 410,
+                                  appointments: 820,
+                                  rating: 4.8,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      )),
+                  const SizedBox(height: 24),
                 ],
               ),
-              const SizedBox(height: 24),
-              const SectionHeader(
-                title: 'Doctors',
-                subtitle: 'Manage your data easily',
-              ),
-              const SizedBox(height: 20),
-              FilterTabs(
-                labels: _filters,
-                selectedIndex: _selectedFilter,
-                onTap: (i) => setState(() => _selectedFilter = i),
-                scrollable: true,
-              ),
-              const SizedBox(height: 16),
-              ..._filtered.map((d) => DoctorCard(
-                    name: d.name,
-                    initials: d.initials,
-                    avatarColor: d.avatarColor,
-                    specialty: d.specialty,
-                    schedule: d.schedule,
-                    availability: d.availability,
-                    availabilityColor: d.availabilityColor,
-                  )),
-              const SizedBox(height: 80),
-            ],
-          ),
+            );
+          },
         ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {},
         backgroundColor: AppColors.primary,
         child: const Icon(Icons.add, color: Colors.white),
-      ),
-      bottomNavigationBar: BottomNavBar(
-        selectedIndex: _selectedNavIndex,
-        onTap: (i) => setState(() => _selectedNavIndex = i),
       ),
     );
   }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hospital_app/features/presentation/screens/main_part/widgets/app_constant.dart';
 import 'package:hospital_app/features/presentation/screens/register_part/register_screen.dart';
 import 'package:hospital_app/features/presentation/screens/register_part/widgets/build_text_field.dart';
 
@@ -15,9 +16,6 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _rememberMe = false;
   bool _obscurePassword = true;
 
-  static const _teal = Color(0xFF2DBFAD);
-  static const _bgColor = Color(0xFFE8F5F3);
-
   @override
   void dispose() {
     _usernameController.dispose();
@@ -28,7 +26,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _bgColor,
+      backgroundColor: AppColors.accent,
       body: SafeArea(
         child: SingleChildScrollView(
           child: SizedBox(
@@ -45,7 +43,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF2A7A72),
+                      color: AppColors.primary,
                     ),
                   ),
                   const Spacer(),
@@ -100,7 +98,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               value: _rememberMe,
                               onChanged: (v) =>
                                   setState(() => _rememberMe = v ?? false),
-                              activeColor: _teal,
+                              activeColor: AppColors.primary,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(4),
                               ),
@@ -122,7 +120,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           'Forgot Password?',
                           style: TextStyle(
                             fontSize: 13,
-                            color: Color(0xFF2DBFAD),
+                            color: AppColors.primary,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -138,7 +136,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           Navigator.pushReplacementNamed(context, '/dashboard');                        
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: _teal,
+                        backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
@@ -179,7 +177,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             'Create an account',
                             style: TextStyle(
                               fontSize: 13,
-                              color: Color(0xFF2DBFAD),
+                              color: AppColors.primary,
                               fontWeight: FontWeight.w600,
                             ),
                           ),

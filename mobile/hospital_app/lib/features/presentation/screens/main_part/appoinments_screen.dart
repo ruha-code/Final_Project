@@ -156,12 +156,14 @@ class AppointmentsScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        const Text(
-          '6',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: Colors.black26,
+        Expanded(
+          child: IconStatCard(
+            value: '6',
+            label: 'Cancelled',
+            change: '2',
+            icon: Icons.cancel_rounded,
+            iconBgColor: const Color(0xFFFFE0E0),
+            iconColor: AppColors.red,
           ),
         ),
       ],

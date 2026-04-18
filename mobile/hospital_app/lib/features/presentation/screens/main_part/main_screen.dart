@@ -8,6 +8,7 @@ import 'package:hospital_app/features/presentation/screens/main_part/dashboard_s
 import 'package:hospital_app/features/presentation/screens/main_part/appoinments_screen.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/patients_screen.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/doctors_screen.dart';
+import 'package:hospital_app/features/presentation/screens/main_part/more_screen.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/bottom_nav_bar.dart';
 
 class MainScreen extends StatelessWidget {
@@ -18,8 +19,7 @@ class MainScreen extends StatelessWidget {
     AppointmentsScreen(),
     PatientsScreen(),
     DoctorsScreen(),
-    // "More" tab — placeholder
-    Center(child: Text('More', style: TextStyle(fontSize: 18))),
+    MoreScreen(),
   ];
 
   @override
