@@ -3,7 +3,24 @@ import { api } from "../services/api";
 import { Save, Check, User, Phone, MapPin, Heart, AlertCircle, Mail } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
-const PHONE_REGEX = /^\+?\d{10,15}$/;
+const PHONE_REGEX = /^\+[1-9]\d{7,14}$/;
+const NAME_REGEX = /^[\p{L}][\p{L}\s'.-]*$/u;
+
+function hasLetters(value) {
+  return /[\p{L}]/u.test(value);
+}
+
+function isRealisticDateOfBirth(value) {
+  if (!value) return false;
+  const parsed = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return false;
+
+  const today = new Date();
+  if (parsed >= new Date(today.getFullYear(), today.getMonth(), today.getDate())) return false;
+
+  const ageYears = (today.getTime() - parsed.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+  return parsed.getFullYear() >= 1900 && ageYears <= 120;
+}
 
 function parseFieldErrors(err) {
   const detail = err?.data?.detail;
@@ -113,6 +130,10 @@ export default function PatientProfile() {
   const handleSave = async () => {
     const normalizedPhone = form.phone.replace(/[^\d+]/g, "");
     const normalizedEmergencyPhone = form.emergency_contact_phone.replace(/[^\d+]/g, "");
+    const normalizedName = form.full_name.trim();
+    const normalizedAddress = form.address.trim();
+    const normalizedCondition = form.condition.trim();
+    const normalizedEmergencyName = form.emergency_contact_name.trim();
     const nextFieldErrors = {};
 
     setError("");
@@ -124,12 +145,35 @@ export default function PatientProfile() {
       if (!form.phone.trim()) nextFieldErrors.phone = "Enter your phone number";
     }
 
+    if (form.date_of_birth && !isRealisticDateOfBirth(form.date_of_birth)) {
+      nextFieldErrors.date_of_birth = "Enter a realistic date of birth";
+    }
+
+    if (!isNewProfile && normalizedName) {
+      const hasAtLeastTwoNames = normalizedName.split(/\s+/).filter(Boolean).length >= 2;
+      if (!NAME_REGEX.test(normalizedName) || !hasAtLeastTwoNames) {
+        nextFieldErrors.full_name = "Enter first and last name using letters only";
+      }
+    }
+
     if (form.phone.trim() && !PHONE_REGEX.test(normalizedPhone)) {
-      nextFieldErrors.phone = "Use 10 to 15 digits";
+      nextFieldErrors.phone = "Use international format, e.g. +15550101";
+    }
+
+    if (normalizedAddress && !hasLetters(normalizedAddress)) {
+      nextFieldErrors.address = "Address must include letters, not only numbers";
+    }
+
+    if (normalizedCondition && !hasLetters(normalizedCondition)) {
+      nextFieldErrors.condition = "Condition must include text, not only numbers";
+    }
+
+    if (normalizedEmergencyName && !NAME_REGEX.test(normalizedEmergencyName)) {
+      nextFieldErrors.emergency_contact_name = "Name should contain letters only";
     }
 
     if (form.emergency_contact_phone.trim() && !PHONE_REGEX.test(normalizedEmergencyPhone)) {
-      nextFieldErrors.emergency_contact_phone = "Use 10 to 15 digits";
+      nextFieldErrors.emergency_contact_phone = "Use international format, e.g. +15550101";
     }
 
     if (Object.keys(nextFieldErrors).length > 0) {
@@ -141,15 +185,15 @@ export default function PatientProfile() {
     setSaved(false);
     try {
       const payload = {
-        full_name: form.full_name.trim() || null,
+        full_name: normalizedName || null,
         date_of_birth: form.date_of_birth || null,
         gender: form.gender || null,
         blood_type: form.blood_type || null,
         phone: normalizedPhone || null,
-        address: form.address || null,
-        condition: form.condition || null,
+        address: normalizedAddress || null,
+        condition: normalizedCondition || null,
         notes: form.notes || null,
-        emergency_contact_name: form.emergency_contact_name || null,
+        emergency_contact_name: normalizedEmergencyName || null,
         emergency_contact_phone: normalizedEmergencyPhone || null,
       };
 

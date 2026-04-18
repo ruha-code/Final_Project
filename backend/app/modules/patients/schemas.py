@@ -1,7 +1,28 @@
 from pydantic import BaseModel, ConfigDict, field_validator
 from datetime import date, datetime
 from typing import Optional
+import re
 from app.modules.patients.models import Gender, PatientType, PatientStatus
+
+PHONE_REGEX = re.compile(r"^\+[1-9]\d{7,14}$")
+NAME_ALLOWED_CHARS = set(" -'.")
+
+
+def _normalize_phone(raw: str) -> str:
+    cleaned = re.sub(r"[^\d+]", "", raw.strip())
+    if cleaned.startswith("00"):
+        cleaned = f"+{cleaned[2:]}"
+    return cleaned
+
+
+def _contains_letters(value: str) -> bool:
+    return any(char.isalpha() for char in value)
+
+
+def _is_valid_name(value: str) -> bool:
+    if not value:
+        return False
+    return all(char.isalpha() or char in NAME_ALLOWED_CHARS for char in value)
 
 
 class PatientProfileCreate(BaseModel):
@@ -21,17 +42,57 @@ class PatientProfileCreate(BaseModel):
     @field_validator("date_of_birth")
     @classmethod
     def validate_dob(cls, v: date) -> date:
+        today = date.today()
+        age_years = (today - v).days / 365.25
         if v >= date.today():
             raise ValueError("Date of birth must be in the past")
+        if v.year < 1900 or age_years > 120:
+            raise ValueError("Enter a realistic date of birth")
         return v
 
     @field_validator("phone")
     @classmethod
     def validate_phone(cls, v: str) -> str:
-        v = v.strip()
-        if not v:
+        normalized = _normalize_phone(v)
+        if not normalized:
             raise ValueError("Phone number cannot be empty")
-        return v
+        if not PHONE_REGEX.fullmatch(normalized):
+            raise ValueError("Use a valid phone number in international format, e.g. +15550101")
+        return normalized
+
+    @field_validator("address", "condition")
+    @classmethod
+    def validate_text_fields(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        cleaned = v.strip()
+        if not cleaned:
+            return None
+        if not _contains_letters(cleaned):
+            raise ValueError("Must include letters, not only numbers")
+        return cleaned
+
+    @field_validator("emergency_contact_name")
+    @classmethod
+    def validate_emergency_name(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        cleaned = v.strip()
+        if not cleaned:
+            return None
+        if not _is_valid_name(cleaned) or not _contains_letters(cleaned):
+            raise ValueError("Emergency contact name must contain letters only")
+        return cleaned
+
+    @field_validator("emergency_contact_phone")
+    @classmethod
+    def validate_emergency_phone(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        normalized = _normalize_phone(v)
+        if not PHONE_REGEX.fullmatch(normalized):
+            raise ValueError("Use a valid phone number in international format, e.g. +15550101")
+        return normalized
 
 
 class PatientProfileUpdate(BaseModel):
@@ -53,8 +114,14 @@ class PatientProfileUpdate(BaseModel):
     @field_validator("date_of_birth")
     @classmethod
     def validate_dob(cls, v: Optional[date]) -> Optional[date]:
-        if v is not None and v >= date.today():
+        if v is None:
+            return None
+        today = date.today()
+        age_years = (today - v).days / 365.25
+        if v >= today:
             raise ValueError("Date of birth must be in the past")
+        if v.year < 1900 or age_years > 120:
+            raise ValueError("Enter a realistic date of birth")
         return v
 
     @field_validator("phone")
@@ -62,10 +129,63 @@ class PatientProfileUpdate(BaseModel):
     def validate_phone(cls, v: Optional[str]) -> Optional[str]:
         if v is None:
             return None
+        normalized = _normalize_phone(v)
+        if not normalized:
+            raise ValueError("Phone number cannot be empty")
+        if not PHONE_REGEX.fullmatch(normalized):
+            raise ValueError("Use a valid phone number in international format, e.g. +15550101")
+        return normalized
+
+    @field_validator("full_name")
+    @classmethod
+    def validate_full_name(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
         cleaned = v.strip()
         if not cleaned:
-            raise ValueError("Phone number cannot be empty")
+            raise ValueError("Full name cannot be empty")
+        if not _is_valid_name(cleaned) or not _contains_letters(cleaned):
+            raise ValueError("Full name must contain letters only")
+
+        name_parts = [part for part in cleaned.replace(".", " ").replace("-", " ").split() if part]
+        if len(name_parts) < 2:
+            raise ValueError("Enter both first and last name")
+
         return cleaned
+
+    @field_validator("address", "condition")
+    @classmethod
+    def validate_text_fields(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        cleaned = v.strip()
+        if not cleaned:
+            return None
+        if not _contains_letters(cleaned):
+            raise ValueError("Must include letters, not only numbers")
+        return cleaned
+
+    @field_validator("emergency_contact_name")
+    @classmethod
+    def validate_emergency_name(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        cleaned = v.strip()
+        if not cleaned:
+            return None
+        if not _is_valid_name(cleaned) or not _contains_letters(cleaned):
+            raise ValueError("Emergency contact name must contain letters only")
+        return cleaned
+
+    @field_validator("emergency_contact_phone")
+    @classmethod
+    def validate_emergency_phone(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        normalized = _normalize_phone(v)
+        if not PHONE_REGEX.fullmatch(normalized):
+            raise ValueError("Use a valid phone number in international format, e.g. +15550101")
+        return normalized
 
 
 class PatientResponse(BaseModel):

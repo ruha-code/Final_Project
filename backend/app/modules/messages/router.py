@@ -189,6 +189,17 @@ async def get_messages(
 
     await _ensure_access(conv, current_user, db)
 
+    await db.execute(
+        update(Message)
+        .where(
+            Message.conversation_id == conv_id,
+            Message.sender_id != current_user.id,
+            Message.is_read == False,
+        )
+        .values(is_read=True)
+    )
+    await db.commit()
+
     offset = (page - 1) * page_size
     result = await db.execute(
         select(Message)

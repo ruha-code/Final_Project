@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useCallback, useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "../services/api";
 import { useAuth } from "../context/AuthContext";
@@ -89,21 +89,48 @@ function Messages() {
       .catch(console.error);
   }, [user?.role]);
 
-  const fetchMessages = async (convId) => {
+  const clearUnreadForConversation = useCallback((convId) => {
+    setConversations((prev) =>
+      prev.map((conv) =>
+        conv.id === convId ? { ...conv, unread_count: 0 } : conv,
+      ),
+    );
+  }, []);
+
+  const markConversationAsRead = useCallback(async (convId) => {
+    if (!convId) return;
+    try {
+      await api.put(`/messages/conversations/${convId}/read`);
+      clearUnreadForConversation(convId);
+    } catch (err) {
+      console.error("Failed to mark conversation as read:", err);
+    }
+  }, [clearUnreadForConversation]);
+
+  const fetchMessages = useCallback(async (convId) => {
     if (!convId) return;
     try {
       const data = await api.get(`/messages/conversations/${convId}/messages`);
       setMessages(data);
+
+      const hasUnreadFromOthers = (data || []).some(
+        (message) => message.sender_id !== user?.id && !message.is_read,
+      );
+      if (hasUnreadFromOthers) {
+        await markConversationAsRead(convId);
+      }
     } catch (err) {
       console.error(err);
     }
-  };
+  }, [markConversationAsRead, user?.id]);
 
   useEffect(() => {
     if (!activeConvId) {
       setMessages([]);
       return;
     }
+    clearUnreadForConversation(activeConvId);
+    void markConversationAsRead(activeConvId);
     fetchMessages(activeConvId);
 
     if (pollRef.current) clearInterval(pollRef.current);
@@ -116,7 +143,7 @@ function Messages() {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [activeConvId]);
+  }, [activeConvId, clearUnreadForConversation, fetchMessages, markConversationAsRead]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -266,6 +293,7 @@ function Messages() {
                   key={conv.id}
                   onClick={() => {
                     setContextInfo("");
+                    clearUnreadForConversation(conv.id);
                     setActiveConvId(conv.id);
                   }}
                   className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition ${activeConvId === conv.id ? "bg-teal-50" : "hover:bg-gray-50"}`}
