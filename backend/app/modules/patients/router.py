@@ -59,25 +59,54 @@ async def setup_patient_profile(
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(Patient).where(Patient.user_id == current_user.id))
-    if result.scalar_one_or_none():
-        raise ConflictException("Patient profile already exists for this account")
+    patient = result.scalar_one_or_none()
+    if patient:
+        has_profile_data = any(
+            [
+                patient.date_of_birth is not None,
+                patient.gender is not None,
+                bool(patient.phone),
+                bool(patient.address),
+                bool(patient.condition),
+                bool(patient.notes),
+                patient.admission_date is not None,
+                bool(patient.room_location),
+                bool(patient.emergency_contact_name),
+                bool(patient.emergency_contact_phone),
+            ]
+        )
+        if has_profile_data:
+            raise ConflictException("Patient profile already exists for this account")
 
-    patient = Patient(
-        user_id=current_user.id,
-        date_of_birth=dto.date_of_birth,
-        gender=dto.gender,
-        phone=dto.phone,
-        blood_type=dto.blood_type,
-        address=dto.address,
-        condition=dto.condition,
-        notes=dto.notes,
-        patient_type=dto.patient_type,
-        admission_date=dto.admission_date,
-        room_location=dto.room_location,
-        emergency_contact_name=dto.emergency_contact_name,
-        emergency_contact_phone=dto.emergency_contact_phone,
-    )
-    db.add(patient)
+        patient.date_of_birth = dto.date_of_birth
+        patient.gender = dto.gender
+        patient.phone = dto.phone
+        patient.blood_type = dto.blood_type
+        patient.address = dto.address
+        patient.condition = dto.condition
+        patient.notes = dto.notes
+        patient.patient_type = dto.patient_type
+        patient.admission_date = dto.admission_date
+        patient.room_location = dto.room_location
+        patient.emergency_contact_name = dto.emergency_contact_name
+        patient.emergency_contact_phone = dto.emergency_contact_phone
+    else:
+        patient = Patient(
+            user_id=current_user.id,
+            date_of_birth=dto.date_of_birth,
+            gender=dto.gender,
+            phone=dto.phone,
+            blood_type=dto.blood_type,
+            address=dto.address,
+            condition=dto.condition,
+            notes=dto.notes,
+            patient_type=dto.patient_type,
+            admission_date=dto.admission_date,
+            room_location=dto.room_location,
+            emergency_contact_name=dto.emergency_contact_name,
+            emergency_contact_phone=dto.emergency_contact_phone,
+        )
+        db.add(patient)
     await db.commit()
 
     result = await db.execute(

@@ -119,11 +119,15 @@ async def _check_patient_conflict(
         select(Appointment).where(
             Appointment.patient_id == patient_id,
             Appointment.status != AppointmentStatus.CANCELLED,
-            Appointment.appointment_time >= start,
             Appointment.appointment_time < end,
         )
     )
-    return result.scalar_one_or_none() is not None
+    for existing in result.scalars().all():
+        existing_start = _normalize_utc(existing.appointment_time)
+        existing_end = existing_start + timedelta(minutes=existing.duration_minutes)
+        if existing_end > start:
+            return True
+    return False
 
 
 @router.post(

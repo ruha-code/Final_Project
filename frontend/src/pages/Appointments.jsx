@@ -155,9 +155,7 @@ function BookingModal({ initialDoctorId, initialDate, initialTime, onClose, onBo
           setStep(3);
           return;
         }
-        if (selectedSlot && !nextSlots.includes(selectedSlot)) {
-          setSelectedSlot("");
-        }
+        setSelectedSlot((current) => (current && !nextSlots.includes(current) ? "" : current));
       } catch (err) {
         setSlots([]);
         setError(err.message || "Failed to load time slots");
@@ -566,7 +564,6 @@ export default function Appointments() {
   const todayCount = appointments.filter((appointment) => formatAppointmentDateTime(appointment.appointment_time).dateKey === todayKey).length;
   const completedCount = appointments.filter((appointment) => appointment.status === "COMPLETED").length;
   const scheduledCount = appointments.filter((appointment) => appointment.status === "SCHEDULED").length;
-  const cancelledCount = appointments.filter((appointment) => appointment.status === "CANCELLED").length;
 
   if (loading) {
     return (
@@ -664,7 +661,7 @@ export default function Appointments() {
                 {filteredAppointments.map((appointment) => {
                   const dateTime = formatAppointmentDateTime(appointment.appointment_time);
                   const canCancel = appointment.status === "SCHEDULED" || appointment.status === "ONGOING";
-                  const canComplete = isDoctor() && appointment.status !== "COMPLETED" && appointment.status !== "CANCELLED";
+                  const canComplete = isDoctor() && appointment.status === "ONGOING";
                   const startHint = getRelativeStartLabel(appointment.appointment_time);
                   const doctorPrimaryAction = isDoctor() ? getDoctorPrimaryAction(appointment.status) : null;
                   return (
@@ -708,10 +705,10 @@ export default function Appointments() {
                                 {actionLoading === appointment.id ? "Updating..." : doctorPrimaryAction.label}
                               </button>
                             )}
-                            {!isDoctor() && canCancel && <button onClick={() => handleCancel(appointment.id)} disabled={actionLoading === appointment.id} className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-100 disabled:opacity-60">{actionLoading === appointment.id ? "Updating..." : "Cancel"}</button>}
-                            {!isDoctor() && canComplete && <button onClick={() => setCompleteModal(appointment.id)} disabled={actionLoading === appointment.id} className="rounded-lg bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-green-100 disabled:opacity-60">Complete</button>}
+                            {canCancel && <button onClick={() => handleCancel(appointment.id)} disabled={actionLoading === appointment.id} className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-100 disabled:opacity-60">{actionLoading === appointment.id ? "Updating..." : "Cancel"}</button>}
+                            {canComplete && <button onClick={() => setCompleteModal(appointment.id)} disabled={actionLoading === appointment.id} className="rounded-lg bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-green-100 disabled:opacity-60">Complete</button>}
                             {isAdmin() && appointment.status !== "COMPLETED" && <button onClick={() => handleDelete(appointment.id)} disabled={actionLoading === appointment.id} className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs text-gray-600 hover:bg-red-50 hover:text-red-600 disabled:opacity-60"><Trash2 size={12} /></button>}
-                            {!isDoctor() && !canCancel && !canComplete && !isAdmin() && <span className="text-xs text-gray-300">No actions</span>}
+                            {!doctorPrimaryAction && !canCancel && !canComplete && !isAdmin() && <span className="text-xs text-gray-300">No actions</span>}
                           </div>
                         </>
                       )}

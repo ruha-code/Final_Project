@@ -392,11 +392,17 @@ async def update_doctor_admin(
     if not doctor:
         raise NotFoundException("Doctor not found")
 
-    for field, value in dto.model_dump(exclude_none=True).items():
-        if field == "department_id":
-            doctor.department_id = value
-        else:
-            setattr(doctor, field, value)
+    updates = dto.model_dump(exclude_none=True)
+
+    if "full_name" in updates:
+        doctor.user.full_name = updates.pop("full_name")
+    if "phone" in updates:
+        doctor.user.phone = updates.pop("phone")
+    if "department_id" in updates:
+        doctor.department_id = updates.pop("department_id")
+
+    for field, value in updates.items():
+        setattr(doctor, field, value)
 
     await db.commit()
     result = await db.execute(

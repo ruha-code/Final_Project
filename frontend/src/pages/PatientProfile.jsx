@@ -140,26 +140,45 @@ export default function PatientProfile() {
     setSaving(true);
     setSaved(false);
     try {
+      const payload = {
+        full_name: form.full_name.trim() || null,
+        date_of_birth: form.date_of_birth || null,
+        gender: form.gender || null,
+        blood_type: form.blood_type || null,
+        phone: normalizedPhone || null,
+        address: form.address || null,
+        condition: form.condition || null,
+        notes: form.notes || null,
+        emergency_contact_name: form.emergency_contact_name || null,
+        emergency_contact_phone: normalizedEmergencyPhone || null,
+      };
+
       if (isNewProfile) {
-        await api.post("/patients/profile", {
-          date_of_birth: form.date_of_birth,
-          gender: form.gender,
-          phone: normalizedPhone,
-          blood_type: form.blood_type || null,
-          address: form.address || null,
-          condition: form.condition || null,
-          notes: form.notes || null,
-          emergency_contact_name: form.emergency_contact_name || null,
-          emergency_contact_phone: normalizedEmergencyPhone || null,
-        });
+        try {
+          await api.put("/patients/me", payload);
+        } catch (err) {
+          if (err?.status !== 404) throw err;
+          await api.post("/patients/profile", payload);
+        }
         setIsNewProfile(false);
       } else {
-        await api.put("/patients/me", {
-          ...form,
-          phone: normalizedPhone || null,
-          emergency_contact_phone: normalizedEmergencyPhone || null,
-        });
+        await api.put("/patients/me", payload);
       }
+
+      const refreshed = await api.get("/patients/me");
+      setForm({
+        full_name: refreshed.full_name || "",
+        date_of_birth: refreshed.date_of_birth || "",
+        gender: refreshed.gender || "",
+        blood_type: refreshed.blood_type || "",
+        phone: refreshed.phone || "",
+        address: refreshed.address || "",
+        condition: refreshed.condition || "",
+        notes: refreshed.notes || "",
+        emergency_contact_name: refreshed.emergency_contact_name || "",
+        emergency_contact_phone: refreshed.emergency_contact_phone || "",
+      });
+
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (err) {
