@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Check, Save } from "lucide-react";
 
 import { api } from "../services/api";
+import { useAuth } from "../context/AuthContext";
 
 const DEFAULT_FORM = {
   mute_message_notifications: false,
@@ -11,17 +12,50 @@ const DEFAULT_FORM = {
   appointment_reminder_hours: 48,
 };
 
+const TYPE_ORDER = ["MESSAGE", "APPOINTMENT", "INVENTORY", "CALENDAR"];
+
+const TYPE_CONFIG = {
+  MESSAGE: {
+    field: "mute_message_notifications",
+    label: "Messages",
+    description: "Mute unread message alerts.",
+  },
+  APPOINTMENT: {
+    field: "mute_appointment_notifications",
+    label: "Appointments",
+    description: "Mute upcoming appointment notifications.",
+  },
+  INVENTORY: {
+    field: "mute_inventory_notifications",
+    label: "Inventory",
+    description: "Mute low stock and out-of-stock alerts.",
+  },
+  CALENDAR: {
+    field: "mute_calendar_notifications",
+    label: "Calendar",
+    description: "Mute upcoming calendar event alerts.",
+  },
+};
+
+function getFallbackTypesByRole(role) {
+  if (role === "ADMIN") return TYPE_ORDER;
+  if (role === "DOCTOR") return ["MESSAGE", "APPOINTMENT", "INVENTORY"];
+  return ["MESSAGE", "APPOINTMENT"];
+}
+
 function toInteger(value) {
   const parsed = parseInt(value, 10);
   return Number.isNaN(parsed) ? null : parsed;
 }
 
 export default function NotificationPreferences() {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
   const [form, setForm] = useState(DEFAULT_FORM);
+  const [availableTypes, setAvailableTypes] = useState([]);
 
   useEffect(() => {
     const fetchPreferences = async () => {
@@ -34,15 +68,22 @@ export default function NotificationPreferences() {
           mute_calendar_notifications: Boolean(data?.mute_calendar_notifications),
           appointment_reminder_hours: data?.appointment_reminder_hours ?? 48,
         });
+        const serverTypes = Array.isArray(data?.available_notification_types)
+          ? data.available_notification_types
+          : [];
+        setAvailableTypes(
+          serverTypes.length > 0 ? serverTypes : getFallbackTypesByRole(user?.role),
+        );
       } catch (err) {
         setError(err.message || "Failed to load notification preferences");
+        setAvailableTypes(getFallbackTypesByRole(user?.role));
       } finally {
         setLoading(false);
       }
     };
 
     void fetchPreferences();
-  }, []);
+  }, [user?.role]);
 
   const handleToggle = (field) => {
     setError("");
@@ -75,10 +116,14 @@ export default function NotificationPreferences() {
       const payload = {
         mute_message_notifications: form.mute_message_notifications,
         mute_appointment_notifications: form.mute_appointment_notifications,
-        mute_inventory_notifications: form.mute_inventory_notifications,
-        mute_calendar_notifications: form.mute_calendar_notifications,
         appointment_reminder_hours: reminderHours,
       };
+      if (availableTypes.includes("INVENTORY")) {
+        payload.mute_inventory_notifications = form.mute_inventory_notifications;
+      }
+      if (availableTypes.includes("CALENDAR")) {
+        payload.mute_calendar_notifications = form.mute_calendar_notifications;
+      }
       const updated = await api.put("/notifications/preferences", payload);
       setForm({
         mute_message_notifications: Boolean(updated?.mute_message_notifications),
@@ -87,6 +132,12 @@ export default function NotificationPreferences() {
         mute_calendar_notifications: Boolean(updated?.mute_calendar_notifications),
         appointment_reminder_hours: updated?.appointment_reminder_hours ?? reminderHours,
       });
+      const updatedTypes = Array.isArray(updated?.available_notification_types)
+        ? updated.available_notification_types
+        : [];
+      if (updatedTypes.length > 0) {
+        setAvailableTypes(updatedTypes);
+      }
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch (err) {
@@ -103,6 +154,13 @@ export default function NotificationPreferences() {
       </div>
     );
   }
+
+  const visibleTypeCards = TYPE_ORDER
+    .filter((type) => availableTypes.includes(type))
+    .map((type) => ({
+      type,
+      ...TYPE_CONFIG[type],
+    }));
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -121,57 +179,20 @@ export default function NotificationPreferences() {
 
       <div className="space-y-6 rounded-2xl border bg-white p-6">
         <div className="space-y-3">
-          <label className="flex items-center justify-between rounded-xl border p-3">
-            <div>
-              <p className="text-sm font-medium text-gray-700">Messages</p>
-              <p className="text-xs text-gray-400">Mute unread message alerts.</p>
-            </div>
-            <input
-              type="checkbox"
-              checked={form.mute_message_notifications}
-              onChange={() => handleToggle("mute_message_notifications")}
-              className="h-4 w-4 accent-teal-500"
-            />
-          </label>
-
-          <label className="flex items-center justify-between rounded-xl border p-3">
-            <div>
-              <p className="text-sm font-medium text-gray-700">Appointments</p>
-              <p className="text-xs text-gray-400">Mute upcoming appointment notifications.</p>
-            </div>
-            <input
-              type="checkbox"
-              checked={form.mute_appointment_notifications}
-              onChange={() => handleToggle("mute_appointment_notifications")}
-              className="h-4 w-4 accent-teal-500"
-            />
-          </label>
-
-          <label className="flex items-center justify-between rounded-xl border p-3">
-            <div>
-              <p className="text-sm font-medium text-gray-700">Inventory</p>
-              <p className="text-xs text-gray-400">Mute low stock and out-of-stock alerts.</p>
-            </div>
-            <input
-              type="checkbox"
-              checked={form.mute_inventory_notifications}
-              onChange={() => handleToggle("mute_inventory_notifications")}
-              className="h-4 w-4 accent-teal-500"
-            />
-          </label>
-
-          <label className="flex items-center justify-between rounded-xl border p-3">
-            <div>
-              <p className="text-sm font-medium text-gray-700">Calendar</p>
-              <p className="text-xs text-gray-400">Mute upcoming calendar event alerts.</p>
-            </div>
-            <input
-              type="checkbox"
-              checked={form.mute_calendar_notifications}
-              onChange={() => handleToggle("mute_calendar_notifications")}
-              className="h-4 w-4 accent-teal-500"
-            />
-          </label>
+          {visibleTypeCards.map((card) => (
+            <label key={card.type} className="flex items-center justify-between rounded-xl border p-3">
+              <div>
+                <p className="text-sm font-medium text-gray-700">{card.label}</p>
+                <p className="text-xs text-gray-400">{card.description}</p>
+              </div>
+              <input
+                type="checkbox"
+                checked={Boolean(form[card.field])}
+                onChange={() => handleToggle(card.field)}
+                className="h-4 w-4 accent-teal-500"
+              />
+            </label>
+          ))}
         </div>
 
         <div>

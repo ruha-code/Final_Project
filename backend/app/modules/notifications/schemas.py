@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import Enum
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class NotificationLevel(str, Enum):
@@ -39,6 +39,7 @@ class NotificationPreferencesResponse(BaseModel):
     mute_inventory_notifications: bool = False
     mute_calendar_notifications: bool = False
     appointment_reminder_hours: int = 48
+    available_notification_types: list[NotificationType] = Field(default_factory=list)
 
 
 class NotificationPreferencesUpdate(BaseModel):

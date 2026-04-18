@@ -34,6 +34,28 @@ def _format_dt(value: datetime) -> str:
     return value.astimezone(timezone.utc).strftime("%d %b, %H:%M UTC")
 
 
+def _available_notification_types_for_role(role: UserRole) -> list[NotificationType]:
+    notification_types = [NotificationType.MESSAGE, NotificationType.APPOINTMENT]
+    if role in {UserRole.ADMIN, UserRole.DOCTOR}:
+        notification_types.append(NotificationType.INVENTORY)
+    if role == UserRole.ADMIN:
+        notification_types.append(NotificationType.CALENDAR)
+    return notification_types
+
+
+def _allowed_preference_fields_for_role(role: UserRole) -> set[str]:
+    fields = {
+        "mute_message_notifications",
+        "mute_appointment_notifications",
+        "appointment_reminder_hours",
+    }
+    if role in {UserRole.ADMIN, UserRole.DOCTOR}:
+        fields.add("mute_inventory_notifications")
+    if role == UserRole.ADMIN:
+        fields.add("mute_calendar_notifications")
+    return fields
+
+
 async def _get_or_create_preferences(user_id: int, db: AsyncSession) -> NotificationPreference:
     result = await db.execute(
         select(NotificationPreference).where(NotificationPreference.user_id == user_id)
@@ -419,12 +441,14 @@ async def get_notification_preferences(
     db: AsyncSession = Depends(get_db),
 ):
     preference = await _get_or_create_preferences(current_user.id, db)
+    available_types = _available_notification_types_for_role(current_user.role)
     return NotificationPreferencesResponse(
         mute_message_notifications=preference.mute_message_notifications,
         mute_appointment_notifications=preference.mute_appointment_notifications,
         mute_inventory_notifications=preference.mute_inventory_notifications,
         mute_calendar_notifications=preference.mute_calendar_notifications,
         appointment_reminder_hours=preference.appointment_reminder_hours,
+        available_notification_types=available_types,
     )
 
 
@@ -440,6 +464,14 @@ async def update_notification_preferences(
 ):
     preference = await _get_or_create_preferences(current_user.id, db)
     updates = dto.model_dump(exclude_none=True)
+    allowed_fields = _allowed_preference_fields_for_role(current_user.role)
+
+    disallowed_fields = [field for field in updates if field not in allowed_fields]
+    if disallowed_fields:
+        raise ValidationException(
+            "You cannot update these notification settings: "
+            + ", ".join(sorted(disallowed_fields))
+        )
 
     if "appointment_reminder_hours" in updates:
         reminder_hours = updates["appointment_reminder_hours"]
@@ -453,6 +485,7 @@ async def update_notification_preferences(
     await db.refresh(preference)
 
     await notification_ws_manager.push_refresh([current_user.id])
+    available_types = _available_notification_types_for_role(current_user.role)
 
     return NotificationPreferencesResponse(
         mute_message_notifications=preference.mute_message_notifications,
@@ -460,6 +493,7 @@ async def update_notification_preferences(
         mute_inventory_notifications=preference.mute_inventory_notifications,
         mute_calendar_notifications=preference.mute_calendar_notifications,
         appointment_reminder_hours=preference.appointment_reminder_hours,
+        available_notification_types=available_types,
     )
 
 
