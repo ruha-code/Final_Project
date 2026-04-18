@@ -1,25 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hospital_app/features/presentation/bloc/patient/patient_bloc.dart';
+import 'package:hospital_app/features/presentation/screens/main_part/patient_detail_screen.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/app_constant.dart';
-import 'package:hospital_app/features/presentation/screens/main_part/widgets/bottom_nav_bar.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/filter_tabs.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/patient_card.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/section_header.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/top_nav_bar.dart';
 
-class PatientsScreen extends StatefulWidget {
+class PatientsScreen extends StatelessWidget {
   const PatientsScreen({super.key});
 
-  @override
-  State<PatientsScreen> createState() => _PatientsScreenState();
-}
+  static const _filters = ['All', 'Inpatient', 'Outpatient'];
 
-class _PatientsScreenState extends State<PatientsScreen> {
-  int _selectedFilter = 0;
-  int _selectedNavIndex = 2;
-
-  final _filters = ['All', 'Inpatient', 'Outpatient'];
-
-  final _patients = const [
+  static const _patients = [
     _PatientData(
       name: 'Alicia Perth',
       initials: 'AP',
@@ -76,9 +70,9 @@ class _PatientsScreenState extends State<PatientsScreen> {
     ),
   ];
 
-  List<_PatientData> get _filtered {
-    if (_selectedFilter == 0) return _patients;
-    final filterLabel = _filters[_selectedFilter];
+  List<_PatientData> _filtered(int selectedFilter) {
+    if (selectedFilter == 0) return _patients;
+    final filterLabel = _filters[selectedFilter];
     return _patients.where((p) => p.ward == filterLabel).toList();
   }
 
@@ -87,47 +81,75 @@ class _PatientsScreenState extends State<PatientsScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 16),
-              const TopNavBar(),
-              const SizedBox(height: 24),
-              const SectionHeader(
-                title: 'Patients',
-                subtitle: 'Manage your data easily',
+        child: BlocBuilder<PatientBloc, PatientState>(
+          builder: (context, state) {
+            final filtered = _filtered(state.selectedFilter);
+            return SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 16),
+                  const TopNavBar(),
+                  const SizedBox(height: 24),
+                  const SectionHeader(
+                    title: 'Patients',
+                    subtitle: 'Manage your data easily',
+                  ),
+                  const SizedBox(height: 20),
+                  FilterTabs(
+                    labels: _filters,
+                    selectedIndex: state.selectedFilter,
+                    onTap: (i) => context
+                        .read<PatientBloc>()
+                        .add(PatientFilterChanged(i)),
+                  ),
+                  const SizedBox(height: 16),
+                  ...filtered.map((p) => PatientCard(
+                        name: p.name,
+                        initials: p.initials,
+                        avatarColor: p.avatarColor,
+                        gender: p.gender,
+                        age: p.age,
+                        heightCm: p.heightCm,
+                        diagnosis: p.diagnosis,
+                        status: p.status,
+                        statusColor: p.statusColor,
+                        doctor: p.doctor,
+                        ward: p.ward,
+                        room: p.room,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => PatientDetailScreen(
+                                patient: PatientDetailData(
+                                  name: p.name,
+                                  initials: p.initials,
+                                  avatarColor: p.avatarColor,
+                                  patientId: 'P1-${p.age}${p.heightCm}-${p.name.hashCode.abs() % 1000}',
+                                  condition: p.diagnosis,
+                                  doctor: p.doctor,
+                                  department: p.ward,
+                                  phone: '+7 7XX XXX XXXX',
+                                  email: '${p.name.split(' ').first.toLowerCase()}@hospital.com',
+                                  location: 'Almaty, Kazakhstan',
+                                  age: p.age,
+                                  bloodType: 'O+',
+                                  weight: '${p.heightCm - 110}kg',
+                                  rating: 4.8,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      )),
+                  const SizedBox(height: 24),
+                ],
               ),
-              const SizedBox(height: 20),
-              FilterTabs(
-                labels: _filters,
-                selectedIndex: _selectedFilter,
-                onTap: (i) => setState(() => _selectedFilter = i),
-              ),
-              const SizedBox(height: 16),
-              ..._filtered.map((p) => PatientCard(
-                    name: p.name,
-                    initials: p.initials,
-                    avatarColor: p.avatarColor,
-                    gender: p.gender,
-                    age: p.age,
-                    heightCm: p.heightCm,
-                    diagnosis: p.diagnosis,
-                    status: p.status,
-                    statusColor: p.statusColor,
-                    doctor: p.doctor,
-                    ward: p.ward,
-                    room: p.room,
-                  )),
-              const SizedBox(height: 80),
-            ],
-          ),
+            );
+          },
         ),
-      ),
-      bottomNavigationBar: BottomNavBar(
-        selectedIndex: _selectedNavIndex,
-        onTap: (i) => setState(() => _selectedNavIndex = i),
       ),
     );
   }

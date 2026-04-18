@@ -1,19 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/app_constant.dart';
-import 'package:hospital_app/features/presentation/screens/main_part/widgets/bottom_nav_bar.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/section_header.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/stat_card.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/top_nav_bar.dart';
 
-class DashboardScreen extends StatefulWidget {
+class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
-
-  @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
-}
-
-class _DashboardScreenState extends State<DashboardScreen> {
-  int _selectedIndex = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -38,14 +30,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               _buildPatientByAgeChart(),
               const SizedBox(height: 24),
               _buildRevenueChart(),
-              const SizedBox(height: 80),
+              const SizedBox(height: 24),
             ],
           ),
         ),
-      ),
-      bottomNavigationBar: BottomNavBar(
-        selectedIndex: _selectedIndex,
-        onTap: (i) => setState(() => _selectedIndex = i),
       ),
     );
   }
