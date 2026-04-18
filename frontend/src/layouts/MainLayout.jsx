@@ -1,7 +1,8 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { Search, Bell, Settings, LogOut, Users } from "lucide-react";
-import { useState, useRef, useEffect } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../context/AuthContext";
+import { api } from "../services/api";
 
 function MainLayout({ children }) {
   const navigate = useNavigate();
@@ -10,18 +11,32 @@ function MainLayout({ children }) {
 
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [entitySearchResults, setEntitySearchResults] = useState([]);
+  const [entitySearchLoading, setEntitySearchLoading] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [notificationUnreadCount, setNotificationUnreadCount] = useState(0);
 
   const dropdownRef = useRef();
+  const notificationsWsRef = useRef(null);
+  const wsReconnectTimerRef = useRef(null);
 
   useEffect(() => {
     const handleClick = (e) => {
       if (!dropdownRef.current?.contains(e.target)) {
         setOpen(null);
+        setSearchOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
+
+  useEffect(() => {
+    setSearch("");
+    setSearchOpen(false);
+  }, [location.pathname]);
 
   const menuItem = (path, name) => {
     const isActive = location.pathname.startsWith(path);
@@ -106,6 +121,201 @@ const getSubtitle = () => {
     return labels[role] || role;
   };
 
+  const fetchNotifications = useCallback(async () => {
+    if (!user) return;
+    try {
+      setNotificationsLoading(true);
+      const data = await api.get("/notifications");
+      const items = Array.isArray(data?.items) ? data.items : [];
+      setNotifications(items);
+      setNotificationUnreadCount(data?.unread_count || 0);
+    } catch (err) {
+      console.error("Failed to fetch notifications:", err);
+    } finally {
+      setNotificationsLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return undefined;
+    void fetchNotifications();
+    const intervalId = setInterval(() => {
+      void fetchNotifications();
+    }, 120000);
+    return () => clearInterval(intervalId);
+  }, [fetchNotifications, user]);
+
+  useEffect(() => {
+    if (!user) return undefined;
+
+    let isUnmounted = false;
+
+    const connect = () => {
+      const token = api.getToken();
+      if (!token || isUnmounted) return;
+
+      const ws = new WebSocket(
+        api.getWebSocketUrl("/notifications/ws", { token }),
+      );
+      notificationsWsRef.current = ws;
+
+      ws.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data);
+          if (payload?.event === "notifications_refresh") {
+            void fetchNotifications();
+          }
+        } catch (err) {
+          console.error("Failed to parse notifications WS payload:", err);
+        }
+      };
+
+      ws.onclose = () => {
+        if (isUnmounted) return;
+        wsReconnectTimerRef.current = setTimeout(connect, 3000);
+      };
+    };
+
+    connect();
+
+    return () => {
+      isUnmounted = true;
+      if (wsReconnectTimerRef.current) {
+        clearTimeout(wsReconnectTimerRef.current);
+      }
+      if (notificationsWsRef.current) {
+        notificationsWsRef.current.close();
+      }
+      notificationsWsRef.current = null;
+    };
+  }, [fetchNotifications, user]);
+
+  const markNotificationReadAndOpen = async (notification) => {
+    try {
+      if (!notification.is_read) {
+        await api.put(`/notifications/${encodeURIComponent(notification.key)}/read`);
+      }
+    } catch (err) {
+      console.error("Failed to mark notification as read:", err);
+    } finally {
+      setNotifications((prev) =>
+        prev.map((item) =>
+          item.key === notification.key ? { ...item, is_read: true } : item,
+        ),
+      );
+      setNotificationUnreadCount((current) => Math.max(0, current - (notification.is_read ? 0 : 1)));
+      setOpen(null);
+      navigate(notification.route);
+    }
+  };
+
+  const markAllNotificationsRead = async () => {
+    try {
+      await api.put("/notifications/read-all");
+      setNotifications((prev) => prev.map((item) => ({ ...item, is_read: true })));
+      setNotificationUnreadCount(0);
+    } catch (err) {
+      console.error("Failed to mark all notifications as read:", err);
+    }
+  };
+
+  const searchableItems = useMemo(() => {
+    const role = user?.role;
+    if (!role) return [];
+
+    const dynamicProfilePath =
+      role === "ADMIN"
+        ? "/admin/profile"
+        : role === "DOCTOR"
+          ? "/doctor/profile"
+          : "/patient/profile";
+
+    const entries = [
+      { label: "Dashboard", description: "Overview page", path: "/dashboard", roles: ["ADMIN", "DOCTOR", "PATIENT"] },
+      { label: "Appointments", description: "Manage appointments", path: "/appointments", roles: ["ADMIN", "DOCTOR", "PATIENT"] },
+      { label: "Messages", description: "Chat with users", path: "/messages", roles: ["ADMIN", "DOCTOR", "PATIENT"] },
+      { label: "My Profile", description: "Update account profile", path: dynamicProfilePath, roles: ["ADMIN", "DOCTOR", "PATIENT"] },
+      { label: "Doctors", description: "Browse doctors", path: "/doctors", roles: ["ADMIN", "PATIENT"] },
+      { label: "Patients", description: "Patient records", path: "/patients", roles: ["ADMIN"] },
+      { label: "My Patients", description: "Doctor patient list", path: "/my-patients", roles: ["DOCTOR"] },
+      { label: "My Schedule", description: "Doctor weekly schedule", path: "/schedule", roles: ["DOCTOR"] },
+      { label: "Departments", description: "Department management", path: "/departments", roles: ["ADMIN"] },
+      { label: "Calendar", description: "Clinic events", path: "/calendar", roles: ["ADMIN"] },
+      { label: "Inventory", description: "Inventory management", path: "/inventory", roles: ["ADMIN"] },
+      { label: "User Management", description: "Admin users", path: "/admin/users", roles: ["ADMIN"] },
+      { label: "Audit Logs", description: "System audit trail", path: "/admin/audit-logs", roles: ["ADMIN"] },
+      { label: "Analytics", description: "Clinic analytics", path: "/admin/analytics", roles: ["ADMIN"] },
+      { label: "Notification Settings", description: "Mute types and reminder timing", path: "/settings/notifications", roles: ["ADMIN", "DOCTOR", "PATIENT"] },
+    ];
+
+    return entries.filter((entry) => entry.roles.includes(role));
+  }, [user?.role]);
+
+  useEffect(() => {
+    const query = search.trim();
+    if (!user || query.length < 2) {
+      setEntitySearchResults([]);
+      setEntitySearchLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const timeoutId = setTimeout(async () => {
+      try {
+        setEntitySearchLoading(true);
+        const payload = await api.get(`/search?q=${encodeURIComponent(query)}&limit=5`);
+        if (cancelled) return;
+        setEntitySearchResults(Array.isArray(payload?.results) ? payload.results : []);
+      } catch (err) {
+        if (cancelled) return;
+        console.error("Search failed:", err);
+        setEntitySearchResults([]);
+      } finally {
+        if (!cancelled) {
+          setEntitySearchLoading(false);
+        }
+      }
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
+  }, [search, user]);
+
+  const searchResults = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    const localResults = searchableItems
+      .filter((item) =>
+        item.label.toLowerCase().includes(query) ||
+        item.description.toLowerCase().includes(query) ||
+        item.path.toLowerCase().includes(query),
+      )
+      .map((item) => ({
+        key: `page-${item.path}`,
+        title: item.label,
+        subtitle: item.description,
+        route: item.path,
+        resultType: "PAGE",
+      }));
+
+    const entityResults = entitySearchResults.map((item) => ({
+      key: `${item.entity_type}-${item.entity_id}`,
+      title: item.title,
+      subtitle: item.subtitle,
+      route: item.route,
+      resultType: item.entity_type,
+    }));
+
+    return [...localResults, ...entityResults].slice(0, 10);
+  }, [search, searchableItems, entitySearchResults]);
+
+  const openSearchResult = (path) => {
+    setSearch("");
+    setSearchOpen(false);
+    navigate(path);
+  };
+
   return (
     <div className="flex h-screen bg-gradient-to-br from-[#f8fafc] to-[#eef2f7]">
       {/* SIDEBAR */}
@@ -175,27 +385,128 @@ const getSubtitle = () => {
               />
               <input
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search..."
+                onFocus={() => setSearchOpen(true)}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setSearchOpen(true);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    setSearchOpen(false);
+                    return;
+                  }
+                  if (e.key === "Enter" && searchResults[0]) {
+                    openSearchResult(searchResults[0].path);
+                  }
+                }}
+                placeholder="Search pages, doctors, patients..."
                 className="bg-gray-100 pl-9 pr-4 py-2 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400 w-64"
               />
+              {searchOpen && search.trim() && (
+                <div className="absolute left-0 top-12 w-full rounded-xl border bg-white p-2 shadow-lg">
+                  {entitySearchLoading && searchResults.length === 0 ? (
+                    <p className="px-3 py-2 text-xs text-gray-400">
+                      Searching...
+                    </p>
+                  ) : searchResults.length === 0 ? (
+                    <p className="px-3 py-2 text-xs text-gray-400">
+                      No matches found.
+                    </p>
+                  ) : (
+                    searchResults.map((result) => (
+                      <button
+                        key={result.path}
+                        onClick={() => openSearchResult(result.path)}
+                        className="w-full rounded-lg px-3 py-2 text-left hover:bg-gray-50"
+                      >
+                        <div className="mb-1 flex items-center justify-between gap-2">
+                          <p className="text-sm font-medium text-gray-800">
+                            {result.title}
+                          </p>
+                          <span className="rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">
+                            {result.resultType}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-400">
+                          {result.subtitle}
+                        </p>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
 
             {/* NOTIFICATIONS */}
             <div className="relative">
               <button
-                onClick={() =>
-                  setOpen(open === "notifications" ? null : "notifications")
-                }
+                onClick={() => {
+                  const nextOpen = open === "notifications" ? null : "notifications";
+                  setOpen(nextOpen);
+                  if (nextOpen === "notifications") {
+                    void fetchNotifications();
+                  }
+                }}
                 className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100"
               >
                 <Bell size={16} />
+                {notificationUnreadCount > 0 && (
+                  <span className="absolute -right-1 -top-1 rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">
+                    {notificationUnreadCount > 9 ? "9+" : notificationUnreadCount}
+                  </span>
+                )}
               </button>
 
               {open === "notifications" && (
-                <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-lg p-3 z-50">
-                  <p className="font-medium mb-2">Notifications</p>
-                  <p className="text-gray-500 text-sm">No new notifications</p>
+                <div className="absolute right-0 mt-2 w-80 rounded-xl bg-white p-3 shadow-lg z-50">
+                  <div className="mb-2 flex items-center justify-between">
+                    <p className="font-medium">Notifications</p>
+                    {notificationUnreadCount > 0 && (
+                      <button
+                        onClick={markAllNotificationsRead}
+                        className="text-xs text-teal-600 hover:text-teal-700"
+                      >
+                        Mark all read
+                      </button>
+                    )}
+                  </div>
+
+                  {notificationsLoading ? (
+                    <p className="py-4 text-center text-sm text-gray-400">Loading...</p>
+                  ) : notifications.length === 0 ? (
+                    <p className="py-4 text-center text-sm text-gray-400">No new notifications</p>
+                  ) : (
+                    <div className="max-h-80 space-y-1 overflow-y-auto">
+                      {notifications.map((notification) => (
+                        <button
+                          key={notification.key}
+                          onClick={() => markNotificationReadAndOpen(notification)}
+                          className={`w-full rounded-lg px-3 py-2 text-left hover:bg-gray-50 ${
+                            notification.is_read ? "opacity-70" : "bg-teal-50"
+                          }`}
+                        >
+                          <div className="mb-1 flex items-center gap-2">
+                            <p className="text-sm font-medium text-gray-800">{notification.title}</p>
+                            {!notification.is_read && (
+                              <span className="h-2 w-2 rounded-full bg-teal-500" />
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-500">{notification.message}</p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <div className="mt-2 border-t pt-2">
+                    <button
+                      onClick={() => {
+                        setOpen(null);
+                        navigate("/settings/notifications");
+                      }}
+                      className="w-full rounded-lg px-3 py-2 text-left text-xs text-teal-700 hover:bg-teal-50"
+                    >
+                      Notification preferences
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -218,11 +529,11 @@ const getSubtitle = () => {
                     >
                       User Management
                     </p>
-                    <p className="px-3 py-2 hover:bg-gray-100 rounded-lg cursor-pointer text-sm">
-                      Preferences
-                    </p>
-                  </div>
-                )}
+                  <p className="px-3 py-2 hover:bg-gray-100 rounded-lg cursor-pointer text-sm">
+                      Notification Preferences
+                  </p>
+                </div>
+              )}
               </div>
             )}
 
@@ -268,6 +579,15 @@ const getSubtitle = () => {
                       Settings
                     </p>
                   )}
+                  <p
+                    onClick={() => {
+                      navigate("/settings/notifications");
+                      setOpen(null);
+                    }}
+                    className="px-3 py-2 hover:bg-gray-100 rounded-lg cursor-pointer text-sm"
+                  >
+                    Notification Settings
+                  </p>
                   <p
                     onClick={() => {
                       logout();
