@@ -119,7 +119,7 @@ async def _build_notifications_for_user(
                 _append_notification(
                     items,
                     preference,
-                    key="messages-unread",
+                    key=f"messages-unread-{unread_count}",
                     notification_type=NotificationType.MESSAGE,
                     title="Unread messages",
                     message=f"You have {unread_count} unread message(s).",
@@ -175,7 +175,7 @@ async def _build_notifications_for_user(
                 _append_notification(
                     items,
                     preference,
-                    key="messages-unread",
+                    key=f"messages-unread-{unread_count}",
                     notification_type=NotificationType.MESSAGE,
                     title="Unread messages",
                     message=f"You have {unread_count} unread patient message(s).",
@@ -221,7 +221,7 @@ async def _build_notifications_for_user(
             _append_notification(
                 items,
                 preference,
-                key="messages-unread-admin",
+                key=f"messages-unread-admin-{unread_count}",
                 notification_type=NotificationType.MESSAGE,
                 title="Unread messages in system",
                 message=f"There are {unread_count} unread message(s) in active chats.",
@@ -248,7 +248,7 @@ async def _build_notifications_for_user(
             _append_notification(
                 items,
                 preference,
-                key=f"appointments-today-{today.isoformat()}",
+                key=f"appointments-today-{today.isoformat()}-{appointments_today}",
                 notification_type=NotificationType.APPOINTMENT,
                 title="Today's appointments",
                 message=f"{appointments_today} appointment(s) are active today.",
@@ -267,7 +267,7 @@ async def _build_notifications_for_user(
             _append_notification(
                 items,
                 preference,
-                key="inventory-low-stock",
+                key=f"inventory-low-stock-{low_stock_count}",
                 notification_type=NotificationType.INVENTORY,
                 title="Inventory attention needed",
                 message=f"{low_stock_count} inventory item(s) are low or out of stock.",
@@ -368,6 +368,7 @@ async def mark_notification_read(
     else:
         existing.read_at = datetime.now(timezone.utc)
     await db.commit()
+    await notification_ws_manager.push_refresh([current_user.id])
     return {"message": "Notification marked as read"}
 
 
@@ -404,6 +405,7 @@ async def mark_all_notifications_read(
         created += 1
 
     await db.commit()
+    await notification_ws_manager.push_refresh([current_user.id])
     return {"message": "Notifications marked as read", "marked": created}
 
 
@@ -499,4 +501,3 @@ async def notifications_websocket(
         await notification_ws_manager.disconnect(user.id, websocket)
     except Exception:
         await notification_ws_manager.disconnect(user.id, websocket)
-

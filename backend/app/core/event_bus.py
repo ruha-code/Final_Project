@@ -99,6 +99,22 @@ async def _invalidate_analytics_cache(payload: dict) -> None:
     logger.debug("[CACHE] Analytics cache cleared")
 
 
+async def _on_notifications_refresh(payload: dict) -> None:
+    from app.modules.notifications.ws import notification_ws_manager
+
+    user_ids = payload.get("user_ids")
+    if isinstance(user_ids, list):
+        filtered_user_ids: list[int] = []
+        for user_id in user_ids:
+            try:
+                filtered_user_ids.append(int(user_id))
+            except (TypeError, ValueError):
+                continue
+        await notification_ws_manager.push_refresh(filtered_user_ids or None)
+        return
+    await notification_ws_manager.push_refresh()
+
+
 def setup() -> None:
     _handlers.clear()
     register("appointment_created", _on_appointment_created)
@@ -108,3 +124,4 @@ def setup() -> None:
     register("appointment_completed", _on_appointment_completed)
     register("appointment_completed", _invalidate_analytics_cache)  
     register("message_sent", _on_message_sent)
+    register("notifications_refresh", _on_notifications_refresh)

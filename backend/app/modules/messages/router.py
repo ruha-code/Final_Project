@@ -199,6 +199,11 @@ async def get_messages(
         .values(is_read=True)
     )
     await db.commit()
+    recipient_user_id = await _get_recipient_user_id(conv, current_user, db)
+    refresh_user_ids = [current_user.id]
+    if recipient_user_id is not None:
+        refresh_user_ids.append(recipient_user_id)
+    await event_bus.publish("notifications_refresh", {"user_ids": refresh_user_ids})
 
     offset = (page - 1) * page_size
     result = await db.execute(
@@ -295,6 +300,10 @@ async def send_message(
                     "recipient_name": conv.patient.user.full_name,
                     "sender_name": f"Dr. {current_user.full_name}",
                 })
+    refresh_user_ids = [current_user.id]
+    if recipient_user_id is not None:
+        refresh_user_ids.append(recipient_user_id)
+    await event_bus.publish("notifications_refresh", {"user_ids": refresh_user_ids})
 
     return response
 
@@ -315,7 +324,6 @@ async def mark_as_read(
 
     await _ensure_access(conv, current_user, db)
 
-    # mark messages sent by others as read
     await db.execute(
         update(Message)
         .where(
@@ -334,6 +342,10 @@ async def mark_as_read(
             "conv_id": conv_id,
             "read_by": current_user.id,
         })
+    refresh_user_ids = [current_user.id]
+    if recipient_user_id is not None:
+        refresh_user_ids.append(recipient_user_id)
+    await event_bus.publish("notifications_refresh", {"user_ids": refresh_user_ids})
 
     return {"message": "Messages marked as read"}
 
@@ -447,6 +459,12 @@ async def chat_websocket(
             "conv_id": conv_id,
             "read_by": user.id,
         })
+    initial_refresh_user_ids = [user.id]
+    if recipient_user_id is not None:
+        initial_refresh_user_ids.append(recipient_user_id)
+    await event_bus.publish(
+        "notifications_refresh", {"user_ids": initial_refresh_user_ids}
+    )
 
     try:
         while True:
@@ -469,6 +487,12 @@ async def chat_websocket(
                         "conv_id": conv_id,
                         "read_by": user.id,
                     })
+                refresh_user_ids = [user.id]
+                if recipient_user_id is not None:
+                    refresh_user_ids.append(recipient_user_id)
+                await event_bus.publish(
+                    "notifications_refresh", {"user_ids": refresh_user_ids}
+                )
                 continue
 
             text = data.get("text", "").strip()
@@ -521,6 +545,12 @@ async def chat_websocket(
                             "recipient_name": conv.patient.user.full_name,
                             "sender_name": f"Dr. {user.full_name}",
                         })
+            refresh_user_ids = [user.id]
+            if recipient_user_id is not None:
+                refresh_user_ids.append(recipient_user_id)
+            await event_bus.publish(
+                "notifications_refresh", {"user_ids": refresh_user_ids}
+            )
 
     except WebSocketDisconnect:
         manager.disconnect(conv_id, user.id)

@@ -30,6 +30,7 @@ const Departments = lazy(() => import("../pages/Departments"));
 const DepartmentDetails = lazy(() => import("../pages/DepartmentDetails"));
 const AdminUsers = lazy(() => import("../pages/AdminUsers"));
 const Analytics = lazy(() => import("../pages/Analytics"));
+const NotificationPreferences = lazy(() => import("../pages/NotificationPreferences"));
 
 function AuthRoute({ children }) {
   const { isAuthenticated } = useAuth();
@@ -274,6 +275,17 @@ function AppRoutes() {
                 <Analytics />
               </MainLayout>
             </AdminRoute>
+          }
+        />
+
+        <Route
+          path="/settings/notifications"
+          element={
+            <ProtectedRoute>
+              <MainLayout>
+                <NotificationPreferences />
+              </MainLayout>
+            </ProtectedRoute>
           }
         />
 

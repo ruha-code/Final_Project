@@ -6,6 +6,7 @@ from typing import Optional
 from app.core.database import get_db
 from app.core.dependencies import RoleChecker, get_current_user
 from app.core.exceptions import NotFoundException
+from app.core import event_bus
 from app.modules.auth.models import User
 from app.modules.audit.router import Actions, log
 from app.modules.inventory.models import InventoryItem, InventoryStatus, InventoryCategory
@@ -100,6 +101,7 @@ async def create_item(
             request=request,
         )
 
+    await event_bus.publish("notifications_refresh", {})
     return item
  
  
@@ -152,6 +154,7 @@ async def update_item(
             request=request,
         )
 
+    await event_bus.publish("notifications_refresh", {})
     return item
  
  
@@ -185,3 +188,4 @@ async def delete_item(
         extra_data=extra_data,
         request=request,
     )
+    await event_bus.publish("notifications_refresh", {})

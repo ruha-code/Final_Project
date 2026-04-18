@@ -7,6 +7,7 @@ from typing import Optional
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, RoleChecker
 from app.core.exceptions import NotFoundException
+from app.core import event_bus
 from app.modules.auth.models import User
 from app.modules.calendar.models import CalendarEvent
 from app.modules.calendar.schemas import CalendarEventCreate, CalendarEventUpdate, CalendarEventResponse
@@ -51,6 +52,7 @@ async def create_event(
     db.add(event)
     await db.commit()
     await db.refresh(event)
+    await event_bus.publish("notifications_refresh", {})
     return event
  
  
@@ -68,6 +70,7 @@ async def update_event(event_id: int, dto: CalendarEventUpdate, db: AsyncSession
  
     await db.commit()
     await db.refresh(event)
+    await event_bus.publish("notifications_refresh", {})
     return event
  
  
@@ -81,3 +84,4 @@ async def delete_event(event_id: int, db: AsyncSession = Depends(get_db)):
         raise NotFoundException("Event not found")
     await db.delete(event)
     await db.commit()
+    await event_bus.publish("notifications_refresh", {})

@@ -17,6 +17,7 @@ from app.modules.inventory.models import InventoryItem
 from app.modules.messages.models import Conversation, Message
 from app.modules.calendar.models import CalendarEvent
 from app.modules.audit.models import AuditLog
+from app.modules.notifications.models import NotificationRead, NotificationPreference
 
 # Routers
 from app.modules.auth.router import router as auth_router
@@ -29,6 +30,8 @@ from app.modules.messages.router import router as messages_router
 from app.modules.calendar.router import router as calendar_router
 from app.modules.audit.router import router as audit_router
 from app.modules.analytics.router import router as analytics_router
+from app.modules.notifications.router import router as notifications_router
+from app.modules.search.router import router as search_router
 
 setup_logging()
 
@@ -83,6 +86,8 @@ app.include_router(messages_router, prefix="/messages", tags=["Messages"])
 app.include_router(calendar_router, prefix="/calendar", tags=["Calendar"])
 app.include_router(audit_router, prefix="/audit", tags=["Audit"])
 app.include_router(analytics_router, prefix="/analytics", tags=["Analytics"])
+app.include_router(notifications_router, prefix="/notifications", tags=["Notifications"])
+app.include_router(search_router, prefix="/search", tags=["Search"])
 
 
 @app.get("/")

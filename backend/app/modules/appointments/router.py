@@ -230,6 +230,7 @@ async def book_appointment(
             "reason": appointment.reason,
         },
     )
+    await event_bus.publish("notifications_refresh", {})
     return _build_detail(appointment)
 
 
@@ -325,6 +326,7 @@ async def start_appointment(
         entity_type="Appointment",
         entity_id=appointment.id,
     )
+    await event_bus.publish("notifications_refresh", {})
     return appointment
 
 
@@ -385,6 +387,7 @@ async def cancel_appointment(
             "cancelled_by_name": current_user.full_name,
         },
     )
+    await event_bus.publish("notifications_refresh", {})
     return appointment
 
 
@@ -443,6 +446,7 @@ async def complete_appointment(
             "notes": appointment.notes,
         },
     )
+    await event_bus.publish("notifications_refresh", {})
     return appointment
 
 
@@ -516,6 +520,7 @@ async def admin_cancel_appointment(
             "cancelled_by_name": "Admin",
         },
     )
+    await event_bus.publish("notifications_refresh", {})
     return {"message": "Appointment cancelled by admin"}
 
 
@@ -543,4 +548,5 @@ async def delete_appointment(
         entity_type="Appointment",
         entity_id=appointment_id,
     )
+    await event_bus.publish("notifications_refresh", {})
     return {"message": "Appointment deleted"}

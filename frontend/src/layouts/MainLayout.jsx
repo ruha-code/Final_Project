@@ -75,11 +75,12 @@ function MainLayout({ children }) {
     if (path.includes("calendar")) return "Calendar";
     if (path.includes("inventory")) return "Inventory";
     if (path.includes("messages")) return "Messages";
+    if (path.includes("settings/notifications")) return "Notification Settings";
 
     return "Dashboard";
   };
 
-const getSubtitle = () => {
+  const getSubtitle = () => {
     const path = location.pathname;
 
     if (path.includes("admin/analytics")) return "Clinic performance & demand overview";
@@ -98,6 +99,7 @@ const getSubtitle = () => {
     if (path.includes("/doctor/profile")) return "Edit your doctor profile";
     if (path.includes("/patient/profile")) return "Edit your patient profile";
     if (path.includes("/admin/profile")) return "Edit your admin profile";
+    if (path.includes("settings/notifications")) return "Control alerts and reminder timing";
 
     return "Manage your system";
   };
@@ -307,13 +309,24 @@ const getSubtitle = () => {
       resultType: item.entity_type,
     }));
 
-    return [...localResults, ...entityResults].slice(0, 10);
+    const merged = [...localResults, ...entityResults];
+    const unique = [];
+    const seen = new Set();
+
+    merged.forEach((item) => {
+      const dedupeKey = `${item.resultType}-${item.route}-${item.title}`;
+      if (seen.has(dedupeKey)) return;
+      seen.add(dedupeKey);
+      unique.push(item);
+    });
+
+    return unique.slice(0, 10);
   }, [search, searchableItems, entitySearchResults]);
 
-  const openSearchResult = (path) => {
+  const openSearchResult = (route) => {
     setSearch("");
     setSearchOpen(false);
-    navigate(path);
+    navigate(route);
   };
 
   return (
@@ -396,7 +409,7 @@ const getSubtitle = () => {
                     return;
                   }
                   if (e.key === "Enter" && searchResults[0]) {
-                    openSearchResult(searchResults[0].path);
+                    openSearchResult(searchResults[0].route);
                   }
                 }}
                 placeholder="Search pages, doctors, patients..."
@@ -415,8 +428,8 @@ const getSubtitle = () => {
                   ) : (
                     searchResults.map((result) => (
                       <button
-                        key={result.path}
-                        onClick={() => openSearchResult(result.path)}
+                        key={result.key}
+                        onClick={() => openSearchResult(result.route)}
                         className="w-full rounded-lg px-3 py-2 text-left hover:bg-gray-50"
                       >
                         <div className="mb-1 flex items-center justify-between gap-2">
@@ -529,11 +542,14 @@ const getSubtitle = () => {
                     >
                       User Management
                     </p>
-                  <p className="px-3 py-2 hover:bg-gray-100 rounded-lg cursor-pointer text-sm">
+                    <p
+                      onClick={() => { navigate("/settings/notifications"); setOpen(null); }}
+                      className="px-3 py-2 hover:bg-gray-100 rounded-lg cursor-pointer text-sm"
+                    >
                       Notification Preferences
-                  </p>
-                </div>
-              )}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
