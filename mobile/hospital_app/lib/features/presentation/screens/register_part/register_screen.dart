@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hospital_app/features/presentation/screens/main_part/widgets/app_constant.dart';
 import 'package:hospital_app/features/presentation/screens/register_part/widgets/build_text_field.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -17,9 +18,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
 
-  static const _teal = Color(0xFF2DBFAD);
-  static const _bgColor = Color(0xFFE8F5F3);
-
   @override
   void dispose() {
     _usernameController.dispose();
@@ -32,7 +30,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _bgColor,
+      backgroundColor: AppColors.accent,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -45,7 +43,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF2A7A72),
+                  color: AppColors.primary,
                 ),
               ),
               const SizedBox(height: 48),
@@ -121,7 +119,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       value: _agreeTerms,
                       onChanged: (v) =>
                           setState(() => _agreeTerms = v ?? false),
-                      activeColor: _teal,
+                      activeColor: AppColors.primary,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(4),
                       ),
@@ -138,7 +136,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       'Terms & Conditions',
                       style: TextStyle(
                         fontSize: 13,
-                        color: Color(0xFF2DBFAD),
+                        color: AppColors.primary,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -154,8 +152,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     Navigator.pushReplacementNamed(context, '/dashboard');                  
                   } : null,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: _teal,
-                    disabledBackgroundColor: _teal.withValues(alpha: 0.5),
+                    backgroundColor: AppColors.primary,
+                    disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.5),
                     foregroundColor: Colors.white,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
@@ -186,7 +184,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         'Login',
                         style: TextStyle(
                           fontSize: 13,
-                          color: Color(0xFF2DBFAD),
+                          color: AppColors.primary,
                           fontWeight: FontWeight.w600,
                         ),
                       ),

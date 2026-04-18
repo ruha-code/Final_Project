@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/app_constant.dart';
 class TopNavBar extends StatelessWidget {
   final List<Widget> actions;
+  final String? subtitle;
+  final VoidCallback? onBack;
 
   const TopNavBar({
     super.key,
     this.actions = const [],
+    this.subtitle,
+    this.onBack,
   });
 
   @override
@@ -15,6 +19,15 @@ class TopNavBar extends StatelessWidget {
       children: [
         Row(
           children: [
+            if (onBack != null) ...[
+              GestureDetector(
+                onTap: onBack,
+                child: const Padding(
+                  padding: EdgeInsets.only(right: 8),
+                  child: Icon(Icons.arrow_back_ios_new, size: 18, color: AppColors.textPrimary),
+                ),
+              ),
+            ],
             Container(
               width: 10,
               height: 10,
@@ -24,13 +37,26 @@ class TopNavBar extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            const Text(
-              'Medlink',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Medlink',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                if (subtitle != null)
+                  Text(
+                    subtitle!,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+              ],
             ),
           ],
         ),
