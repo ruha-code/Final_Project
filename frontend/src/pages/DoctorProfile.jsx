@@ -3,7 +3,38 @@ import { Award, Building, Check, Clock, Mail, Phone, Save, User } from "lucide-r
 
 import { api } from "../services/api";
 
-const PHONE_REGEX = /^\+?\d{10,15}$/;
+const PHONE_REGEX = /^\+[1-9]\d{9,14}$/;
+const NAME_ALLOWED_REGEX = /^[\p{L}\s'.-]+$/u;
+const SPECIALTY_ALLOWED_REGEX = /^[\p{L}\s&'./()-]+$/u;
+
+function normalizeWhitespace(value) {
+  return value.trim().replace(/\s+/g, " ");
+}
+
+function normalizePhone(value) {
+  return value
+    .replace(/[^\d+]/g, "")
+    .replace(/(?!^)\+/g, "");
+}
+
+function isValidFullName(value) {
+  if (value.length < 3) return false;
+  const lettersCount = Array.from(value).filter((char) => /\p{L}/u.test(char)).length;
+  return lettersCount >= 2 && NAME_ALLOWED_REGEX.test(value);
+}
+
+function isValidSpecialty(value) {
+  if (value.length < 3 || value.length > 100) return false;
+  const lettersCount = Array.from(value).filter((char) => /\p{L}/u.test(char)).length;
+  return lettersCount >= 3 && SPECIALTY_ALLOWED_REGEX.test(value);
+}
+
+function isValidBio(value) {
+  if (value.length < 15) return false;
+  const words = value.split(" ").filter(Boolean);
+  const lettersCount = Array.from(value).filter((char) => /\p{L}/u.test(char)).length;
+  return words.length >= 3 && lettersCount >= 10;
+}
 
 function parseFieldErrors(err) {
   const detail = err?.data?.detail;
@@ -79,15 +110,33 @@ export default function DoctorProfile() {
 
   const handleSave = async () => {
     const nextFieldErrors = {};
-    const normalizedPhone = form.phone.replace(/[^\d+]/g, "");
+    const normalizedFullName = normalizeWhitespace(form.full_name);
+    const normalizedSpecialty = normalizeWhitespace(form.specialty);
+    const normalizedBio = normalizeWhitespace(form.bio);
+    const normalizedPhone = normalizePhone(form.phone);
 
     setError("");
     setSaved(false);
     setFieldErrors({});
 
-    if (!form.full_name.trim()) nextFieldErrors.full_name = "Enter your full name";
-    if (!form.specialty.trim()) nextFieldErrors.specialty = "Enter your specialty";
-    if (normalizedPhone && !PHONE_REGEX.test(normalizedPhone)) nextFieldErrors.phone = "Use 10 to 15 digits";
+    if (!normalizedFullName) nextFieldErrors.full_name = "Enter your full name";
+    else if (!isValidFullName(normalizedFullName)) {
+      nextFieldErrors.full_name = "Use letters only (spaces, apostrophes, dots, or hyphens are allowed)";
+    }
+
+    if (!normalizedSpecialty) nextFieldErrors.specialty = "Enter your specialty";
+    else if (!isValidSpecialty(normalizedSpecialty)) {
+      nextFieldErrors.specialty = "Enter a valid medical specialty using text";
+    }
+
+    if (normalizedBio && !isValidBio(normalizedBio)) {
+      nextFieldErrors.bio = "Bio should be descriptive (at least 15 characters and 3 words)";
+    }
+
+    if (normalizedPhone && !PHONE_REGEX.test(normalizedPhone)) {
+      nextFieldErrors.phone = "Use international format, e.g. +15550123456";
+    }
+
     if (form.years_of_experience < 0 || form.years_of_experience > 50) nextFieldErrors.years_of_experience = "Use a value from 0 to 50";
     if (form.consultation_duration_minutes < 10 || form.consultation_duration_minutes > 120) nextFieldErrors.consultation_duration_minutes = "Use a value from 10 to 120";
 
@@ -99,10 +148,12 @@ export default function DoctorProfile() {
     try {
       setSaving(true);
       const updatedProfile = await api.put("/doctors/me", {
-        ...form,
+        full_name: normalizedFullName,
+        specialty: normalizedSpecialty,
+        bio: normalizedBio || null,
         phone: normalizedPhone || null,
-        specialty: form.specialty.trim(),
-        bio: form.bio.trim() || null,
+        years_of_experience: form.years_of_experience,
+        consultation_duration_minutes: form.consultation_duration_minutes,
       });
       setProfile(updatedProfile);
       setForm({
@@ -196,7 +247,7 @@ export default function DoctorProfile() {
           <label className="mb-1 block text-sm text-gray-500">Phone</label>
           <div className="flex items-center gap-3">
             <Phone size={18} className="text-gray-400" />
-            <input name="phone" type="tel" value={form.phone} onChange={handleChange} placeholder="+1 5550100" className={fieldClass(Boolean(fieldErrors.phone))} />
+            <input name="phone" type="tel" value={form.phone} onChange={handleChange} placeholder="+15550123456" className={fieldClass(Boolean(fieldErrors.phone))} />
           </div>
           <FieldError message={fieldErrors.phone} />
         </div>
