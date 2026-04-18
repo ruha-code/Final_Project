@@ -25,6 +25,25 @@ def _is_valid_name(value: str) -> bool:
     return all(char.isalpha() or char in NAME_ALLOWED_CHARS for char in value)
 
 
+def _normalize_text(value: str) -> str:
+    return re.sub(r"\s+", " ", value).strip()
+
+
+def _is_meaningful_notes(value: str) -> bool:
+    cleaned = _normalize_text(value)
+    if len(cleaned) < 10:
+        return False
+
+    words = [token for token in cleaned.split(" ") if token]
+    if len(words) < 2:
+        return False
+
+    letters_count = sum(1 for char in cleaned if char.isalpha())
+    if letters_count < 8:
+        return False
+    return True
+
+
 class PatientProfileCreate(BaseModel):
     date_of_birth: date
     gender: Gender
@@ -237,3 +256,18 @@ class HealthVitalResponse(BaseModel):
     systolic_bp: Optional[int] = None
     diastolic_bp: Optional[int] = None
     recorded_at: datetime
+
+
+class DoctorNotesUpdate(BaseModel):
+    notes: str
+    patient_status: Optional[PatientStatus] = None
+
+    @field_validator("notes")
+    @classmethod
+    def validate_notes(cls, v: str) -> str:
+        cleaned = _normalize_text(v)
+        if not cleaned:
+            raise ValueError("Notes cannot be empty")
+        if not _is_meaningful_notes(cleaned):
+            raise ValueError("Notes should be meaningful text (at least 2 words, not numeric-only)")
+        return cleaned

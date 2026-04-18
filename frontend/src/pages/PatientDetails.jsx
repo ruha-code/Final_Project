@@ -25,6 +25,18 @@ function formatDateTime(value) {
   };
 }
 
+function normalizeWhitespace(value) {
+  return value.trim().replace(/\s+/g, " ");
+}
+
+function isMeaningfulDoctorNote(value) {
+  if (value.length < 10) return false;
+  const words = value.split(" ").filter(Boolean);
+  if (words.length < 2) return false;
+  const lettersCount = Array.from(value).filter((char) => /\p{L}/u.test(char)).length;
+  return lettersCount >= 8;
+}
+
 export default function PatientDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -36,6 +48,7 @@ export default function PatientDetails() {
   const [showVitalsForm, setShowVitalsForm] = useState(false);
   const [savingVitals, setSavingVitals] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [notesError, setNotesError] = useState("");
   const [appointmentActionLoading, setAppointmentActionLoading] = useState(false);
   const [appointmentActionError, setAppointmentActionError] = useState("");
   const [vitalsForm, setVitalsForm] = useState({
@@ -46,7 +59,6 @@ export default function PatientDetails() {
     diastolic_bp: "",
   });
   const [noteForm, setNoteForm] = useState({
-    condition: "",
     notes: "",
     patient_status: "IN_TREATMENT",
   });
@@ -63,7 +75,6 @@ export default function PatientDetails() {
         setVitals(vitalsData || []);
         setAppointments((myAppointments || []).filter((item) => Number(item.patient_id) === Number(id)));
         setNoteForm({
-          condition: patientData.condition || "",
           notes: patientData.notes || "",
           patient_status: patientData.patient_status || "IN_TREATMENT",
         });
@@ -240,21 +251,45 @@ export default function PatientDetails() {
           <div className="rounded-xl border bg-white p-5">
             <h3 className="mb-4 text-sm font-semibold">Doctor Notes</h3>
             <div className="space-y-4">
-              <input value={noteForm.condition} onChange={(e) => setNoteForm({ ...noteForm, condition: e.target.value })} placeholder="Condition" className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400" />
               <select value={noteForm.patient_status} onChange={(e) => setNoteForm({ ...noteForm, patient_status: e.target.value })} className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400">
                 <option value="IN_TREATMENT">In Treatment</option>
                 <option value="ADMITTED">Admitted</option>
                 <option value="DISCHARGED">Discharged</option>
               </select>
-              <textarea value={noteForm.notes} onChange={(e) => setNoteForm({ ...noteForm, notes: e.target.value })} rows={6} placeholder="Clinical note, summary, follow-up plan..." className="w-full resize-none rounded-xl bg-gray-100 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-teal-400" />
+              <textarea
+                value={noteForm.notes}
+                onChange={(e) => {
+                  setNotesError("");
+                  setNoteForm({ ...noteForm, notes: e.target.value });
+                }}
+                rows={6}
+                placeholder="Clinical note, summary, follow-up plan..."
+                className="w-full resize-none rounded-xl bg-gray-100 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-teal-400"
+              />
+              {notesError && (
+                <p className="rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600">{notesError}</p>
+              )}
               <button
                 onClick={async () => {
+                  const normalizedNotes = normalizeWhitespace(noteForm.notes);
+                  if (!isMeaningfulDoctorNote(normalizedNotes)) {
+                    setNotesError("Enter meaningful clinical notes (at least 2 words, not numeric-only).");
+                    return;
+                  }
                   try {
                     setSavingProfile(true);
-                    const updated = await api.put(`/patients/${id}`, noteForm);
+                    setNotesError("");
+                    const updated = await api.put(`/patients/${id}/doctor-notes`, {
+                      notes: normalizedNotes,
+                      patient_status: noteForm.patient_status,
+                    });
                     setPatient(updated);
+                    setNoteForm({
+                      notes: updated.notes || "",
+                      patient_status: updated.patient_status || "IN_TREATMENT",
+                    });
                   } catch (err) {
-                    console.error("Failed to save patient note:", err);
+                    setNotesError(err.message || "Failed to save patient note.");
                   } finally {
                     setSavingProfile(false);
                   }

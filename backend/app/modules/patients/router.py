@@ -14,6 +14,7 @@ from app.modules.patients.models import Patient, HealthVital
 from app.modules.patients.schemas import (
     PatientProfileCreate,
     PatientProfileUpdate,
+    DoctorNotesUpdate,
     PatientDetailResponse,
     HealthVitalCreate,
     HealthVitalResponse,
@@ -306,6 +307,48 @@ async def get_vitals(
 
 
 @router.put(
+    "/{patient_id}/doctor-notes",
+    response_model=PatientDetailResponse,
+    summary="Update doctor notes (Doctor)",
+)
+async def update_doctor_notes(
+    patient_id: int,
+    dto: DoctorNotesUpdate,
+    current_user: User = Depends(RoleChecker(["DOCTOR"])),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Patient)
+        .options(selectinload(Patient.user))
+        .where(Patient.id == patient_id)
+    )
+    patient = result.scalar_one_or_none()
+    if not patient:
+        raise NotFoundException("Patient not found")
+
+    patient.notes = dto.notes
+    if dto.patient_status is not None:
+        patient.patient_status = dto.patient_status
+
+    await db.commit()
+    result = await db.execute(
+        select(Patient)
+        .options(selectinload(Patient.user))
+        .where(Patient.id == patient_id)
+    )
+    patient = result.scalar_one()
+    await log(
+        db,
+        current_user.id,
+        Actions.UPDATE_PATIENT,
+        entity_type="Patient",
+        entity_id=patient.id,
+        extra_data={"updated_fields": ["notes", "patient_status"]},
+    )
+    return _build_detail(patient)
+
+
+@router.put(
     "/{patient_id}",
     response_model=PatientDetailResponse,
     summary="Update patient (Admin or Doctor)",
@@ -326,6 +369,13 @@ async def update_patient(
         raise NotFoundException("Patient not found")
 
     updates = dto.model_dump(exclude_none=True)
+
+    if current_user.role == "DOCTOR":
+        disallowed = [field for field in updates if field not in {"notes", "patient_status"}]
+        if disallowed:
+            raise ForbiddenException(
+                "Doctors can only update notes and patient_status via this endpoint"
+            )
 
     if "full_name" in updates:
         patient.user.full_name = updates.pop("full_name")
