@@ -415,9 +415,17 @@ async def delete_patient(
     if not patient:
         raise NotFoundException("Patient not found")
 
-    user_id = patient.user_id
+    from app.modules.messages.models import Conversation
+
+    conv_result = await db.execute(
+        select(Conversation).where(Conversation.patient_id == patient_id)
+    )
+    for conv in conv_result.scalars().all():
+        await db.delete(conv)
+
+    user = patient.user
     await db.delete(patient)
-    await db.delete(patient.user)
+    await db.delete(user)
     await db.commit()
     await log(
         db,

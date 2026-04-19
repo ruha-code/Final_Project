@@ -15,7 +15,6 @@ class RegisterSchema(BaseModel):
     email: EmailStr
     password: str
     phone: Optional[str] = None
-    role: UserRole = UserRole.PATIENT  # default: patient self-registration
 
     @field_validator("password")
     @classmethod

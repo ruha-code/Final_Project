@@ -75,3 +75,38 @@ class CacheKeys:
     @staticmethod
     def analytics_region(h3_index: str) -> str:
         return f"analytics:region:{h3_index}"
+
+
+# Rate limiting helpers
+class RateLimitKeys:
+    LOGIN = "ratelimit:login"
+    REGISTER = "ratelimit:register"
+
+    @staticmethod
+    def login_ip(ip: str) -> str:
+        return f"{RateLimitKeys.LOGIN}:{ip}"
+
+    @staticmethod
+    def register_ip(ip: str) -> str:
+        return f"{RateLimitKeys.REGISTER}:{ip}"
+
+
+async def check_rate_limit(key: str, max_requests: int, window_seconds: int) -> tuple[bool, int]:
+    """
+    Check if a request is within rate limits.
+    Returns (allowed, remaining_requests).
+    """
+    try:
+        r = await get_redis()
+        current = await r.get(key)
+        if current is None:
+            await r.set(key, "1", ex=window_seconds)
+            return True, max_requests - 1
+        count = int(current)
+        if count >= max_requests:
+            ttl = await r.ttl(key)
+            return False, 0
+        await r.incr(key)
+        return True, max_requests - count - 1
+    except Exception:
+        return True, max_requests

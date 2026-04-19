@@ -28,3 +28,8 @@ class UnauthorizedException(HTTPException):
 class ValidationException(HTTPException):
     def __init__(self, detail: str = "Invalid input"):
         super().__init__(status_code=400, detail=detail)
+
+
+class RateLimitException(HTTPException):
+    def __init__(self, detail: str = "Too many requests. Please try again later."):
+        super().__init__(status_code=429, detail=detail)

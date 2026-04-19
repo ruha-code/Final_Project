@@ -9,6 +9,7 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.core.exceptions import ValidationException
 from app.core.security import decode_access_token
+from app.core.cache import is_token_blacklisted
 from app.modules.appointments.models import Appointment, AppointmentStatus
 from app.modules.auth.models import User, UserRole
 from app.modules.calendar.models import CalendarEvent
@@ -506,6 +507,11 @@ async def notifications_websocket(
     payload = decode_access_token(token)
     if not payload or payload.get("type") != "access":
         await websocket.close(code=4001, reason="Invalid token")
+        return
+
+    jti = payload.get("jti")
+    if jti and await is_token_blacklisted(jti):
+        await websocket.close(code=4001, reason="Token revoked")
         return
 
     user_id = payload.get("user_id")

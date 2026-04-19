@@ -192,6 +192,29 @@ async def book_appointment(
     ):
         raise ConflictException("You already have an appointment at this time")
 
+    await db.execute(
+        select(Doctor).where(Doctor.id == doctor.id).with_for_update()
+    )
+    await db.execute(
+        select(Patient).where(Patient.id == patient.id).with_for_update()
+    )
+
+    if await _check_doctor_conflict(
+        doctor.id,
+        appt_time,
+        doctor.consultation_duration_minutes,
+        db,
+    ):
+        raise ConflictException("Doctor is already booked at this time")
+
+    if await _check_patient_conflict(
+        patient.id,
+        appt_time,
+        doctor.consultation_duration_minutes,
+        db,
+    ):
+        raise ConflictException("You already have an appointment at this time")
+
     appointment = Appointment(
         patient_id=patient.id,
         doctor_id=doctor.id,

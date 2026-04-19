@@ -9,7 +9,7 @@ import uuid
 
 from app.core.database import get_db
 from app.core.dependencies import RoleChecker, get_current_user, oauth2_scheme
-from app.core.exceptions import ConflictException, UnauthorizedException
+from app.core.exceptions import ConflictException, UnauthorizedException, RateLimitException
 from app.core.pagination import paginate
 from app.core.security import decode_access_token, hash_password, create_access_token
 from app.core.cache import (
@@ -17,6 +17,8 @@ from app.core.cache import (
     blacklist_token,
     is_raw_token_blacklisted,
     is_token_blacklisted,
+    check_rate_limit,
+    RateLimitKeys,
 )
 from app.modules.auth.schemas import (
     RegisterSchema,
@@ -50,6 +52,15 @@ async def register(
     db: AsyncSession = Depends(get_db),
     auth_service: AuthService = Depends(get_auth_service),
 ):
+    client_ip = request.client.host if request.client else "unknown"
+    allowed, _ = await check_rate_limit(
+        RateLimitKeys.register_ip(client_ip),
+        max_requests=5,
+        window_seconds=3600,
+    )
+    if not allowed:
+        raise RateLimitException("Too many registration attempts. Please try again later.")
+
     result = await auth_service.register(dto)
 
     if result["role"] == UserRole.PATIENT:
@@ -78,6 +89,15 @@ async def login(
     db: AsyncSession = Depends(get_db),
     auth_service: AuthService = Depends(get_auth_service),
 ):
+    client_ip = request.client.host if request.client else "unknown"
+    allowed, _ = await check_rate_limit(
+        RateLimitKeys.login_ip(client_ip),
+        max_requests=10,
+        window_seconds=300,
+    )
+    if not allowed:
+        raise RateLimitException("Too many login attempts. Please try again in 5 minutes.")
+
     result = await auth_service.login(dto.email, dto.password)
     await log(
         db=db,
@@ -92,8 +112,19 @@ async def login(
 
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh_access_token(
-    body: RefreshRequest, db: AsyncSession = Depends(get_db)
+    body: RefreshRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
 ):
+    client_ip = request.client.host if request.client else "unknown"
+    allowed, _ = await check_rate_limit(
+        f"ratelimit:refresh:{client_ip}",
+        max_requests=30,
+        window_seconds=60,
+    )
+    if not allowed:
+        raise RateLimitException("Too many token refresh attempts. Please try again later.")
+
     if await is_raw_token_blacklisted(body.refresh_token):
         raise UnauthorizedException("Refresh token has been revoked")
 
@@ -451,6 +482,20 @@ async def delete_user(
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+
+    from app.modules.doctors.models import Doctor
+    from app.modules.patients.models import Patient
+
+    doctor_result = await db.execute(select(Doctor).where(Doctor.user_id == user_id))
+    doctor = doctor_result.scalar_one_or_none()
+    if doctor:
+        await db.delete(doctor)
+
+    patient_result = await db.execute(select(Patient).where(Patient.user_id == user_id))
+    patient = patient_result.scalar_one_or_none()
+    if patient:
+        await db.delete(patient)
+
     await db.delete(user)
     await db.commit()
     await log(

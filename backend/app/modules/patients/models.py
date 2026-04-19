@@ -84,7 +84,7 @@ class Patient(Base):
 
     # Relationships
     user = relationship("User")
-    appointments = relationship("Appointment", back_populates="patient")
+    appointments = relationship("Appointment", back_populates="patient", cascade="all, delete-orphan")
     health_vitals = relationship(
         "HealthVital", back_populates="patient", cascade="all, delete-orphan"
     )
