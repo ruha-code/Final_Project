@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { MessageSquare } from "lucide-react";
 
+import Badge from "../components/Badge";
 import { api } from "../services/api";
 
 const PATIENTS_GRID = "grid-cols-[minmax(0,1.7fr)_80px_minmax(0,1.1fr)_110px_110px_150px_150px]";
@@ -116,7 +117,7 @@ export default function MyPatients() {
                     <span className="truncate text-sm text-gray-600">{patient.condition || "-"}</span>
                     <span className="whitespace-nowrap text-sm text-gray-500">{formatDate(previous?.appointment_time)}</span>
                     <span className="whitespace-nowrap text-sm text-gray-500">{formatDate(upcoming?.appointment_time)}</span>
-                    <span className={`w-fit whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium ${
+                    <Badge className={`rounded-full px-3 py-1 text-xs font-medium ${
                       patient.patient_status === "IN_TREATMENT"
                         ? "bg-teal-100 text-teal-700"
                         : patient.patient_status === "ADMITTED"
@@ -124,7 +125,7 @@ export default function MyPatients() {
                           : "bg-gray-100 text-gray-500"
                     }`}>
                       {patient.patient_status?.replace("_", " ") || "-"}
-                    </span>
+                    </Badge>
                     <div className="flex items-center justify-end gap-2" onClick={(event) => event.stopPropagation()}>
                       <button onClick={() => navigate(`/patients/${patient.id}`)} className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-200">Open Case</button>
                       {patient.patient_status !== "DISCHARGED" ? (

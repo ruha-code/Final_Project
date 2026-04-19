@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Edit, Eye, Trash2, X } from "lucide-react";
 
+import Badge from "../components/Badge";
 import { api } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
@@ -23,9 +24,9 @@ const STATUS_STYLES = {
 
 function Status({ status }) {
   return (
-    <span className={`rounded-full px-3 py-1 text-xs font-medium ${STATUS_STYLES[status] || "bg-gray-100 text-gray-400"}`}>
+    <Badge className={`justify-self-start rounded-full px-3 py-1 text-xs font-medium ${STATUS_STYLES[status] || "bg-gray-100 text-gray-400"}`}>
       {status ? status.replace("_", " ") : "-"}
-    </span>
+    </Badge>
   );
 }
 

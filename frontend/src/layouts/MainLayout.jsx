@@ -1,8 +1,34 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { Search, Bell, Settings, LogOut, Users } from "lucide-react";
+import { Search, Bell, CalendarClock, Package2, LogOut, MessageSquare, Users, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
+
+const TOAST_LIFETIME_MS = 5000;
+const TOAST_EXIT_MS = 220;
+
+const NOTIFICATION_TOAST_META = {
+  MESSAGE: {
+    icon: MessageSquare,
+    iconClass: "bg-teal-50 text-teal-600",
+    actionLabel: "Open messages",
+  },
+  APPOINTMENT: {
+    icon: CalendarClock,
+    iconClass: "bg-amber-50 text-amber-600",
+    actionLabel: "Open appointments",
+  },
+  INVENTORY: {
+    icon: Package2,
+    iconClass: "bg-orange-50 text-orange-600",
+    actionLabel: "Open inventory",
+  },
+  CALENDAR: {
+    icon: CalendarClock,
+    iconClass: "bg-sky-50 text-sky-600",
+    actionLabel: "Open calendar",
+  },
+};
 
 function MainLayout({ children }) {
   const navigate = useNavigate();
@@ -17,10 +43,103 @@ function MainLayout({ children }) {
   const [notifications, setNotifications] = useState([]);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [notificationUnreadCount, setNotificationUnreadCount] = useState(0);
+  const [toastNotifications, setToastNotifications] = useState([]);
 
   const dropdownRef = useRef();
   const notificationsWsRef = useRef(null);
   const wsReconnectTimerRef = useRef(null);
+  const notificationSnapshotRef = useRef(new Set());
+  const toastsTimerRef = useRef({});
+  const toastRemovalTimersRef = useRef({});
+  const hasFetchedNotificationsRef = useRef(false);
+  const currentPathRef = useRef(location.pathname);
+  const audioContextRef = useRef(null);
+
+  const playToastSound = useCallback(() => {
+    if (typeof window === "undefined") return;
+
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+
+    try {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioContextClass();
+      }
+
+      const audioContext = audioContextRef.current;
+      const startAt = audioContext.currentTime;
+      const masterGain = audioContext.createGain();
+      masterGain.gain.setValueAtTime(0.0001, startAt);
+      masterGain.gain.exponentialRampToValueAtTime(0.035, startAt + 0.02);
+      masterGain.gain.exponentialRampToValueAtTime(0.0001, startAt + 0.35);
+      masterGain.connect(audioContext.destination);
+
+      const firstTone = audioContext.createOscillator();
+      firstTone.type = "sine";
+      firstTone.frequency.setValueAtTime(740, startAt);
+      firstTone.connect(masterGain);
+      firstTone.start(startAt);
+      firstTone.stop(startAt + 0.16);
+
+      const secondTone = audioContext.createOscillator();
+      secondTone.type = "sine";
+      secondTone.frequency.setValueAtTime(988, startAt + 0.12);
+      secondTone.connect(masterGain);
+      secondTone.start(startAt + 0.12);
+      secondTone.stop(startAt + 0.3);
+    } catch (err) {
+      console.error("Failed to play notification sound:", err);
+    }
+  }, []);
+
+  const dismissToast = useCallback((notificationKey) => {
+    if (toastsTimerRef.current[notificationKey]) {
+      clearTimeout(toastsTimerRef.current[notificationKey]);
+      delete toastsTimerRef.current[notificationKey];
+    }
+
+    setToastNotifications((prev) =>
+      prev.map((item) =>
+        item.key === notificationKey ? { ...item, phase: "leaving" } : item,
+      ),
+    );
+
+    if (toastRemovalTimersRef.current[notificationKey]) {
+      clearTimeout(toastRemovalTimersRef.current[notificationKey]);
+    }
+
+    toastRemovalTimersRef.current[notificationKey] = setTimeout(() => {
+      setToastNotifications((prev) => prev.filter((item) => item.key !== notificationKey));
+      delete toastRemovalTimersRef.current[notificationKey];
+    }, TOAST_EXIT_MS);
+  }, []);
+
+  const enqueueToast = useCallback((notification) => {
+    setToastNotifications((prev) => {
+      const existing = prev.find((item) => item.key === notification.key);
+      if (existing) {
+        return prev.map((item) =>
+          item.key === notification.key ? { ...item, phase: "entering" } : item,
+        );
+      }
+      return [...prev, { ...notification, phase: "entering" }].slice(-3);
+    });
+
+    if (toastsTimerRef.current[notification.key]) {
+      clearTimeout(toastsTimerRef.current[notification.key]);
+    }
+
+    if (toastRemovalTimersRef.current[notification.key]) {
+      clearTimeout(toastRemovalTimersRef.current[notification.key]);
+      delete toastRemovalTimersRef.current[notification.key];
+    }
+
+    toastsTimerRef.current[notification.key] = setTimeout(() => {
+      dismissToast(notification.key);
+    }, TOAST_LIFETIME_MS);
+
+    playToastSound();
+  }, [dismissToast, playToastSound]);
 
   useEffect(() => {
     const handleClick = (e) => {
@@ -34,9 +153,17 @@ function MainLayout({ children }) {
   }, []);
 
   useEffect(() => {
+    currentPathRef.current = location.pathname;
     setSearch("");
     setSearchOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => () => {
+    Object.values(toastsTimerRef.current).forEach((timerId) => clearTimeout(timerId));
+    Object.values(toastRemovalTimersRef.current).forEach((timerId) => clearTimeout(timerId));
+    toastsTimerRef.current = {};
+    toastRemovalTimersRef.current = {};
+  }, []);
 
   const menuItem = (path, name) => {
     const isActive = location.pathname.startsWith(path);
@@ -129,6 +256,27 @@ function MainLayout({ children }) {
       setNotificationsLoading(true);
       const data = await api.get("/notifications");
       const items = Array.isArray(data?.items) ? data.items : [];
+      const unreadNotificationKeys = new Set(
+        items
+          .filter((item) => !item.is_read)
+          .map((item) => item.key),
+      );
+
+      if (hasFetchedNotificationsRef.current) {
+        items
+          .filter((item) => !item.is_read)
+          .forEach((item) => {
+            if (currentPathRef.current.startsWith("/messages") && item.notification_type === "MESSAGE") {
+              return;
+            }
+            if (!notificationSnapshotRef.current.has(item.key)) {
+              enqueueToast(item);
+            }
+          });
+      }
+
+      notificationSnapshotRef.current = unreadNotificationKeys;
+      hasFetchedNotificationsRef.current = true;
       setNotifications(items);
       setNotificationUnreadCount(data?.unread_count || 0);
     } catch (err) {
@@ -136,7 +284,7 @@ function MainLayout({ children }) {
     } finally {
       setNotificationsLoading(false);
     }
-  }, [user]);
+  }, [enqueueToast, user]);
 
   useEffect(() => {
     if (!user) return undefined;
@@ -205,7 +353,9 @@ function MainLayout({ children }) {
           item.key === notification.key ? { ...item, is_read: true } : item,
         ),
       );
+      notificationSnapshotRef.current.delete(notification.key);
       setNotificationUnreadCount((current) => Math.max(0, current - (notification.is_read ? 0 : 1)));
+      dismissToast(notification.key);
       setOpen(null);
       navigate(notification.route);
     }
@@ -215,7 +365,22 @@ function MainLayout({ children }) {
     try {
       await api.put("/notifications/read-all");
       setNotifications((prev) => prev.map((item) => ({ ...item, is_read: true })));
+      notificationSnapshotRef.current = new Set();
       setNotificationUnreadCount(0);
+      setToastNotifications((prev) => prev.map((item) => ({ ...item, phase: "leaving" })));
+      Object.values(toastsTimerRef.current).forEach((timerId) => clearTimeout(timerId));
+      toastsTimerRef.current = {};
+
+      Object.keys(toastRemovalTimersRef.current).forEach((key) => {
+        clearTimeout(toastRemovalTimersRef.current[key]);
+      });
+
+      toastNotifications.forEach((item) => {
+        toastRemovalTimersRef.current[item.key] = setTimeout(() => {
+          setToastNotifications((prev) => prev.filter((toast) => toast.key !== item.key));
+          delete toastRemovalTimersRef.current[item.key];
+        }, TOAST_EXIT_MS);
+      });
     } catch (err) {
       console.error("Failed to mark all notifications as read:", err);
     }
@@ -624,6 +789,56 @@ function MainLayout({ children }) {
           <div className="h-full overflow-auto p-8">{children}</div>
         </div>
       </div>
+
+      {toastNotifications.length > 0 && (
+        <div className="pointer-events-none fixed bottom-5 right-5 z-[70] flex w-full max-w-sm flex-col gap-3">
+          {toastNotifications.map((notification) => (
+            <div
+              key={notification.key}
+              className={`pointer-events-auto overflow-hidden rounded-2xl border border-teal-100 bg-white/95 shadow-xl backdrop-blur ${notification.phase === "leaving" ? "toast-exit" : "toast-enter"}`}
+            >
+              <div className="flex items-start gap-3 p-4">
+                {(() => {
+                  const meta = NOTIFICATION_TOAST_META[notification.notification_type] || NOTIFICATION_TOAST_META.MESSAGE;
+                  const Icon = meta.icon;
+                  return (
+                    <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${meta.iconClass}`}>
+                      <Icon size={18} />
+                    </div>
+                  );
+                })()}
+                <button
+                  type="button"
+                  onClick={() => markNotificationReadAndOpen(notification)}
+                  className="min-w-0 flex-1 text-left"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-gray-900">
+                        {notification.title || "New message"}
+                      </p>
+                      <p className="mt-1 text-sm text-gray-500">
+                        {notification.message}
+                      </p>
+                      <p className="mt-2 text-xs font-medium text-teal-600">
+                        {(NOTIFICATION_TOAST_META[notification.notification_type] || NOTIFICATION_TOAST_META.MESSAGE).actionLabel}
+                      </p>
+                    </div>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => dismissToast(notification.key)}
+                  className="shrink-0 rounded-lg p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
+                  aria-label="Dismiss notification"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

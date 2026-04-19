@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Activity, HeartPulse, Mail, MapPin, MessageSquare, Phone } from "lucide-react";
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
+import Badge from "../components/Badge";
 import { api } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
@@ -129,7 +130,7 @@ export default function PatientDetails() {
                 <span className="rounded-lg bg-gray-100 px-3 py-1">{calcAge(patient.date_of_birth)} years</span>
                 <span className="rounded-lg bg-gray-100 px-3 py-1">{patient.gender || "-"}</span>
                 <span className="rounded-lg bg-gray-100 px-3 py-1">{patient.blood_type || "No blood type"}</span>
-                <span className="rounded-lg bg-teal-50 px-3 py-1 text-teal-700">{patient.patient_status?.replace("_", " ") || "-"}</span>
+                <Badge className="rounded-lg bg-teal-50 px-3 py-1 text-teal-700">{patient.patient_status?.replace("_", " ") || "-"}</Badge>
               </div>
             </div>
           </div>

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Calendar, ChevronLeft, ChevronRight, Clock, MoreVertical, Plus, Trash2, X } from "lucide-react";
 
+import Badge from "../components/Badge";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
 import {
@@ -31,9 +32,9 @@ const DOCTOR_APPOINTMENT_GRID = "grid-cols-[minmax(0,1.45fr)_minmax(0,1.1fr)_min
 
 function StatusBadge({ status }) {
   return (
-    <span className={`inline-flex rounded-lg px-2.5 py-1 text-xs font-medium ${STATUS_STYLES[status] || "bg-gray-100 text-gray-500"}`}>
+    <Badge className={`justify-self-start rounded-lg px-2.5 py-1 text-xs font-medium ${STATUS_STYLES[status] || "bg-gray-100 text-gray-500"}`}>
       {STATUS_LABELS[status] || status}
-    </span>
+    </Badge>
   );
 }
 

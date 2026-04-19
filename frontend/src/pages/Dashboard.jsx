@@ -12,6 +12,7 @@ import {
   YAxis,
 } from "recharts";
 
+import Badge from "../components/Badge";
 import { api } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
@@ -114,7 +115,7 @@ function DoctorDashboard({ appointments, patients }) {
                 <div className="flex flex-wrap gap-3 text-sm text-gray-500">
                   <span>{nextInfo.date}</span>
                   <span>{nextInfo.time}</span>
-                  <span className={`rounded-full px-3 py-1 text-xs ${getStatusClass(nextPatient.status)}`}>{nextPatient.status}</span>
+                  <Badge className={`rounded-full px-3 py-1 text-xs ${getStatusClass(nextPatient.status)}`}>{nextPatient.status}</Badge>
                 </div>
                 <p className="max-w-xl text-sm text-gray-500">{nextPatient.reason || "Open the appointment to continue the patient workflow."}</p>
                 <div className="flex flex-wrap gap-3">
@@ -165,7 +166,7 @@ function DoctorDashboard({ appointments, patients }) {
                       <p className="text-sm text-gray-700">{info.date}</p>
                       <p className="text-xs text-gray-400">{info.time}</p>
                     </div>
-                    <span className={`inline-flex h-fit rounded-full px-3 py-1 text-xs ${getStatusClass(item.status)}`}>{item.status}</span>
+                    <Badge className={`h-fit rounded-full px-3 py-1 text-xs ${getStatusClass(item.status)}`}>{item.status}</Badge>
                     <div className="flex flex-wrap gap-2">
                       <button onClick={() => navigate(`/patients/${item.patient_id}`)} className="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100">View patient</button>
                       <button onClick={() => navigate("/appointments")} className="rounded-lg bg-teal-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-teal-600">{item.status === "ONGOING" ? "Continue" : "Open appointment"}</button>
@@ -240,7 +241,7 @@ function AdminDashboard({ stats, barData, lineData, recentAppointments, topDocto
             <div className="mb-2 grid grid-cols-5 px-4 text-xs text-gray-400"><span>Patient</span><span>Doctor</span><span>Type</span><span>Date</span><span>Status</span></div>
             {recentAppointments.length === 0 ? <p className="px-4 py-3 text-sm text-gray-400">No appointments yet</p> : recentAppointments.map((item) => {
               const info = formatDateTime(item.appointment_time);
-              return <div key={item.id} className="grid grid-cols-5 items-center rounded-xl bg-gray-50 px-4 py-3"><span className="font-medium text-gray-700">{item.patient_name}</span><span className="text-gray-500">{item.doctor_name}</span><span className="capitalize text-gray-500">{item.appointment_type?.toLowerCase()}</span><span className="text-gray-500">{info.date}</span><span className={`w-fit rounded-full px-3 py-1 text-xs ${getStatusClass(item.status)}`}>{item.status}</span></div>;
+              return <div key={item.id} className="grid grid-cols-5 items-center rounded-xl bg-gray-50 px-4 py-3"><span className="font-medium text-gray-700">{item.patient_name}</span><span className="text-gray-500">{item.doctor_name}</span><span className="capitalize text-gray-500">{item.appointment_type?.toLowerCase()}</span><span className="text-gray-500">{info.date}</span><Badge className={`rounded-full px-3 py-1 text-xs ${getStatusClass(item.status)}`}>{item.status}</Badge></div>;
             })}
           </div>
         </div>
@@ -252,7 +253,7 @@ function AdminDashboard({ stats, barData, lineData, recentAppointments, topDocto
         </div>
         <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
           <h2 className="mb-4 text-sm font-semibold">Doctors' Schedule</h2>
-          {topDoctors.length === 0 ? <p className="text-xs text-gray-400">No doctors registered</p> : <div className="space-y-4">{topDoctors.map((doctor) => <div key={doctor.id} className="flex items-center justify-between"><div><p className="text-sm font-medium text-gray-800">{doctor.full_name}</p><p className="text-xs text-gray-400">{doctor.department_name || doctor.specialty || "-"}</p></div><span className={`rounded-full px-3 py-1 text-xs font-medium ${doctor.is_available ? "bg-green-100 text-green-700" : "bg-red-100 text-red-500"}`}>{doctor.is_available ? "Available" : "Unavailable"}</span></div>)}</div>}
+          {topDoctors.length === 0 ? <p className="text-xs text-gray-400">No doctors registered</p> : <div className="space-y-4">{topDoctors.map((doctor) => <div key={doctor.id} className="flex items-center justify-between"><div><p className="text-sm font-medium text-gray-800">{doctor.full_name}</p><p className="text-xs text-gray-400">{doctor.department_name || doctor.specialty || "-"}</p></div><Badge className={`rounded-full px-3 py-1 text-xs font-medium ${doctor.is_available ? "bg-green-100 text-green-700" : "bg-red-100 text-red-500"}`}>{doctor.is_available ? "Available" : "Unavailable"}</Badge></div>)}</div>}
         </div>
       </div>
     </div>

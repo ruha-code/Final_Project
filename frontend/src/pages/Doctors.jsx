@@ -1,18 +1,25 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Phone, MessageCircle, MoreVertical, X, Trash2, Edit } from "lucide-react";
+import Badge from "../components/Badge";
 import { api } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
+function parseIntegerInput(value, fallback) {
+  if (value === "" || value === null || value === undefined) return fallback;
+  const parsed = parseInt(value, 10);
+  return Number.isNaN(parsed) ? fallback : parsed;
+}
+
 function StatusBadge({ isAvailable }) {
   return (
-    <span
-      className={`text-xs px-2 py-1 rounded-lg font-medium ${
+    <Badge
+      className={`rounded-lg px-2 py-1 text-xs font-medium ${
         isAvailable ? "bg-teal-100 text-teal-600" : "bg-red-100 text-red-500"
       }`}
     >
       {isAvailable ? "Available" : "Unavailable"}
-    </span>
+    </Badge>
   );
 }
 
@@ -198,16 +205,20 @@ export default function Doctors() {
     setEditForm({
       specialty: doc.specialty || "",
       bio: doc.bio || "",
-      years_of_experience: doc.years_of_experience || 0,
+      years_of_experience: doc.years_of_experience ? String(doc.years_of_experience) : "",
       is_available: doc.is_available,
-      consultation_duration_minutes: doc.consultation_duration_minutes || 30,
+      consultation_duration_minutes: doc.consultation_duration_minutes ? String(doc.consultation_duration_minutes) : "30",
     });
   };
 
   const handleSaveEdit = async () => {
     setSaving(true);
     try {
-      await api.put(`/doctors/${editDoctor.id}`, editForm);
+      await api.put(`/doctors/${editDoctor.id}`, {
+        ...editForm,
+        years_of_experience: parseIntegerInput(editForm.years_of_experience, 0),
+        consultation_duration_minutes: parseIntegerInput(editForm.consultation_duration_minutes, 30),
+      });
       setEditDoctor(null);
       fetchDoctors();
     } catch (err) {
@@ -447,7 +458,7 @@ export default function Doctors() {
                 <input
                   type="number"
                   value={editForm.years_of_experience}
-                  onChange={(e) => setEditForm({...editForm, years_of_experience: parseInt(e.target.value) || 0})}
+                  onChange={(e) => setEditForm({...editForm, years_of_experience: e.target.value})}
                   className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
                 />
               </div>
@@ -456,7 +467,7 @@ export default function Doctors() {
                 <input
                   type="number"
                   value={editForm.consultation_duration_minutes}
-                  onChange={(e) => setEditForm({...editForm, consultation_duration_minutes: parseInt(e.target.value) || 30})}
+                  onChange={(e) => setEditForm({...editForm, consultation_duration_minutes: e.target.value})}
                   className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
                 />
               </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { MoreVertical, Plus, X, Edit, Trash2 } from "lucide-react";
+import Badge from "../Badge";
 import { api } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 
@@ -15,11 +16,17 @@ const STATUS_LABELS = {
   OUT: "Out",
 };
 
+function parseIntegerInput(value, fallback = 0) {
+  if (value === "" || value === null || value === undefined) return fallback;
+  const parsed = parseInt(value, 10);
+  return Number.isNaN(parsed) ? fallback : parsed;
+}
+
 function ItemModal({ onClose, onSaved, editData }) {
   const [form, setForm] = useState({
     name: editData?.name || "",
     category: editData?.category || "MEDICATIONS",
-    quantity: editData?.quantity || 0,
+    quantity: editData?.quantity ? String(editData.quantity) : "",
     unit: editData?.unit || "pcs",
     stock_percentage: editData?.stock_percentage || 0,
     status: editData?.status || "AVAILABLE",
@@ -34,7 +41,7 @@ function ItemModal({ onClose, onSaved, editData }) {
       const payload = {
         name: form.name,
         category: form.category,
-        quantity: form.quantity,
+        quantity: parseIntegerInput(form.quantity, 0),
         unit: form.unit,
         stock_percentage: form.stock_percentage,
         status: form.status,
@@ -101,7 +108,7 @@ function ItemModal({ onClose, onSaved, editData }) {
               <input
                 type="number"
                 value={form.quantity}
-                onChange={(e) => setForm({...form, quantity: parseInt(e.target.value) || 0})}
+                onChange={(e) => setForm({...form, quantity: e.target.value})}
                 className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
               />
             </div>
@@ -245,11 +252,11 @@ export default function InventoryTable({ search = "", status = "All", onRefresh 
           </span>
 
           {/* STATUS */}
-          <span
-            className={`text-xs px-3 py-1 rounded-full w-fit ${STATUS_STYLES[item.status] || "bg-gray-100 text-gray-500"}`}
+          <Badge
+            className={`rounded-full px-3 py-1 text-xs ${STATUS_STYLES[item.status] || "bg-gray-100 text-gray-500"}`}
           >
             {STATUS_LABELS[item.status] || item.status}
-          </span>
+          </Badge>
 
           {/* ACTION */}
           <div className="relative flex justify-end">

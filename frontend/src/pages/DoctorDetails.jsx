@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Calendar, Clock, Mail, MapPin, Phone, Star } from "lucide-react";
 
+import Badge from "../components/Badge";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
 import {
@@ -96,9 +97,9 @@ export default function DoctorDetails() {
           <h1 className="mt-4 text-xl font-semibold text-gray-900">{doctor.full_name}</h1>
           <p className="text-sm text-gray-500">{doctor.specialty || "General physician"}</p>
           <p className="mt-1 text-xs text-gray-400">{doctor.department_name || "No department assigned"}</p>
-          <span className={`mt-4 inline-flex rounded-lg px-3 py-1 text-xs font-medium ${doctor.is_available ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+          <Badge className={`mt-4 rounded-lg px-3 py-1 text-xs font-medium ${doctor.is_available ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"}`}>
             {doctor.is_available ? "Accepting bookings" : "Unavailable"}
-          </span>
+          </Badge>
         </div>
 
         <div className="rounded-3xl border bg-white p-6 shadow-sm">

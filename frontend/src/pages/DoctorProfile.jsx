@@ -36,6 +36,12 @@ function isValidBio(value) {
   return words.length >= 3 && lettersCount >= 10;
 }
 
+function parseIntegerInput(value, fallback = null) {
+  if (value === "" || value === null || value === undefined) return fallback;
+  const parsed = parseInt(value, 10);
+  return Number.isNaN(parsed) ? fallback : parsed;
+}
+
 function parseFieldErrors(err) {
   const detail = err?.data?.detail;
   if (!Array.isArray(detail)) return {};
@@ -70,8 +76,8 @@ export default function DoctorProfile() {
     full_name: "",
     specialty: "",
     bio: "",
-    years_of_experience: 0,
-    consultation_duration_minutes: 30,
+    years_of_experience: "",
+    consultation_duration_minutes: "30",
     phone: "",
   });
 
@@ -84,8 +90,8 @@ export default function DoctorProfile() {
           full_name: data.full_name || "",
           specialty: data.specialty || "",
           bio: data.bio || "",
-          years_of_experience: data.years_of_experience || 0,
-          consultation_duration_minutes: data.consultation_duration_minutes || 30,
+          years_of_experience: data.years_of_experience ? String(data.years_of_experience) : "",
+          consultation_duration_minutes: data.consultation_duration_minutes ? String(data.consultation_duration_minutes) : "30",
           phone: data.phone || "",
         });
       } catch (err) {
@@ -102,9 +108,7 @@ export default function DoctorProfile() {
     setFieldErrors((current) => ({ ...current, [name]: "" }));
     setForm((current) => ({
       ...current,
-      [name]: name === "years_of_experience" || name === "consultation_duration_minutes"
-        ? parseInt(value, 10) || 0
-        : value,
+      [name]: value,
     }));
   };
 
@@ -114,6 +118,8 @@ export default function DoctorProfile() {
     const normalizedSpecialty = normalizeWhitespace(form.specialty);
     const normalizedBio = normalizeWhitespace(form.bio);
     const normalizedPhone = normalizePhone(form.phone);
+    const yearsOfExperience = parseIntegerInput(form.years_of_experience, 0);
+    const consultationDuration = parseIntegerInput(form.consultation_duration_minutes, 30);
 
     setError("");
     setSaved(false);
@@ -137,8 +143,8 @@ export default function DoctorProfile() {
       nextFieldErrors.phone = "Use international format, e.g. +15550123456";
     }
 
-    if (form.years_of_experience < 0 || form.years_of_experience > 50) nextFieldErrors.years_of_experience = "Use a value from 0 to 50";
-    if (form.consultation_duration_minutes < 10 || form.consultation_duration_minutes > 120) nextFieldErrors.consultation_duration_minutes = "Use a value from 10 to 120";
+    if (yearsOfExperience < 0 || yearsOfExperience > 50) nextFieldErrors.years_of_experience = "Use a value from 0 to 50";
+    if (consultationDuration < 10 || consultationDuration > 120) nextFieldErrors.consultation_duration_minutes = "Use a value from 10 to 120";
 
     if (Object.keys(nextFieldErrors).length > 0) {
       setFieldErrors(nextFieldErrors);
@@ -152,16 +158,16 @@ export default function DoctorProfile() {
         specialty: normalizedSpecialty,
         bio: normalizedBio || null,
         phone: normalizedPhone || null,
-        years_of_experience: form.years_of_experience,
-        consultation_duration_minutes: form.consultation_duration_minutes,
+        years_of_experience: yearsOfExperience,
+        consultation_duration_minutes: consultationDuration,
       });
       setProfile(updatedProfile);
       setForm({
         full_name: updatedProfile.full_name || "",
         specialty: updatedProfile.specialty || "",
         bio: updatedProfile.bio || "",
-        years_of_experience: updatedProfile.years_of_experience || 0,
-        consultation_duration_minutes: updatedProfile.consultation_duration_minutes || 30,
+        years_of_experience: updatedProfile.years_of_experience ? String(updatedProfile.years_of_experience) : "",
+        consultation_duration_minutes: updatedProfile.consultation_duration_minutes ? String(updatedProfile.consultation_duration_minutes) : "30",
         phone: updatedProfile.phone || "",
       });
       setSaved(true);
