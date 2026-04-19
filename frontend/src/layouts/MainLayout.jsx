@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { Search, Bell, CalendarClock, Package2, LogOut, MessageSquare, Users, X } from "lucide-react";
+import { Search, Bell, CalendarClock, Package2, LogOut, MessageSquare, Settings, Users, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
@@ -504,7 +504,7 @@ function MainLayout({ children }) {
             <h2 className="text-lg font-semibold text-teal-600">Medlink</h2>
           </div>
 
-          <ul className="space-y-2">
+            <ul className="space-y-2">
             {menuItem("/dashboard", "Dashboard")}
             {menuItem("/appointments", "Appointments")}
             {isAdmin() && menuItem("/patients", "Patients")}
@@ -518,16 +518,16 @@ function MainLayout({ children }) {
             {isAdmin() && menuItem("/inventory", "Inventory")}
             {menuItem("/messages", "Messages")}
             {isAdmin() && (
-              <>
-                <li className="pt-4 pb-1 px-4 text-xs text-gray-400 font-medium uppercase tracking-wide">
-                  Admin
-                </li>
+                <>
+                  <li className="pt-4 pb-1 px-4 text-xs text-gray-400 font-medium uppercase tracking-wide">
+                    Admin
+                  </li>
                 {menuItem("/admin/users", "Users")}
                 {menuItem("/admin/audit-logs", "Audit Logs")}
                 {menuItem("/admin/analytics", "Analytics")}
-              </>
-            )}
-          </ul>
+                </>
+              )}
+            </ul>
         </div>
 
         {isAdmin() && (
