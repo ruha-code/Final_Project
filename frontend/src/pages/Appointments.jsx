@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Calendar, ChevronLeft, ChevronRight, Clock, Plus, Trash2, X } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Clock, MoreVertical, Plus, Trash2, X } from "lucide-react";
 
 import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
@@ -25,6 +25,9 @@ const STATUS_LABELS = {
   SCHEDULED: "Scheduled",
   CANCELLED: "Cancelled",
 };
+
+const PATIENT_APPOINTMENT_GRID = "grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)_110px_90px_130px_150px]";
+const DOCTOR_APPOINTMENT_GRID = "grid-cols-[minmax(0,1.45fr)_minmax(0,1.1fr)_minmax(0,0.95fr)_100px_90px_130px_210px]";
 
 function StatusBadge({ status }) {
   return (
@@ -426,6 +429,7 @@ export default function Appointments() {
   const [showBooking, setShowBooking] = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
   const [completeModal, setCompleteModal] = useState(null);
+  const [openActionMenu, setOpenActionMenu] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [bookingContext, setBookingContext] = useState({ doctorId: null, date: "", time: "" });
 
@@ -653,70 +657,118 @@ export default function Appointments() {
               <p className="mt-1 text-sm text-gray-400">Adjust your filters or book a new appointment to get started.</p>
             </div>
           ) : (
-            <>
-              <div className={`grid gap-4 border-b bg-gray-50 px-6 py-3 text-xs font-medium uppercase tracking-wide text-gray-400 ${isPatient() ? "grid-cols-[1.3fr_1fr_0.8fr_0.7fr_0.8fr_1fr]" : "grid-cols-[1.2fr_1.2fr_0.9fr_0.9fr_0.7fr_0.8fr_1fr]"}`}>
-                {isPatient() ? <><span>Doctor</span><span>Specialty</span><span>Date</span><span>Time</span><span>Status</span><span>Actions</span></> : <><span>Patient</span><span>Doctor</span><span>Type</span><span>Date</span><span>Time</span><span>Status</span><span>Actions</span></>}
+            <div className="overflow-x-auto">
+              <div className="min-w-[900px]">
+                <div className={`grid gap-4 border-b bg-gray-50 px-6 py-3 text-xs font-medium uppercase tracking-wide text-gray-400 ${isPatient() ? PATIENT_APPOINTMENT_GRID : DOCTOR_APPOINTMENT_GRID}`}>
+                  {isPatient() ? <><span>Doctor</span><span>Specialty</span><span>Date</span><span>Time</span><span>Status</span><span className="text-right">Actions</span></> : <><span>Patient</span><span>Doctor</span><span>Type</span><span>Date</span><span>Time</span><span>Status</span><span className="text-right">Actions</span></>}
+                </div>
+                <div className="divide-y">
+                  {filteredAppointments.map((appointment) => {
+                    const dateTime = formatAppointmentDateTime(appointment.appointment_time);
+                    const canCancel = appointment.status === "SCHEDULED" || appointment.status === "ONGOING";
+                    const canComplete = isDoctor() && appointment.status === "ONGOING";
+                    const startHint = getRelativeStartLabel(appointment.appointment_time);
+                    const doctorPrimaryAction = isDoctor() ? getDoctorPrimaryAction(appointment.status) : null;
+                    const hasDoctorMenu = isDoctor() && (canCancel || canComplete);
+                    return (
+                      <div key={appointment.id} className={`grid items-center gap-4 px-6 py-4 text-sm ${isPatient() ? PATIENT_APPOINTMENT_GRID : DOCTOR_APPOINTMENT_GRID}`}>
+                        {isPatient() ? (
+                          <>
+                            <div className="min-w-0">
+                              <p className="truncate font-medium text-gray-900">{appointment.doctor_name}</p>
+                              <p className="truncate text-xs text-gray-400">{appointment.reason || "No reason provided"}</p>
+                            </div>
+                            <span className="truncate text-gray-500">{appointment.doctor_specialty || "General physician"}</span>
+                            <span className="whitespace-nowrap text-gray-500">{dateTime.date}</span>
+                            <span className="whitespace-nowrap text-gray-500">{dateTime.time}</span>
+                            <StatusBadge status={appointment.status} />
+                            <div className="flex justify-end">
+                              {canCancel ? (
+                                <button onClick={() => handleCancel(appointment.id)} disabled={actionLoading === appointment.id} className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-100 disabled:opacity-60">
+                                  {actionLoading === appointment.id ? "Updating..." : "Cancel"}
+                                </button>
+                              ) : <span className="text-xs text-gray-300">No actions</span>}
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="min-w-0">
+                              <p className="truncate font-medium text-gray-900">{appointment.patient_name}</p>
+                              <p className="truncate text-xs text-gray-400">{appointment.reason || "No reason provided"}</p>
+                              {startHint && appointment.status === "SCHEDULED" && (
+                                <p className="mt-1 text-xs font-medium text-teal-600">{startHint}</p>
+                              )}
+                            </div>
+                            <span className="truncate text-gray-700">{appointment.doctor_name}</span>
+                            <span className="truncate capitalize text-gray-500">{appointment.appointment_type?.toLowerCase().replace("_", " ")}</span>
+                            <span className="whitespace-nowrap text-gray-500">{dateTime.date}</span>
+                            <span className="whitespace-nowrap text-gray-500">{dateTime.time}</span>
+                            <StatusBadge status={appointment.status} />
+                            <div className="flex items-center justify-end gap-2">
+                              {isDoctor() && doctorPrimaryAction && (
+                                <button
+                                  onClick={() => {
+                                    setOpenActionMenu(null);
+                                    void handleDoctorPrimaryAction(appointment);
+                                  }}
+                                  disabled={actionLoading === appointment.id}
+                                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:opacity-60 ${doctorPrimaryAction.tone}`}
+                                >
+                                  {actionLoading === appointment.id ? "Updating..." : doctorPrimaryAction.label}
+                                </button>
+                              )}
+                              {hasDoctorMenu && (
+                                <div className="relative">
+                                  <button
+                                    type="button"
+                                    onClick={() => setOpenActionMenu(openActionMenu === appointment.id ? null : appointment.id)}
+                                    disabled={actionLoading === appointment.id}
+                                    className="rounded-lg border border-gray-200 p-2 text-gray-500 transition hover:bg-gray-50 disabled:opacity-60"
+                                    aria-label="More actions"
+                                  >
+                                    <MoreVertical size={14} />
+                                  </button>
+                                  {openActionMenu === appointment.id && (
+                                    <div className="absolute right-0 top-11 z-10 w-36 overflow-hidden rounded-xl border bg-white shadow-lg">
+                                      {canComplete && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setOpenActionMenu(null);
+                                            setCompleteModal(appointment.id);
+                                          }}
+                                          className="block w-full px-3 py-2 text-left text-xs font-medium text-green-700 hover:bg-green-50"
+                                        >
+                                          Complete
+                                        </button>
+                                      )}
+                                      {canCancel && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setOpenActionMenu(null);
+                                            void handleCancel(appointment.id);
+                                          }}
+                                          className="block w-full px-3 py-2 text-left text-xs font-medium text-red-600 hover:bg-red-50"
+                                        >
+                                          Cancel
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              {isAdmin() && appointment.status !== "COMPLETED" && <button onClick={() => handleDelete(appointment.id)} disabled={actionLoading === appointment.id} className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs text-gray-600 hover:bg-red-50 hover:text-red-600 disabled:opacity-60"><Trash2 size={12} /></button>}
+                              {!doctorPrimaryAction && !canCancel && !canComplete && !isAdmin() && <span className="text-xs text-gray-300">No actions</span>}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-              <div className="divide-y">
-                {filteredAppointments.map((appointment) => {
-                  const dateTime = formatAppointmentDateTime(appointment.appointment_time);
-                  const canCancel = appointment.status === "SCHEDULED" || appointment.status === "ONGOING";
-                  const canComplete = isDoctor() && appointment.status === "ONGOING";
-                  const startHint = getRelativeStartLabel(appointment.appointment_time);
-                  const doctorPrimaryAction = isDoctor() ? getDoctorPrimaryAction(appointment.status) : null;
-                  return (
-                    <div key={appointment.id} className={`grid items-center gap-4 px-6 py-4 text-sm ${isPatient() ? "grid-cols-[1.3fr_1fr_0.8fr_0.7fr_0.8fr_1fr]" : "grid-cols-[1.2fr_1.2fr_0.9fr_0.9fr_0.7fr_0.8fr_1fr]"}`}>
-                      {isPatient() ? (
-                        <>
-                          <div><p className="font-medium text-gray-900">{appointment.doctor_name}</p><p className="text-xs text-gray-400">{appointment.reason || "No reason provided"}</p></div>
-                          <span className="text-gray-500">{appointment.doctor_specialty || "General physician"}</span>
-                          <span className="text-gray-500">{dateTime.date}</span>
-                          <span className="text-gray-500">{dateTime.time}</span>
-                          <StatusBadge status={appointment.status} />
-                          <div className="flex flex-wrap gap-2">
-                            {canCancel ? (
-                              <button onClick={() => handleCancel(appointment.id)} disabled={actionLoading === appointment.id} className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-100 disabled:opacity-60">
-                                {actionLoading === appointment.id ? "Updating..." : "Cancel"}
-                              </button>
-                            ) : <span className="text-xs text-gray-300">No actions</span>}
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <div>
-                            <p className="font-medium text-gray-900">{appointment.patient_name}</p>
-                            <p className="text-xs text-gray-400">{appointment.reason || "No reason provided"}</p>
-                            {startHint && appointment.status === "SCHEDULED" && (
-                              <p className="mt-1 text-xs font-medium text-teal-600">{startHint}</p>
-                            )}
-                          </div>
-                          <span className="text-gray-700">{appointment.doctor_name}</span>
-                          <span className="capitalize text-gray-500">{appointment.appointment_type?.toLowerCase().replace("_", " ")}</span>
-                          <span className="text-gray-500">{dateTime.date}</span>
-                          <span className="text-gray-500">{dateTime.time}</span>
-                          <StatusBadge status={appointment.status} />
-                          <div className="flex flex-wrap gap-2">
-                            {isDoctor() && doctorPrimaryAction && (
-                              <button
-                                onClick={() => handleDoctorPrimaryAction(appointment)}
-                                disabled={actionLoading === appointment.id}
-                                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:opacity-60 ${doctorPrimaryAction.tone}`}
-                              >
-                                {actionLoading === appointment.id ? "Updating..." : doctorPrimaryAction.label}
-                              </button>
-                            )}
-                            {canCancel && <button onClick={() => handleCancel(appointment.id)} disabled={actionLoading === appointment.id} className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-100 disabled:opacity-60">{actionLoading === appointment.id ? "Updating..." : "Cancel"}</button>}
-                            {canComplete && <button onClick={() => setCompleteModal(appointment.id)} disabled={actionLoading === appointment.id} className="rounded-lg bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-green-100 disabled:opacity-60">Complete</button>}
-                            {isAdmin() && appointment.status !== "COMPLETED" && <button onClick={() => handleDelete(appointment.id)} disabled={actionLoading === appointment.id} className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs text-gray-600 hover:bg-red-50 hover:text-red-600 disabled:opacity-60"><Trash2 size={12} /></button>}
-                            {!doctorPrimaryAction && !canCancel && !canComplete && !isAdmin() && <span className="text-xs text-gray-300">No actions</span>}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </>
+            </div>
           )}
         </div>
       </div>
