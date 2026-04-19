@@ -38,7 +38,7 @@ export default function DoctorDetails() {
         setDoctor(doctorData);
 
         const today = getTodayLocalDate();
-        const nextDays = await Promise.all(
+        const nextDaysResults = await Promise.allSettled(
           Array.from({ length: 7 }, (_, index) => {
             const date = addDaysToDateString(today, index);
             return api
@@ -49,6 +49,10 @@ export default function DoctorDetails() {
               }));
           }),
         );
+
+        const nextDays = nextDaysResults
+          .filter((r) => r.status === "fulfilled")
+          .map((r) => r.value);
 
         const availableDays = nextDays.filter((item) => item.slots.length > 0);
         setSchedule(availableDays);

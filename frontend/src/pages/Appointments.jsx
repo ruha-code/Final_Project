@@ -27,12 +27,12 @@ const STATUS_LABELS = {
   CANCELLED: "Cancelled",
 };
 
-const PATIENT_APPOINTMENT_GRID = "grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)_110px_90px_130px_150px]";
+const PATIENT_APPOINTMENT_GRID = "grid-cols-[minmax(0,1.45fr)_minmax(0,0.95fr)_100px_90px_120px_120px]";
 const DOCTOR_APPOINTMENT_GRID = "grid-cols-[minmax(0,1.45fr)_minmax(0,1.1fr)_minmax(0,0.95fr)_100px_90px_130px_210px]";
 
-function StatusBadge({ status }) {
+function StatusBadge({ status, className = "" }) {
   return (
-    <Badge className={`justify-self-start rounded-lg px-2.5 py-1 text-xs font-medium ${STATUS_STYLES[status] || "bg-gray-100 text-gray-500"}`}>
+    <Badge className={`rounded-lg px-2.5 py-1 text-xs font-medium ${STATUS_STYLES[status] || "bg-gray-100 text-gray-500"} ${className}`}>
       {STATUS_LABELS[status] || status}
     </Badge>
   );
@@ -661,7 +661,7 @@ export default function Appointments() {
             <div className="overflow-x-auto">
               <div className="min-w-[900px]">
                 <div className={`grid gap-4 border-b bg-gray-50 px-6 py-3 text-xs font-medium uppercase tracking-wide text-gray-400 ${isPatient() ? PATIENT_APPOINTMENT_GRID : DOCTOR_APPOINTMENT_GRID}`}>
-                  {isPatient() ? <><span>Doctor</span><span>Specialty</span><span>Date</span><span>Time</span><span>Status</span><span className="text-right">Actions</span></> : <><span>Patient</span><span>Doctor</span><span>Type</span><span>Date</span><span>Time</span><span>Status</span><span className="text-right">Actions</span></>}
+                  {isPatient() ? <><span>Doctor</span><span>Specialty</span><span>Date</span><span>Time</span><span className="text-center">Status</span><span className="text-center">Actions</span></> : <><span>Patient</span><span>Doctor</span><span>Type</span><span>Date</span><span>Time</span><span>Status</span><span className="text-right">Actions</span></>}
                 </div>
                 <div className="divide-y">
                   {filteredAppointments.map((appointment) => {
@@ -682,14 +682,16 @@ export default function Appointments() {
                             <span className="truncate text-gray-500">{appointment.doctor_specialty || "General physician"}</span>
                             <span className="whitespace-nowrap text-gray-500">{dateTime.date}</span>
                             <span className="whitespace-nowrap text-gray-500">{dateTime.time}</span>
-                            <StatusBadge status={appointment.status} />
-                            <div className="flex justify-end">
-                              {canCancel ? (
-                                <button onClick={() => handleCancel(appointment.id)} disabled={actionLoading === appointment.id} className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-100 disabled:opacity-60">
-                                  {actionLoading === appointment.id ? "Updating..." : "Cancel"}
-                                </button>
-                              ) : <span className="text-xs text-gray-300">No actions</span>}
-                            </div>
+                             <div className="flex items-center justify-center">
+                               <StatusBadge status={appointment.status} className="justify-self-auto" />
+                             </div>
+                             <div className="flex items-center justify-center">
+                               {canCancel ? (
+                                 <button onClick={() => handleCancel(appointment.id)} disabled={actionLoading === appointment.id} className="min-w-[92px] rounded-lg bg-red-50 px-3 py-1.5 text-center text-xs font-medium text-red-600 hover:bg-red-100 disabled:opacity-60">
+                                   {actionLoading === appointment.id ? "Updating..." : "Cancel"}
+                                 </button>
+                               ) : <span className="text-center text-xs text-gray-300">No actions</span>}
+                             </div>
                           </>
                         ) : (
                           <>

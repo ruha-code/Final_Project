@@ -7,6 +7,7 @@ import {
   ProtectedRoute,
   AdminRoute,
   DoctorRoute,
+  PatientRoute,
 } from "../components/ProtectedRoute";
 
 const Dashboard = lazy(() => import("../pages/Dashboard"));
@@ -22,6 +23,7 @@ const DoctorDetails = lazy(() => import("../pages/DoctorDetails"));
 const DoctorSchedule = lazy(() => import("../pages/DoctorSchedule"));
 const DoctorProfile = lazy(() => import("../pages/DoctorProfile"));
 const PatientProfile = lazy(() => import("../pages/PatientProfile"));
+const MyHealth = lazy(() => import("../pages/MyHealth"));
 const AdminProfile = lazy(() => import("../pages/AdminProfile"));
 const MyPatients = lazy(() => import("../pages/MyPatients"));
 const AuditLogs = lazy(() => import("../pages/AuditLogs"));
@@ -89,11 +91,11 @@ function AppRoutes() {
           }
         />
 
-        {/* Calendar - Admin only */}
+        {/* Calendar - Admin and Doctor */}
         <Route
           path="/calendar"
           element={
-            <ProtectedRoute allowedRoles={["ADMIN"]}>
+            <ProtectedRoute allowedRoles={["ADMIN", "DOCTOR"]}>
               <MainLayout>
                 <Calendar />
               </MainLayout>
@@ -164,11 +166,11 @@ function AppRoutes() {
         <Route
           path="/patient/profile"
           element={
-            <ProtectedRoute allowedRoles={["PATIENT"]}>
+            <PatientRoute>
               <MainLayout>
                 <PatientProfile />
               </MainLayout>
-            </ProtectedRoute>
+            </PatientRoute>
           }
         />
 
@@ -197,6 +199,17 @@ function AppRoutes() {
         />
 
         <Route
+          path="/patient/health"
+          element={
+            <PatientRoute>
+              <MainLayout>
+                <MyHealth />
+              </MainLayout>
+            </PatientRoute>
+          }
+        />
+
+        <Route
           path="/departments/:id"
           element={
             <ProtectedRoute allowedRoles={["ADMIN"]}>
@@ -207,7 +220,7 @@ function AppRoutes() {
           }
         />
 
-        {/* Patients - ADMIN only */}
+        {/* Patients - Admin only */}
         <Route
           path="/patients"
           element={

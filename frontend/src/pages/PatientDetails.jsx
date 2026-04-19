@@ -1,11 +1,10 @@
-import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { Activity, HeartPulse, Mail, MapPin, MessageSquare, Phone } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { Activity, HeartPulse, Mail, MapPin, MessageSquare, Phone, Stethoscope, UserRoundCheck } from "lucide-react";
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import Badge from "../components/Badge";
 import { api } from "../services/api";
-import { useAuth } from "../context/AuthContext";
 
 function calcAge(dateOfBirth) {
   if (!dateOfBirth) return "-";
@@ -38,10 +37,35 @@ function isMeaningfulDoctorNote(value) {
   return lettersCount >= 8;
 }
 
+function statusTone(status) {
+  if (status === "IN_TREATMENT") return "bg-teal-50 text-teal-700";
+  if (status === "ADMITTED") return "bg-blue-50 text-blue-700";
+  if (status === "DISCHARGED") return "bg-gray-100 text-gray-600";
+  return "bg-gray-100 text-gray-500";
+}
+
+function appointmentTone(status) {
+  if (status === "ONGOING") return "bg-blue-50 text-blue-700";
+  if (status === "SCHEDULED") return "bg-purple-50 text-purple-700";
+  if (status === "COMPLETED") return "bg-green-50 text-green-700";
+  if (status === "CANCELLED") return "bg-red-50 text-red-600";
+  return "bg-gray-100 text-gray-500";
+}
+
+function MetricCard({ label, value, helper }) {
+  return (
+    <div className="rounded-2xl border bg-white p-4 shadow-sm">
+      <p className="text-xs uppercase tracking-wide text-gray-400">{label}</p>
+      <p className="mt-2 text-lg font-semibold text-gray-900">{value}</p>
+      {helper && <p className="mt-1 text-xs text-gray-400">{helper}</p>}
+    </div>
+  );
+}
+
 export default function PatientDetails() {
   const { id } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
-  const { isDoctor } = useAuth();
   const [patient, setPatient] = useState(null);
   const [vitals, setVitals] = useState([]);
   const [appointments, setAppointments] = useState([]);
@@ -72,9 +96,10 @@ export default function PatientDetails() {
           api.get(`/patients/${id}/vitals`),
           api.get("/appointments/my"),
         ]);
+        const patientAppointments = (myAppointments || []).filter((item) => Number(item.patient_id) === Number(id));
         setPatient(patientData);
         setVitals(vitalsData || []);
-        setAppointments((myAppointments || []).filter((item) => Number(item.patient_id) === Number(id)));
+        setAppointments(patientAppointments);
         setNoteForm({
           notes: patientData.notes || "",
           patient_status: patientData.patient_status || "IN_TREATMENT",
@@ -85,8 +110,24 @@ export default function PatientDetails() {
         setLoading(false);
       }
     };
+
     void fetchData();
   }, [id]);
+
+  const latest = vitals[0] || {};
+  const orderedAppointments = useMemo(
+    () => [...appointments].sort((first, second) => new Date(first.appointment_time).getTime() - new Date(second.appointment_time).getTime()),
+    [appointments],
+  );
+  const activeAppointment = orderedAppointments.find((appointment) => appointment.status === "ONGOING")
+    || orderedAppointments.find((appointment) => appointment.status === "SCHEDULED" && new Date(appointment.appointment_time).getTime() >= Date.now());
+  const focusedAppointment = orderedAppointments.find((appointment) => appointment.id === location.state?.appointmentId) || activeAppointment || orderedAppointments.at(-1) || null;
+  const focusedInfo = formatDateTime(focusedAppointment?.appointment_time);
+  const chartData = vitals.slice(0, 10).reverse().map((item) => ({
+    date: new Date(item.recorded_at).toLocaleDateString("en-GB", { month: "short", day: "numeric" }),
+    bp: item.systolic_bp || 0,
+    sugar: item.blood_sugar || 0,
+  }));
 
   if (loading) {
     return <div className="flex h-64 items-center justify-center"><div className="h-12 w-12 animate-spin rounded-full border-b-2 border-teal-500" /></div>;
@@ -96,117 +137,115 @@ export default function PatientDetails() {
     return <div className="rounded-xl bg-white p-6 text-sm text-gray-400">Patient not found.</div>;
   }
 
-  const latest = vitals[0] || {};
-  const sortedAppointments = [...appointments].sort(
-    (first, second) => new Date(first.appointment_time).getTime() - new Date(second.appointment_time).getTime(),
-  );
-  const activeAppointment = sortedAppointments.find((appointment) => appointment.status === "ONGOING")
-    || sortedAppointments.find((appointment) => appointment.status === "SCHEDULED" && new Date(appointment.appointment_time).getTime() >= Date.now());
-  const chartData = vitals.slice(0, 10).reverse().map((item) => ({
-    date: new Date(item.recorded_at).toLocaleDateString("en-GB", { month: "short", day: "numeric" }),
-    bp: item.systolic_bp || 0,
-    sugar: item.blood_sugar || 0,
-  }));
-
   return (
     <div className="space-y-6">
-      <div className="grid gap-6 lg:grid-cols-[1.6fr_0.7fr]">
-        <div className="rounded-2xl border bg-white p-6">
-          <div className="flex flex-col gap-5 lg:flex-row">
-            <div className="flex h-24 w-24 items-center justify-center rounded-2xl bg-teal-100 text-2xl font-bold text-teal-600">
-              {getInitials(patient.full_name)}
+      <div className="rounded-3xl border bg-white p-6 shadow-sm">
+        <div className="grid gap-6 lg:grid-cols-[1.3fr_0.9fr]">
+          <div className="space-y-5">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-center">
+              <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-teal-100 text-2xl font-bold text-teal-700">
+                {getInitials(patient.full_name)}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-600">Clinical Workspace</p>
+                <h1 className="mt-2 text-3xl font-semibold text-gray-900">{patient.full_name}</h1>
+                <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                  <span className="rounded-lg bg-gray-100 px-3 py-1 text-gray-600">{calcAge(patient.date_of_birth)} years</span>
+                  <span className="rounded-lg bg-gray-100 px-3 py-1 text-gray-600">{patient.gender || "-"}</span>
+                  <span className="rounded-lg bg-gray-100 px-3 py-1 text-gray-600">Blood type: {patient.blood_type || "-"}</span>
+                  <Badge className={`rounded-lg px-3 py-1 text-xs ${statusTone(patient.patient_status)}`}>{patient.patient_status?.replaceAll("_", " ") || "No status"}</Badge>
+                </div>
+                <div className="mt-4 flex flex-wrap gap-4 text-sm text-gray-500">
+                  <span className="flex items-center gap-2"><Phone size={14} /> {patient.phone || "-"}</span>
+                  <span className="flex items-center gap-2"><Mail size={14} /> {patient.email}</span>
+                  {patient.address && <span className="flex items-center gap-2"><MapPin size={14} /> {patient.address}</span>}
+                </div>
+              </div>
             </div>
-            <div className="flex-1 space-y-3">
-              <div>
-                <h2 className="text-2xl font-semibold text-gray-900">{patient.full_name}</h2>
-                <p className="text-sm text-gray-400">#{patient.id}</p>
-              </div>
-              <div className="flex flex-wrap gap-4 text-sm text-gray-500">
-                <span className="flex items-center gap-2"><Phone size={14} /> {patient.phone || "-"}</span>
-                <span className="flex items-center gap-2"><Mail size={14} /> {patient.email}</span>
-                {patient.address && <span className="flex items-center gap-2"><MapPin size={14} /> {patient.address}</span>}
-              </div>
-              <div className="flex flex-wrap gap-2 text-xs">
-                <span className="rounded-lg bg-gray-100 px-3 py-1">{calcAge(patient.date_of_birth)} years</span>
-                <span className="rounded-lg bg-gray-100 px-3 py-1">{patient.gender || "-"}</span>
-                <span className="rounded-lg bg-gray-100 px-3 py-1">{patient.blood_type || "No blood type"}</span>
-                <Badge className="rounded-lg bg-teal-50 px-3 py-1 text-teal-700">{patient.patient_status?.replace("_", " ") || "-"}</Badge>
-              </div>
+
+            <div className="grid gap-4 md:grid-cols-4">
+              <MetricCard label="Latest Blood Sugar" value={latest.blood_sugar ? `${latest.blood_sugar} mg/dL` : "-"} />
+              <MetricCard label="Weight" value={latest.weight ? `${latest.weight} kg` : "-"} />
+              <MetricCard label="Temperature" value={latest.temperature ? `${latest.temperature} C` : "-"} />
+              <MetricCard label="Blood Pressure" value={latest.systolic_bp ? `${latest.systolic_bp}/${latest.diastolic_bp}` : "-"} />
             </div>
           </div>
-        </div>
 
-        <div className="rounded-2xl bg-gradient-to-br from-teal-400 to-teal-600 p-6 text-white">
-          <p className="text-sm opacity-80">Doctor Actions</p>
-          <div className="mt-6 grid gap-3">
-            <button onClick={() => navigate("/messages", { state: { patientId: patient.id } })} className="rounded-xl bg-white/15 px-4 py-3 text-left text-sm font-medium hover:bg-white/20">
-              <span className="inline-flex items-center gap-2"><MessageSquare size={16} /> Message patient</span>
-            </button>
-            <button
-              onClick={async () => {
-                if (!activeAppointment) {
-                  navigate("/appointments");
-                  return;
-                }
-
-                if (activeAppointment.status === "ONGOING") {
-                  return;
-                }
-
-                try {
-                  setAppointmentActionLoading(true);
-                  setAppointmentActionError("");
-                  await api.put(`/appointments/${activeAppointment.id}/start`);
-                  const refreshedAppointments = await api.get("/appointments/my");
-                  setAppointments((refreshedAppointments || []).filter((item) => Number(item.patient_id) === Number(id)));
-                } catch (err) {
-                  setAppointmentActionError(err.message || "Failed to start appointment");
-                } finally {
-                  setAppointmentActionLoading(false);
-                }
-              }}
-              disabled={appointmentActionLoading || activeAppointment?.status === "ONGOING"}
-              className="rounded-xl bg-white/15 px-4 py-3 text-left text-sm font-medium hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {appointmentActionLoading
-                ? "Starting appointment..."
-                : activeAppointment?.status === "ONGOING"
-                  ? "Appointment in progress"
-                  : activeAppointment
-                    ? "Start appointment"
-                    : "Open appointments"}
-            </button>
-            {appointmentActionError && <p className="rounded-xl bg-white/10 px-4 py-3 text-xs text-white/90">{appointmentActionError}</p>}
-            <button onClick={() => navigate("/appointments")} className="rounded-xl bg-white/15 px-4 py-3 text-left text-sm font-medium hover:bg-white/20">
-              View appointments
-            </button>
-            <button onClick={() => navigate("/my-patients")} className="rounded-xl bg-white/15 px-4 py-3 text-left text-sm font-medium hover:bg-white/20">
-              Back to my patients
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <div className="rounded-xl border bg-white p-4"><p className="text-xs text-gray-400">Blood Sugar</p><p className="text-lg font-semibold">{latest.blood_sugar ? `${latest.blood_sugar} mg/dL` : "-"}</p></div>
-        <div className="rounded-xl border bg-white p-4"><p className="text-xs text-gray-400">Weight</p><p className="text-lg font-semibold">{latest.weight ? `${latest.weight} kg` : "-"}</p></div>
-        <div className="rounded-xl border bg-white p-4"><p className="text-xs text-gray-400">Temperature</p><p className="text-lg font-semibold">{latest.temperature ? `${latest.temperature}°C` : "-"}</p></div>
-        <div className="rounded-xl border bg-white p-4"><p className="text-xs text-gray-400">Blood Pressure</p><p className="text-lg font-semibold">{latest.systolic_bp ? `${latest.systolic_bp}/${latest.diastolic_bp}` : "-"}</p></div>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-[1.4fr_0.9fr]">
-        <div className="space-y-6">
-          <div className="rounded-xl border bg-white p-5">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="flex items-center gap-2 text-sm font-semibold"><HeartPulse size={16} /> Vitals History</h3>
-              {isDoctor() && (
-                <button onClick={() => setShowVitalsForm(true)} className="rounded-lg bg-teal-500 px-3 py-2 text-xs font-medium text-white hover:bg-teal-600">
-                  <span className="inline-flex items-center gap-2"><Activity size={14} /> Add Vitals</span>
+          <div className="rounded-3xl bg-gradient-to-br from-teal-500 to-teal-700 p-6 text-white shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/80">Current Encounter</p>
+            {!focusedAppointment ? (
+              <div className="mt-5 space-y-4">
+                <h2 className="text-2xl font-semibold">No active encounter</h2>
+                <p className="text-sm text-white/80">Open appointments to review the next visit or start a scheduled appointment.</p>
+                <button onClick={() => navigate("/appointments")} className="rounded-xl bg-white px-4 py-2.5 text-sm font-medium text-teal-700 hover:bg-teal-50">
+                  Open Appointments
                 </button>
-              )}
+              </div>
+            ) : (
+              <div className="mt-5 space-y-4">
+                <h2 className="text-2xl font-semibold">{focusedAppointment.appointment_type?.toLowerCase().replaceAll("_", " ") || "Visit"}</h2>
+                <div className="space-y-2 rounded-2xl bg-white/10 p-4 text-sm">
+                  <div className="flex items-center justify-between gap-3"><span className="text-white/70">Date</span><span>{focusedInfo.date}</span></div>
+                  <div className="flex items-center justify-between gap-3"><span className="text-white/70">Time</span><span>{focusedInfo.time}</span></div>
+                  <div className="flex items-center justify-between gap-3"><span className="text-white/70">Status</span><span>{focusedAppointment.status}</span></div>
+                </div>
+                <p className="text-sm text-white/80">{focusedAppointment.reason || "No visit reason was added to this appointment."}</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <button onClick={() => navigate("/messages", { state: { patientId: patient.id } })} className="rounded-xl bg-white/15 px-4 py-3 text-left text-sm font-medium hover:bg-white/20">
+                    <span className="inline-flex items-center gap-2"><MessageSquare size={16} /> Message patient</span>
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!activeAppointment) {
+                        navigate("/appointments");
+                        return;
+                      }
+                      if (activeAppointment.status === "ONGOING") return;
+                      try {
+                        setAppointmentActionLoading(true);
+                        setAppointmentActionError("");
+                        await api.put(`/appointments/${activeAppointment.id}/start`);
+                        const refreshedAppointments = await api.get("/appointments/my");
+                        setAppointments((refreshedAppointments || []).filter((item) => Number(item.patient_id) === Number(id)));
+                      } catch (err) {
+                        setAppointmentActionError(err.message || "Failed to start appointment");
+                      } finally {
+                        setAppointmentActionLoading(false);
+                      }
+                    }}
+                    disabled={appointmentActionLoading || activeAppointment?.status === "ONGOING"}
+                    className="rounded-xl bg-white px-4 py-3 text-left text-sm font-medium text-teal-700 hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    {appointmentActionLoading
+                      ? "Starting encounter..."
+                      : activeAppointment?.status === "ONGOING"
+                        ? "Encounter in progress"
+                        : activeAppointment
+                          ? "Start encounter"
+                          : "Open appointments"}
+                  </button>
+                </div>
+                {appointmentActionError && <p className="rounded-xl bg-white/10 px-4 py-3 text-xs text-white/90">{appointmentActionError}</p>}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[1.45fr_0.95fr]">
+        <div className="space-y-6">
+          <div className="rounded-2xl border bg-white p-6 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-semibold text-gray-800">Vitals & Trends</h2>
+                <p className="text-xs text-gray-400">Track recent clinical measurements before documenting the visit</p>
+              </div>
+              <button onClick={() => setShowVitalsForm(true)} className="rounded-lg bg-teal-500 px-3 py-2 text-xs font-medium text-white hover:bg-teal-600">
+                <span className="inline-flex items-center gap-2"><Activity size={14} /> Add Vitals</span>
+              </button>
             </div>
             {chartData.length > 0 ? (
-              <div className="h-56">
+              <div className="h-60">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={chartData}>
                     <XAxis dataKey="date" stroke="#9ca3af" fontSize={11} />
@@ -222,25 +261,40 @@ export default function PatientDetails() {
             )}
           </div>
 
-          <div className="rounded-xl border bg-white p-5">
-            <h3 className="mb-4 text-sm font-semibold">Appointments History</h3>
-            {appointments.length === 0 ? (
+          <div className="rounded-2xl border bg-white p-6 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-semibold text-gray-800">Visit Timeline</h2>
+                <p className="text-xs text-gray-400">Past and upcoming encounters for this patient</p>
+              </div>
+              <button onClick={() => navigate("/appointments")} className="text-sm font-medium text-teal-600 hover:text-teal-700">Open appointments</button>
+            </div>
+            {orderedAppointments.length === 0 ? (
               <p className="text-sm text-gray-400">No appointments with this patient yet.</p>
             ) : (
               <div className="space-y-3">
-                {appointments.map((appointment) => {
+                {[...orderedAppointments].reverse().map((appointment) => {
                   const info = formatDateTime(appointment.appointment_time);
+                  const isFocused = focusedAppointment?.id === appointment.id;
                   return (
-                    <div key={appointment.id} className="grid gap-3 rounded-xl bg-gray-50 px-4 py-3 md:grid-cols-[0.9fr_0.7fr_0.8fr]">
+                    <button
+                      key={appointment.id}
+                      type="button"
+                      onClick={() => navigate(`/patients/${patient.id}`, { state: { appointmentId: appointment.id } })}
+                      className={`grid w-full gap-3 rounded-2xl border px-4 py-4 text-left transition md:grid-cols-[0.95fr_0.8fr_0.8fr] ${isFocused ? "border-teal-300 bg-teal-50" : "border-transparent bg-gray-50 hover:border-gray-200 hover:bg-white"}`}
+                    >
                       <div>
-                        <p className="text-sm font-medium text-gray-900">{info.date}</p>
+                        <p className="text-sm font-semibold text-gray-900">{appointment.appointment_type?.toLowerCase().replaceAll("_", " ") || "Visit"}</p>
+                        <p className="text-xs text-gray-400">{appointment.reason || "No reason provided"}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-700">{info.date}</p>
                         <p className="text-xs text-gray-400">{info.time}</p>
                       </div>
-                      <div className="text-sm text-gray-600">{appointment.appointment_type?.toLowerCase().replace("_", " ") || "-"}</div>
-                      <div>
-                        <span className="rounded-full bg-gray-200 px-3 py-1 text-xs text-gray-700">{appointment.status}</span>
+                      <div className="flex items-center justify-start md:justify-end">
+                        <Badge className={`rounded-full px-3 py-1 text-xs ${appointmentTone(appointment.status)}`}>{appointment.status}</Badge>
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -249,27 +303,28 @@ export default function PatientDetails() {
         </div>
 
         <div className="space-y-6">
-          <div className="rounded-xl border bg-white p-5">
-            <h3 className="mb-4 text-sm font-semibold">Doctor Notes</h3>
+          <div className="rounded-2xl border bg-white p-6 shadow-sm">
+            <div className="mb-4 flex items-center gap-2">
+              <Stethoscope size={16} className="text-teal-600" />
+              <h2 className="text-sm font-semibold text-gray-800">Clinical Assessment</h2>
+            </div>
             <div className="space-y-4">
-              <select value={noteForm.patient_status} onChange={(e) => setNoteForm({ ...noteForm, patient_status: e.target.value })} className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400">
+              <select value={noteForm.patient_status} onChange={(event) => setNoteForm({ ...noteForm, patient_status: event.target.value })} className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400">
                 <option value="IN_TREATMENT">In Treatment</option>
                 <option value="ADMITTED">Admitted</option>
                 <option value="DISCHARGED">Discharged</option>
               </select>
               <textarea
                 value={noteForm.notes}
-                onChange={(e) => {
+                onChange={(event) => {
                   setNotesError("");
-                  setNoteForm({ ...noteForm, notes: e.target.value });
+                  setNoteForm({ ...noteForm, notes: event.target.value });
                 }}
-                rows={6}
-                placeholder="Clinical note, summary, follow-up plan..."
+                rows={7}
+                placeholder="Clinical note, assessment, follow-up plan, medication changes..."
                 className="w-full resize-none rounded-xl bg-gray-100 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-teal-400"
               />
-              {notesError && (
-                <p className="rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600">{notesError}</p>
-              )}
+              {notesError && <p className="rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600">{notesError}</p>}
               <button
                 onClick={async () => {
                   const normalizedNotes = normalizeWhitespace(noteForm.notes);
@@ -298,43 +353,55 @@ export default function PatientDetails() {
                 disabled={savingProfile}
                 className="w-full rounded-xl bg-teal-500 py-3 text-sm font-medium text-white hover:bg-teal-600 disabled:opacity-50"
               >
-                {savingProfile ? "Saving..." : "Save Notes"}
+                {savingProfile ? "Saving clinical note..." : "Save Clinical Note"}
               </button>
             </div>
           </div>
 
-          <div className="rounded-xl border bg-white p-5">
-            <h3 className="mb-3 text-sm font-semibold">Medical Info</h3>
-            <div className="space-y-2 text-sm text-gray-600">
-              <p>Condition: {patient.condition || "-"}</p>
-              <p>Blood Type: {patient.blood_type || "-"}</p>
-              <p>Type: {patient.patient_type?.toLowerCase() || "-"}</p>
-              <p>Room: {patient.room_location || "-"}</p>
+          <div className="rounded-2xl border bg-white p-6 shadow-sm">
+            <div className="mb-4 flex items-center gap-2">
+              <UserRoundCheck size={16} className="text-teal-600" />
+              <h2 className="text-sm font-semibold text-gray-800">Patient Context</h2>
+            </div>
+            <div className="space-y-3 text-sm text-gray-600">
+              <div className="rounded-xl bg-gray-50 px-4 py-3"><span className="text-gray-400">Condition</span><p className="mt-1 font-medium text-gray-900">{patient.condition || "-"}</p></div>
+              <div className="rounded-xl bg-gray-50 px-4 py-3"><span className="text-gray-400">Patient Type</span><p className="mt-1 font-medium text-gray-900">{patient.patient_type?.toLowerCase() || "-"}</p></div>
+              <div className="rounded-xl bg-gray-50 px-4 py-3"><span className="text-gray-400">Room</span><p className="mt-1 font-medium text-gray-900">{patient.room_location || "-"}</p></div>
+              <div className="rounded-xl bg-gray-50 px-4 py-3"><span className="text-gray-400">Admission Date</span><p className="mt-1 font-medium text-gray-900">{patient.admission_date ? new Date(patient.admission_date).toLocaleDateString("en-GB") : "-"}</p></div>
             </div>
           </div>
 
           {patient.emergency_contact_name && (
-            <div className="rounded-xl border bg-white p-5">
-              <h3 className="mb-3 text-sm font-semibold">Emergency Contact</h3>
+            <div className="rounded-2xl border bg-white p-6 shadow-sm">
+              <h2 className="mb-3 text-sm font-semibold text-gray-800">Emergency Contact</h2>
               <div className="space-y-2 text-sm text-gray-600">
                 <p>{patient.emergency_contact_name}</p>
                 <p>{patient.emergency_contact_phone || "-"}</p>
               </div>
             </div>
           )}
+
+          <div className="rounded-2xl border bg-white p-6 shadow-sm">
+            <h2 className="mb-3 text-sm font-semibold text-gray-800">Doctor Actions</h2>
+            <div className="grid gap-3">
+              <button onClick={() => navigate("/messages", { state: { patientId: patient.id } })} className="rounded-xl bg-gray-100 px-4 py-3 text-left text-sm font-medium text-gray-700 hover:bg-gray-200">Message patient</button>
+              <button onClick={() => navigate("/appointments")} className="rounded-xl bg-gray-100 px-4 py-3 text-left text-sm font-medium text-gray-700 hover:bg-gray-200">Open appointments</button>
+              <button onClick={() => navigate("/my-patients")} className="rounded-xl bg-gray-100 px-4 py-3 text-left text-sm font-medium text-gray-700 hover:bg-gray-200">Back to my patients</button>
+            </div>
+          </div>
         </div>
       </div>
 
       {showVitalsForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
             <h3 className="mb-4 text-lg font-semibold">Add Vitals for {patient.full_name}</h3>
             <div className="grid grid-cols-2 gap-4">
-              <input type="number" value={vitalsForm.blood_sugar} onChange={(e) => setVitalsForm({ ...vitalsForm, blood_sugar: e.target.value })} placeholder="Blood sugar" className="rounded-lg border px-3 py-2 text-sm" />
-              <input type="number" value={vitalsForm.weight} onChange={(e) => setVitalsForm({ ...vitalsForm, weight: e.target.value })} placeholder="Weight" className="rounded-lg border px-3 py-2 text-sm" />
-              <input type="number" step="0.1" value={vitalsForm.temperature} onChange={(e) => setVitalsForm({ ...vitalsForm, temperature: e.target.value })} placeholder="Temperature" className="rounded-lg border px-3 py-2 text-sm" />
-              <input type="number" value={vitalsForm.systolic_bp} onChange={(e) => setVitalsForm({ ...vitalsForm, systolic_bp: e.target.value })} placeholder="Systolic BP" className="rounded-lg border px-3 py-2 text-sm" />
-              <input type="number" value={vitalsForm.diastolic_bp} onChange={(e) => setVitalsForm({ ...vitalsForm, diastolic_bp: e.target.value })} placeholder="Diastolic BP" className="rounded-lg border px-3 py-2 text-sm" />
+              <input type="number" value={vitalsForm.blood_sugar} onChange={(event) => setVitalsForm({ ...vitalsForm, blood_sugar: event.target.value })} placeholder="Blood sugar" className="rounded-lg border px-3 py-2 text-sm" />
+              <input type="number" value={vitalsForm.weight} onChange={(event) => setVitalsForm({ ...vitalsForm, weight: event.target.value })} placeholder="Weight" className="rounded-lg border px-3 py-2 text-sm" />
+              <input type="number" step="0.1" value={vitalsForm.temperature} onChange={(event) => setVitalsForm({ ...vitalsForm, temperature: event.target.value })} placeholder="Temperature" className="rounded-lg border px-3 py-2 text-sm" />
+              <input type="number" value={vitalsForm.systolic_bp} onChange={(event) => setVitalsForm({ ...vitalsForm, systolic_bp: event.target.value })} placeholder="Systolic BP" className="rounded-lg border px-3 py-2 text-sm" />
+              <input type="number" value={vitalsForm.diastolic_bp} onChange={(event) => setVitalsForm({ ...vitalsForm, diastolic_bp: event.target.value })} placeholder="Diastolic BP" className="rounded-lg border px-3 py-2 text-sm" />
             </div>
             <div className="mt-6 flex gap-3">
               <button onClick={() => setShowVitalsForm(false)} className="flex-1 rounded-lg border py-2 text-sm">Cancel</button>

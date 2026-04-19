@@ -29,13 +29,24 @@ export function AuthProvider({ children }) {
     restoreSession();
   }, []);
 
+  const refreshUser = async () => {
+    try {
+      const me = await api.get("/auth/me");
+      setUser(me);
+      return me;
+    } catch (err) {
+      console.error("Failed to refresh user:", err);
+      api.removeToken();
+      setUser(null);
+      throw err;
+    }
+  };
+
   const login = async ({ email, password }) => {
     const response = await api.post("/auth/login", { email, password });
     api.setToken(response.access_token);
     if (response.refresh_token) api.setRefreshToken(response.refresh_token);
-    const me = await api.get("/auth/me");
-    setUser(me);
-    return me;
+    return refreshUser();
   };
 
   const register = async ({ name, username, email, password, role }) => {
@@ -48,9 +59,7 @@ export function AuthProvider({ children }) {
     });
     api.setToken(response.access_token);
     if (response.refresh_token) api.setRefreshToken(response.refresh_token);
-    const me = await api.get("/auth/me");
-    setUser(me);
-    return me;
+    return refreshUser();
   };
 
   const logout = async () => {
@@ -92,6 +101,7 @@ export function AuthProvider({ children }) {
         isDoctor,
         isPatient,
         isDoctorOrAdmin,
+        refreshUser,
       }}
     >
       {children}

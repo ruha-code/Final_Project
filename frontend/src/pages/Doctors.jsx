@@ -176,7 +176,7 @@ export default function Doctors() {
     try {
       setLoading(true);
       const data = await api.get("/doctors");
-      setDoctors(data);
+      setDoctors(Array.isArray(data) ? data : data?.items || []);
     } catch (err) {
       console.error("Failed to fetch doctors:", err);
     } finally {

@@ -45,6 +45,7 @@ function SummaryCard({ title, value, subtitle }) {
 }
 
 function PatientDashboard({ appointments, user }) {
+  const navigate = useNavigate();
   const sorted = [...appointments].sort(
     (a, b) => new Date(a.appointment_time) - new Date(b.appointment_time),
   );
@@ -68,6 +69,14 @@ function PatientDashboard({ appointments, user }) {
       <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
         <h2 className="text-lg font-semibold text-gray-800">Welcome, {user?.full_name || "Patient"}</h2>
         <p className="mt-2 text-sm text-gray-500">Here is a simple overview of your care and upcoming visit.</p>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <button onClick={() => navigate("/patient/health")} className="rounded-xl bg-teal-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-teal-600">
+            Open My Health
+          </button>
+          <button onClick={() => navigate("/patient/profile")} className="rounded-xl bg-gray-100 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-200">
+            Manage Profile
+          </button>
+        </div>
       </div>
       <div className="grid gap-5 md:grid-cols-3">
         <SummaryCard title="Upcoming Appointment" value={upcoming ? `${nextInfo.date} - ${nextInfo.time}` : "No appointment"} subtitle={upcoming ? upcoming.doctor_name : "Book your next visit"} />
@@ -295,6 +304,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const role = user?.role;
+
   useEffect(() => {
     const fetchAll = async () => {
       try {
@@ -331,7 +342,7 @@ export default function Dashboard() {
           setAgendaItems([]);
         } else {
           const appointments = await api.get("/appointments/my");
-          const appointmentList = Array.isArray(appointments) ? appointments : [];
+          const appointmentList = Array.isArray(appointments) ? appointments : appointments?.items || [];
           setStats({ totalPatients: 0, doctors: 0, appointments: appointmentList.length });
           setRecentAppointments(appointmentList);
           setTopDoctors([]);
@@ -347,7 +358,7 @@ export default function Dashboard() {
       }
     };
     void fetchAll();
-  }, [isAdmin, isDoctor]);
+  }, [role]);
 
   if (loading) return <div className="flex h-64 items-center justify-center"><div className="h-12 w-12 animate-spin rounded-full border-b-2 border-teal-500"></div></div>;
   if (error) return <div className="rounded-lg bg-red-100 p-4 text-red-700">{error}</div>;

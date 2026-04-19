@@ -191,12 +191,14 @@ function MainLayout({ children }) {
     if (path.includes("admin/users")) return "User Management";
     if (path.includes("dashboard")) return "Dashboard";
     if (path.includes("appointments")) return "Appointments";
+    if (/^\/patients\/\d+/.test(path)) return "Clinical Workspace";
     if (path.includes("patients")) return "Patients";
     if (path.includes("doctors")) return "Doctors";
     if (path.includes("departments")) return "Departments";
     if (path.includes("schedule")) return "My Schedule";
     if (path.includes("my-patients")) return "My Patients";
     if (path.includes("/doctor/profile")) return "My Profile";
+    if (path.includes("/patient/health")) return "My Health";
     if (path.includes("/patient/profile")) return "My Profile";
     if (path.includes("/admin/profile")) return "My Profile";
     if (path.includes("calendar")) return "Calendar";
@@ -220,10 +222,12 @@ function MainLayout({ children }) {
       return "Patient dashboard overview";
     }
     if (path.includes("appointments")) return "Manage appointments";
+    if (/^\/patients\/\d+/.test(path)) return "Review patient context, record vitals and document the encounter";
     if (path.includes("patients")) return "Patient data & profiles";
     if (path.includes("schedule")) return "Manage your weekly availability";
     if (path.includes("my-patients")) return "View your assigned patients";
     if (path.includes("/doctor/profile")) return "Edit your doctor profile";
+    if (path.includes("/patient/health")) return "Read-only vitals, care summary and visit history";
     if (path.includes("/patient/profile")) return "Edit your patient profile";
     if (path.includes("/admin/profile")) return "Edit your admin profile";
     if (path.includes("settings/notifications")) return "Control alerts and reminder timing";
@@ -286,11 +290,16 @@ function MainLayout({ children }) {
     }
   }, [enqueueToast, user]);
 
+  const fetchNotificationsRef = useRef(fetchNotifications);
+  useEffect(() => {
+    fetchNotificationsRef.current = fetchNotifications;
+  }, [fetchNotifications]);
+
   useEffect(() => {
     if (!user) return undefined;
     void fetchNotifications();
     const intervalId = setInterval(() => {
-      void fetchNotifications();
+      void fetchNotificationsRef.current();
     }, 120000);
     return () => clearInterval(intervalId);
   }, [fetchNotifications, user]);
@@ -313,7 +322,7 @@ function MainLayout({ children }) {
         try {
           const payload = JSON.parse(event.data);
           if (payload?.event === "notifications_refresh") {
-            void fetchNotifications();
+            void fetchNotificationsRef.current();
           }
         } catch (err) {
           console.error("Failed to parse notifications WS payload:", err);
@@ -338,7 +347,7 @@ function MainLayout({ children }) {
       }
       notificationsWsRef.current = null;
     };
-  }, [fetchNotifications, user]);
+  }, [user]);
 
   const markNotificationReadAndOpen = async (notification) => {
     try {
@@ -402,12 +411,13 @@ function MainLayout({ children }) {
       { label: "Appointments", description: "Manage appointments", path: "/appointments", roles: ["ADMIN", "DOCTOR", "PATIENT"] },
       { label: "Messages", description: "Chat with users", path: "/messages", roles: ["ADMIN", "DOCTOR", "PATIENT"] },
       { label: "My Profile", description: "Update account profile", path: dynamicProfilePath, roles: ["ADMIN", "DOCTOR", "PATIENT"] },
+      { label: "My Health", description: "Read-only health record", path: "/patient/health", roles: ["PATIENT"] },
       { label: "Doctors", description: "Browse doctors", path: "/doctors", roles: ["ADMIN", "PATIENT"] },
       { label: "Patients", description: "Patient records", path: "/patients", roles: ["ADMIN"] },
       { label: "My Patients", description: "Doctor patient list", path: "/my-patients", roles: ["DOCTOR"] },
       { label: "My Schedule", description: "Doctor weekly schedule", path: "/schedule", roles: ["DOCTOR"] },
       { label: "Departments", description: "Department management", path: "/departments", roles: ["ADMIN"] },
-      { label: "Calendar", description: "Clinic events", path: "/calendar", roles: ["ADMIN"] },
+      { label: "Calendar", description: "Clinic events and schedule", path: "/calendar", roles: ["ADMIN", "DOCTOR"] },
       { label: "Inventory", description: "Inventory management", path: "/inventory", roles: ["ADMIN"] },
       { label: "User Management", description: "Admin users", path: "/admin/users", roles: ["ADMIN"] },
       { label: "Audit Logs", description: "System audit trail", path: "/admin/audit-logs", roles: ["ADMIN"] },
@@ -513,8 +523,9 @@ function MainLayout({ children }) {
             {isDoctor() && menuItem("/schedule", "My Schedule")}
             {isDoctor() && menuItem("/my-patients", "My Patients")}
             {isDoctor() && menuItem("/doctor/profile", "My Profile")}
+            {isPatient() && menuItem("/patient/health", "My Health")}
             {isPatient() && menuItem("/patient/profile", "My Profile")}
-            {isAdmin() && menuItem("/calendar", "Calendar")}
+            {(isAdmin() || isDoctor()) && menuItem("/calendar", "Calendar")}
             {isAdmin() && menuItem("/inventory", "Inventory")}
             {menuItem("/messages", "Messages")}
             {isAdmin() && (
@@ -752,6 +763,17 @@ function MainLayout({ children }) {
                   >
                     Profile
                   </p>
+                  {isPatient() && (
+                    <p
+                      onClick={() => {
+                        navigate("/patient/health");
+                        setOpen(null);
+                      }}
+                      className="px-3 py-2 hover:bg-gray-100 rounded-lg cursor-pointer text-sm"
+                    >
+                      My Health
+                    </p>
+                  )}
                   {isAdmin() && (
                     <p
                       onClick={() => { navigate("/admin/users"); setOpen(null); }}
