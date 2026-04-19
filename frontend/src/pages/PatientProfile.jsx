@@ -131,8 +131,13 @@ export default function PatientProfile() {
     if (!form.gender) nextFieldErrors.gender = "Select your gender";
     if (!form.phone.trim()) nextFieldErrors.phone = "Enter your phone number";
     else if (!PHONE_REGEX.test(normalizedPhone)) nextFieldErrors.phone = "Use international format, e.g. +15550101";
-    if (form.emergency_contact_phone.trim() && !PHONE_REGEX.test(normalizedEmergencyPhone)) {
+    if (normalizedEmergencyName && !normalizedEmergencyPhone) {
+      nextFieldErrors.emergency_contact_phone = "Enter a phone number for your emergency contact";
+    } else if (normalizedEmergencyPhone && !PHONE_REGEX.test(normalizedEmergencyPhone)) {
       nextFieldErrors.emergency_contact_phone = "Use international format, e.g. +15550101";
+    }
+    if (normalizedEmergencyPhone && !normalizedEmergencyName) {
+      nextFieldErrors.emergency_contact_name = "Enter a name for your emergency contact";
     }
 
     if (Object.keys(nextFieldErrors).length > 0) {

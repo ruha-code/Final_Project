@@ -270,9 +270,6 @@ function MainLayout({ children }) {
         items
           .filter((item) => !item.is_read)
           .forEach((item) => {
-            if (currentPathRef.current.startsWith("/messages") && item.notification_type === "MESSAGE") {
-              return;
-            }
             if (!notificationSnapshotRef.current.has(item.key)) {
               enqueueToast(item);
             }
@@ -300,7 +297,7 @@ function MainLayout({ children }) {
     void fetchNotifications();
     const intervalId = setInterval(() => {
       void fetchNotificationsRef.current();
-    }, 120000);
+    }, 15000);
     return () => clearInterval(intervalId);
   }, [fetchNotifications, user]);
 

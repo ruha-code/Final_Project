@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { CalendarClock, Info, MessageSquare, Search, Stethoscope, UserRound } from "lucide-react";
+import { CalendarClock, ChevronUp, Info, MessageSquare, Search, Stethoscope, UserRound } from "lucide-react";
 
 import MessageBubble from "../components/MessageBubble";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
 
-
+const PAGE_SIZE = 100;
 
 function dedupeMessages(items) {
   const seen = new Set();
@@ -23,11 +23,7 @@ function getInitials(name) {
 }
 
 function Avatar({ name, size = "md" }) {
-  const sizes = {
-    md: "h-10 w-10 text-sm",
-    lg: "h-20 w-20 text-2xl",
-  };
-
+  const sizes = { md: "h-10 w-10 text-sm", lg: "h-20 w-20 text-2xl" };
   return (
     <div className={`flex shrink-0 items-center justify-center rounded-full bg-teal-100 font-semibold text-teal-600 ${sizes[size]}`}>
       {getInitials(name)}
@@ -43,11 +39,7 @@ function formatShortDate(value) {
 function formatDateTime(value) {
   if (!value) return "-";
   return new Date(value).toLocaleString("en-GB", {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "Asia/Almaty",
+    day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Almaty",
   });
 }
 
@@ -55,12 +47,15 @@ export default function Messages() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
   const [conversations, setConversations] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [doctorAppointments, setDoctorAppointments] = useState([]);
   const [patientAppointments, setPatientAppointments] = useState([]);
   const [activeConvId, setActiveConvId] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
   const [input, setInput] = useState("");
   const [search, setSearch] = useState("");
   const [selectedDoctorId, setSelectedDoctorId] = useState("");
@@ -71,14 +66,21 @@ export default function Messages() {
   const [contextInfo, setContextInfo] = useState("");
   const [activePatient, setActivePatient] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [messagesError, setMessagesError] = useState("");
   const [wsError, setWsError] = useState(false);
+
   const bottomRef = useRef(null);
+  const messageListRef = useRef(null);
   const wsRef = useRef(null);
   const activeConvIdRef = useRef(null);
   const reconnectTimerRef = useRef(null);
+  const pollIntervalRef = useRef(null);
   const fetchMessagesRef = useRef(null);
   const markAsReadRef = useRef(null);
   const clearUnreadRef = useRef(null);
+  const currentPageRef = useRef(1);
+  const shouldScrollRef = useRef(true);
 
   useEffect(() => {
     activeConvIdRef.current = activeConvId;
@@ -113,10 +115,10 @@ export default function Messages() {
       .then(([doctorList, appointments]) => {
         const normalizedAppointments = Array.isArray(appointments) ? appointments : [];
         const allowedDoctorIds = new Set(
-          normalizedAppointments.filter((appointment) => appointment.status !== "CANCELLED").map((appointment) => appointment.doctor_id),
+          normalizedAppointments.filter((a) => a.status !== "CANCELLED").map((a) => a.doctor_id),
         );
         setPatientAppointments(normalizedAppointments);
-        setDoctors((doctorList || []).filter((doctor) => allowedDoctorIds.has(doctor.id)));
+        setDoctors((doctorList || []).filter((d) => allowedDoctorIds.has(d.id)));
       })
       .catch(console.error);
   }, [user?.role]);
@@ -142,19 +144,31 @@ export default function Messages() {
     }
   }, [clearUnreadForConversation]);
 
-  const fetchMessages = useCallback(async (convId) => {
+  const fetchMessages = useCallback(async (convId, { silent = false } = {}) => {
     if (!convId) return;
+    if (!silent) setMessagesLoading(true);
+    setMessagesError("");
     try {
-      const data = await api.get(`/messages/conversations/${convId}/messages`);
+      const data = await api.get(`/messages/conversations/${convId}/messages?page=1&page_size=${PAGE_SIZE}`);
+      const fresh = dedupeMessages(Array.isArray(data) ? data : []);
+
+      shouldScrollRef.current = true;
+      setHasMoreMessages(fresh.length === PAGE_SIZE);
+      currentPageRef.current = 1;
+
       setMessages((prev) => {
-        const polled = dedupeMessages(data);
-        const merged = [...polled];
-        prev.forEach((m) => {
-          if (!polled.find((p) => p.id === m.id)) {
-            merged.push(m);
+        if (silent) {
+          // Silent poll: only add new messages that arrived since last fetch
+          const newMsgs = fresh.filter((f) => !prev.find((p) => p.id === f.id));
+          if (newMsgs.length === 0) {
+            shouldScrollRef.current = false;
+            return prev;
           }
-        });
-        return dedupeMessages(merged);
+          return dedupeMessages([...prev.filter((m) => m.conversation_id === convId), ...newMsgs]);
+        }
+        // Initial load: replace, but keep any WS messages received during fetch
+        const wsOnly = prev.filter((m) => m.conversation_id === convId && !fresh.find((f) => f.id === m.id));
+        return dedupeMessages([...fresh, ...wsOnly]);
       });
 
       const hasUnreadFromOthers = (data || []).some(
@@ -165,8 +179,45 @@ export default function Messages() {
       }
     } catch (err) {
       console.error(err);
+      if (!silent) setMessagesError("Failed to load messages. Check your connection and try again.");
+    } finally {
+      if (!silent) setMessagesLoading(false);
     }
   }, [markConversationAsRead, user?.id]);
+
+  const handleLoadOlder = useCallback(async () => {
+    const convId = activeConvIdRef.current;
+    if (!convId || loadingOlder || !hasMoreMessages) return;
+
+    const nextPage = currentPageRef.current + 1;
+    setLoadingOlder(true);
+    shouldScrollRef.current = false;
+
+    // Save scroll position before prepending
+    const container = messageListRef.current;
+    const prevScrollHeight = container?.scrollHeight ?? 0;
+
+    try {
+      const data = await api.get(`/messages/conversations/${convId}/messages?page=${nextPage}&page_size=${PAGE_SIZE}`);
+      const fresh = dedupeMessages(Array.isArray(data) ? data : []);
+
+      setHasMoreMessages(fresh.length === PAGE_SIZE);
+      currentPageRef.current = nextPage;
+
+      setMessages((prev) => dedupeMessages([...fresh, ...prev]));
+
+      // Restore scroll position after prepend so user stays where they were
+      requestAnimationFrame(() => {
+        if (container) {
+          container.scrollTop = container.scrollHeight - prevScrollHeight;
+        }
+      });
+    } catch (err) {
+      console.error("Failed to load older messages:", err);
+    } finally {
+      setLoadingOlder(false);
+    }
+  }, [loadingOlder, hasMoreMessages]);
 
   useEffect(() => {
     fetchMessagesRef.current = fetchMessages;
@@ -183,13 +234,32 @@ export default function Messages() {
   useEffect(() => {
     if (!activeConvId) {
       setMessages([]);
+      setHasMoreMessages(false);
+      setMessagesError("");
       setWsError(false);
+      currentPageRef.current = 1;
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
       return;
     }
+
+    setMessages([]);
+    setHasMoreMessages(false);
+    setMessagesError("");
+    setWsError(false);
+    currentPageRef.current = 1;
+    shouldScrollRef.current = true;
 
     clearUnreadRef.current?.(activeConvId);
     void markAsReadRef.current?.(activeConvId);
     void fetchMessagesRef.current?.(activeConvId);
+
+    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    pollIntervalRef.current = setInterval(() => {
+      void fetchMessagesRef.current?.(activeConvIdRef.current, { silent: true });
+    }, 15000);
 
     if (wsRef.current) {
       wsRef.current.close();
@@ -206,8 +276,7 @@ export default function Messages() {
 
     const connect = () => {
       const token = api.getToken();
-      const wsUrl = api.getWebSocketUrl(`/messages/ws/${activeConvId}`, { token });
-      const ws = new WebSocket(wsUrl);
+      const ws = new WebSocket(api.getWebSocketUrl(`/messages/ws/${activeConvId}`, { token }));
       wsRef.current = ws;
 
       ws.onopen = () => {
@@ -219,16 +288,14 @@ export default function Messages() {
         try {
           const data = JSON.parse(event.data);
           if (data.event === "new_message") {
+            shouldScrollRef.current = true;
             setMessages((prev) => {
-              const exists = prev.find((m) => m.id === data.id);
-              if (exists) return prev;
+              if (prev.find((m) => m.id === data.id)) return prev;
               return dedupeMessages([...prev, data]);
             });
             setConversations((prev) =>
               prev.map((conv) =>
-                conv.id === activeConvIdRef.current
-                  ? { ...conv, last_message: data.text }
-                  : conv,
+                conv.id === activeConvIdRef.current ? { ...conv, last_message: data.text } : conv,
               ),
             );
           } else if (data.event === "messages_read") {
@@ -257,19 +324,16 @@ export default function Messages() {
     connect();
 
     return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
-      if (reconnectTimerRef.current) {
-        clearTimeout(reconnectTimerRef.current);
-        reconnectTimerRef.current = null;
-      }
+      if (wsRef.current) { wsRef.current.close(); wsRef.current = null; }
+      if (reconnectTimerRef.current) { clearTimeout(reconnectTimerRef.current); reconnectTimerRef.current = null; }
+      if (pollIntervalRef.current) { clearInterval(pollIntervalRef.current); pollIntervalRef.current = null; }
     };
   }, [activeConvId]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (shouldScrollRef.current) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages]);
 
   useEffect(() => {
@@ -278,7 +342,6 @@ export default function Messages() {
       setActivePatient(null);
       return;
     }
-
     api.get(`/patients/${currentConversation.patient_id}`)
       .then((data) => setActivePatient(data))
       .catch(() => setActivePatient(null));
@@ -290,6 +353,7 @@ export default function Messages() {
       setSending(true);
       setSendError("");
       const msg = await api.post(`/messages/conversations/${activeConvId}/messages`, { text: input.trim() });
+      shouldScrollRef.current = true;
       setMessages((prev) => dedupeMessages([...prev, msg]));
       setConversations((prev) => prev.map((conv) => (conv.id === activeConvId ? { ...conv, last_message: msg.text } : conv)));
       setInput("");
@@ -301,10 +365,7 @@ export default function Messages() {
   };
 
   const handleCreateConversation = async () => {
-    if (!selectedDoctorId) {
-      setCreateError("Select a doctor to start a conversation");
-      return;
-    }
+    if (!selectedDoctorId) { setCreateError("Select a doctor to start a conversation"); return; }
     setCreateLoading(true);
     setCreateError("");
     try {
@@ -330,23 +391,24 @@ export default function Messages() {
     return name?.toLowerCase().includes(search.toLowerCase());
   });
   const availableDoctors = doctors.filter((doctor) => !conversations.some((conv) => conv.doctor_id === doctor.id));
-  const activeDoctor = activeConv?.doctor_id ? doctors.find((doctor) => doctor.id === activeConv.doctor_id) : null;
+  const activeDoctor = activeConv?.doctor_id ? doctors.find((d) => d.id === activeConv.doctor_id) : null;
   const activePatientAppointments = activeConv?.patient_id
-    ? doctorAppointments.filter((appointment) => appointment.patient_id === activeConv.patient_id).sort((a, b) => new Date(b.appointment_time).getTime() - new Date(a.appointment_time).getTime())
+    ? doctorAppointments.filter((a) => a.patient_id === activeConv.patient_id).sort((a, b) => new Date(b.appointment_time) - new Date(a.appointment_time))
     : [];
   const activeDoctorAppointments = activeConv?.doctor_id
-    ? patientAppointments.filter((appointment) => appointment.doctor_id === activeConv.doctor_id).sort((a, b) => new Date(b.appointment_time).getTime() - new Date(a.appointment_time).getTime())
+    ? patientAppointments.filter((a) => a.doctor_id === activeConv.doctor_id).sort((a, b) => new Date(b.appointment_time) - new Date(a.appointment_time))
     : [];
-  const lastVisit = activePatientAppointments.find((appointment) => new Date(appointment.appointment_time).getTime() < Date.now());
+  const lastVisit = activePatientAppointments.find((a) => new Date(a.appointment_time) < Date.now());
   const patientLastVisitLabel = lastVisit ? formatShortDate(lastVisit.appointment_time) : "-";
-  const patientAge = activePatient?.date_of_birth ? Math.floor((Date.now() - new Date(activePatient.date_of_birth).getTime()) / (1000 * 60 * 60 * 24 * 365.25)) : null;
-  const nextVisitWithDoctor = [...activeDoctorAppointments].reverse().find((appointment) => appointment.status !== "CANCELLED" && new Date(appointment.appointment_time).getTime() >= Date.now());
-  const lastVisitWithDoctor = activeDoctorAppointments.find((appointment) => new Date(appointment.appointment_time).getTime() < Date.now());
+  const patientAge = activePatient?.date_of_birth
+    ? Math.floor((Date.now() - new Date(activePatient.date_of_birth)) / (1000 * 60 * 60 * 24 * 365.25))
+    : null;
+  const nextVisitWithDoctor = [...activeDoctorAppointments].reverse().find((a) => a.status !== "CANCELLED" && new Date(a.appointment_time) >= Date.now());
+  const lastVisitWithDoctor = activeDoctorAppointments.find((a) => new Date(a.appointment_time) < Date.now());
   const messageCount = messages.length;
 
   const accountInfoCards = useMemo(() => {
     if (!activeConv) return [];
-
     if (user?.role === "DOCTOR") {
       return [
         { label: "Age", value: patientAge ?? "-" },
@@ -354,7 +416,6 @@ export default function Messages() {
         { label: "Last Visit", value: patientLastVisitLabel },
       ];
     }
-
     return [
       { label: "Specialty", value: activeDoctor?.specialty || "Doctor" },
       { label: "Next Visit", value: nextVisitWithDoctor ? formatDateTime(nextVisitWithDoctor.appointment_time) : "No upcoming visit" },
@@ -368,6 +429,7 @@ export default function Messages() {
 
   return (
     <div className="grid h-full min-h-0 gap-5 2xl:grid-cols-[300px_minmax(0,1fr)_280px]">
+      {/* CONVERSATIONS LIST */}
       <div className="flex min-h-0 flex-col rounded-2xl border bg-white p-4 shadow-sm">
         <div className="relative mb-4">
           <Search size={16} className="absolute left-3 top-3 text-gray-400" />
@@ -380,18 +442,14 @@ export default function Messages() {
               <p className="text-sm font-semibold text-gray-800">Start a conversation</p>
               <p className="mt-1 text-xs leading-5 text-gray-500">Choose a doctor from your care journey to ask follow-up questions.</p>
             </div>
-
             <select value={selectedDoctorId} onChange={(e) => setSelectedDoctorId(e.target.value)} className="w-full rounded-xl border bg-white px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-teal-400">
               <option value="">Select doctor</option>
               {availableDoctors.map((doctor) => <option key={doctor.id} value={doctor.id}>{doctor.full_name}</option>)}
             </select>
-
             {createError && <p className="text-xs text-red-500">{createError}</p>}
-
             <button onClick={handleCreateConversation} disabled={createLoading || availableDoctors.length === 0} className="w-full rounded-xl bg-teal-500 py-2.5 text-sm font-medium text-white hover:bg-teal-600 disabled:opacity-50">
               {createLoading ? "Starting..." : "New Conversation"}
             </button>
-
             {availableDoctors.length === 0 && <p className="text-xs text-gray-500">You can only start chats with doctors connected to your appointments.</p>}
           </div>
         )}
@@ -408,11 +466,7 @@ export default function Messages() {
                 <button
                   key={conv.id}
                   type="button"
-                  onClick={() => {
-                    setContextInfo("");
-                    clearUnreadForConversation(conv.id);
-                    setActiveConvId(conv.id);
-                  }}
+                  onClick={() => { setContextInfo(""); clearUnreadForConversation(conv.id); setActiveConvId(conv.id); }}
                   className={`flex w-full items-center gap-3 rounded-2xl p-3 text-left transition ${activeConvId === conv.id ? "bg-teal-50 ring-1 ring-teal-100" : "hover:bg-gray-50"}`}
                 >
                   <Avatar name={name} />
@@ -428,6 +482,7 @@ export default function Messages() {
         )}
       </div>
 
+      {/* CHAT AREA */}
       <div className="flex min-h-0 min-w-0 flex-col rounded-2xl border bg-white shadow-sm">
         {activeConv ? (
           <>
@@ -446,31 +501,62 @@ export default function Messages() {
             </div>
 
             {contextInfo && <div className="border-b bg-yellow-50 px-4 py-2 text-xs text-yellow-700">{contextInfo}</div>}
-
             {wsError && <div className="border-b bg-amber-50 px-4 py-2 text-xs text-amber-700">Connection lost. Messages may not update in real time.</div>}
+            {messagesError && (
+              <div className="border-b bg-red-50 px-4 py-2 flex items-center justify-between gap-3">
+                <p className="text-xs text-red-600">{messagesError}</p>
+                <button onClick={() => void fetchMessagesRef.current?.(activeConvId)} className="shrink-0 rounded-lg bg-red-100 px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-200">
+                  Retry
+                </button>
+              </div>
+            )}
 
-            <div className="flex-1 space-y-3 overflow-auto bg-gradient-to-b from-white to-gray-50 p-3.5">
-              {messages.length === 0 ? (
-                <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white/70 px-6 text-center">
-                  <div>
-                    <MessageSquare className="mx-auto mb-3 text-gray-300" size={24} />
-                    <p className="text-sm font-medium text-gray-600">No messages yet</p>
-                    <p className="mt-1 text-xs text-gray-400">Start the conversation with a simple question or follow-up.</p>
-                  </div>
+            <div ref={messageListRef} className="flex-1 overflow-auto bg-gradient-to-b from-white to-gray-50 p-3.5">
+              {/* Load older messages button */}
+              {hasMoreMessages && (
+                <div className="mb-3 flex justify-center">
+                  <button
+                    onClick={handleLoadOlder}
+                    disabled={loadingOlder}
+                    className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-medium text-gray-600 shadow-sm hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    {loadingOlder ? (
+                      <div className="h-3.5 w-3.5 animate-spin rounded-full border-b-2 border-gray-500" />
+                    ) : (
+                      <ChevronUp size={14} />
+                    )}
+                    {loadingOlder ? "Loading..." : "Load older messages"}
+                  </button>
                 </div>
-              ) : (
-                messages.map((msg) => (
-                  <MessageBubble
-                    key={msg.id}
-                    msg={{
-                      fromMe: msg.sender_id === user?.id,
-                      text: msg.text,
-                      time: new Date(msg.sent_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Almaty" }),
-                    }}
-                  />
-                ))
               )}
-              <div ref={bottomRef} />
+
+              <div className="space-y-3">
+                {messagesLoading && messages.length === 0 ? (
+                  <div className="flex h-48 items-center justify-center">
+                    <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-teal-500" />
+                  </div>
+                ) : messages.length === 0 ? (
+                  <div className="flex h-48 items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white/70 px-6 text-center">
+                    <div>
+                      <MessageSquare className="mx-auto mb-3 text-gray-300" size={24} />
+                      <p className="text-sm font-medium text-gray-600">No messages yet</p>
+                      <p className="mt-1 text-xs text-gray-400">Start the conversation with a simple question or follow-up.</p>
+                    </div>
+                  </div>
+                ) : (
+                  messages.map((msg) => (
+                    <MessageBubble
+                      key={msg.id}
+                      msg={{
+                        fromMe: msg.sender_id === user?.id,
+                        text: msg.text,
+                        time: new Date(msg.sent_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Almaty" }),
+                      }}
+                    />
+                  ))
+                )}
+                <div ref={bottomRef} />
+              </div>
             </div>
 
             <div className="border-t p-3.5">
@@ -514,6 +600,7 @@ export default function Messages() {
         )}
       </div>
 
+      {/* SIDEBAR INFO */}
       <div className="rounded-2xl border bg-white p-4 shadow-sm">
         <h2 className="mb-4 text-sm font-semibold text-gray-900">{user?.role === "DOCTOR" ? "Patient Info" : "Account Info"}</h2>
         {activeConv ? (

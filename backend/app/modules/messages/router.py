@@ -179,7 +179,7 @@ async def create_conversation(
 async def get_messages(
     conv_id: int,
     page: int = Query(1, ge=1),
-    page_size: int = Query(30, le=100),
+    page_size: int = Query(100, le=200),
     current_user: User = Depends(RoleChecker(["PATIENT", "DOCTOR", "ADMIN"])),
     db: AsyncSession = Depends(get_db),
 ):
@@ -211,11 +211,11 @@ async def get_messages(
         select(Message)
         .options(selectinload(Message.sender))
         .where(Message.conversation_id == conv_id)
-        .order_by(Message.sent_at.asc())
+        .order_by(Message.sent_at.desc())
         .offset(offset)
         .limit(page_size)
     )
-    msgs = result.scalars().all()
+    msgs = list(reversed(result.scalars().all()))
 
     return [
         MessageResponse(

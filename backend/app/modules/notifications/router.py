@@ -129,7 +129,7 @@ async def _build_notifications_for_user(
 
         if patient:
             unread_result = await db.execute(
-                select(func.count(Message.id))
+                select(func.count(Message.id), func.max(Message.id))
                 .join(Conversation, Message.conversation_id == Conversation.id)
                 .where(
                     Conversation.patient_id == patient.id,
@@ -137,12 +137,14 @@ async def _build_notifications_for_user(
                     Message.is_read == False,
                 )
             )
-            unread_count = int(unread_result.scalar() or 0)
+            row = unread_result.one()
+            unread_count = int(row[0] or 0)
+            latest_msg_id = int(row[1] or 0)
             if unread_count > 0:
                 _append_notification(
                     items,
                     preference,
-                    key=f"messages-unread-{unread_count}",
+                    key=f"messages-unread-{latest_msg_id}",
                     notification_type=NotificationType.MESSAGE,
                     title="Unread messages",
                     message=f"You have {unread_count} unread message(s).",
@@ -185,7 +187,7 @@ async def _build_notifications_for_user(
 
         if doctor:
             unread_result = await db.execute(
-                select(func.count(Message.id))
+                select(func.count(Message.id), func.max(Message.id))
                 .join(Conversation, Message.conversation_id == Conversation.id)
                 .where(
                     Conversation.doctor_id == doctor.id,
@@ -193,12 +195,14 @@ async def _build_notifications_for_user(
                     Message.is_read == False,
                 )
             )
-            unread_count = int(unread_result.scalar() or 0)
+            row = unread_result.one()
+            unread_count = int(row[0] or 0)
+            latest_msg_id = int(row[1] or 0)
             if unread_count > 0:
                 _append_notification(
                     items,
                     preference,
-                    key=f"messages-unread-{unread_count}",
+                    key=f"messages-unread-{latest_msg_id}",
                     notification_type=NotificationType.MESSAGE,
                     title="Unread messages",
                     message=f"You have {unread_count} unread patient message(s).",
@@ -237,14 +241,16 @@ async def _build_notifications_for_user(
 
     elif current_user.role == UserRole.ADMIN:
         unread_result = await db.execute(
-            select(func.count(Message.id)).where(Message.is_read == False)
+            select(func.count(Message.id), func.max(Message.id)).where(Message.is_read == False)
         )
-        unread_count = int(unread_result.scalar() or 0)
+        admin_row = unread_result.one()
+        unread_count = int(admin_row[0] or 0)
+        latest_msg_id = int(admin_row[1] or 0)
         if unread_count > 0:
             _append_notification(
                 items,
                 preference,
-                key=f"messages-unread-admin-{unread_count}",
+                key=f"messages-unread-admin-{latest_msg_id}",
                 notification_type=NotificationType.MESSAGE,
                 title="Unread messages in system",
                 message=f"There are {unread_count} unread message(s) in active chats.",
