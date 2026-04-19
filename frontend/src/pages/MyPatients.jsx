@@ -60,9 +60,9 @@ export default function MyPatients() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold">My Patients</h2>
-        <p className="text-sm text-gray-400">Patients connected to your appointments.</p>
+      <div className="rounded-3xl border bg-white p-6 shadow-sm">
+        <h1 className="text-2xl font-semibold text-gray-900">My Patients</h1>
+        <p className="mt-1 text-sm text-gray-500">Patients connected to your appointments.</p>
       </div>
 
       <div className="flex gap-4">
@@ -129,7 +129,7 @@ export default function MyPatients() {
                     <div className="flex items-center justify-end gap-2" onClick={(event) => event.stopPropagation()}>
                       <button onClick={() => navigate(`/patients/${patient.id}`)} className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-200">Open Case</button>
                       {patient.patient_status !== "DISCHARGED" ? (
-                        <button onClick={() => navigate("/messages", { state: { patientId: patient.id } })} className="rounded-lg bg-teal-500 p-2 text-white hover:bg-teal-600" aria-label="Chat">
+                        <button onClick={() => navigate("/messages", { state: { patientId: patient.id } })} className="rounded-lg bg-teal-500 px-2 py-1.5 text-white hover:bg-teal-600" aria-label="Chat">
                           <MessageSquare size={14} />
                         </button>
                       ) : (

@@ -80,6 +80,7 @@ export default function Calendar() {
 
   const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
   const days = Array.from({ length: daysInMonth }, (_, index) => index + 1);
+  const firstDayOfWeek = new Date(currentYear, currentMonth - 1, 1).getDay();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -145,7 +146,7 @@ export default function Calendar() {
   return (
     <>
       {error && <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>}
-      <div className="grid grid-cols-6 gap-6">
+      <div className="grid grid-cols-[minmax(160px,200px)_1fr_210px] gap-6">
         <div className="space-y-5 rounded-2xl border bg-white p-5">
           <div className="flex items-center justify-between">
             <button onClick={prevMonth} className="text-lg text-gray-400 hover:text-teal-500">{"<"}</button>
@@ -168,13 +169,16 @@ export default function Calendar() {
           </div>
         </div>
 
-        <div className="col-span-4 rounded-2xl border bg-white p-5">
+        <div className="rounded-2xl border bg-white p-5">
           <div className="mb-2 grid grid-cols-7 px-2 text-xs text-gray-400">
             {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => <div key={day}>{day}</div>)}
           </div>
           <div className="grid grid-cols-7 overflow-hidden rounded-xl border">
+            {Array.from({ length: firstDayOfWeek }).map((_, i) => (
+              <div key={`empty-${i}`} className="min-h-[7rem] border bg-gray-50/40" />
+            ))}
             {days.map((day) => (
-              <div key={day} onClick={() => { setSelectedDay(day); setSelectedEvent(null); }} className={`h-28 cursor-pointer border p-2 transition-all ${selectedDay === day ? "bg-teal-50" : "hover:bg-gray-50"}`}>
+              <div key={day} onClick={() => { setSelectedDay(day); setSelectedEvent(null); }} className={`min-h-[7rem] cursor-pointer border p-2 transition-all ${selectedDay === day ? "bg-teal-50" : "hover:bg-gray-50"}`}>
                 <p className="text-xs text-gray-400">{day}</p>
                 <div className="mt-1 space-y-1">
                   {getEvents(day).slice(0, 3).map((event) => (
@@ -200,9 +204,9 @@ export default function Calendar() {
               </div>
 
               {isDoctor() ? (
-                <div className="flex gap-2">
-                  <button onClick={() => navigate(`/patients/${selectedEvent.patient_id}`)} className="flex-1 rounded-xl bg-gray-100 py-2 text-sm text-gray-700 hover:bg-gray-200">View patient</button>
-                  <button onClick={() => navigate("/appointments")} className="flex-1 rounded-xl bg-teal-500 py-2 text-sm text-white hover:bg-teal-600">Open appointment</button>
+                <div className="flex flex-col gap-2">
+                  <button onClick={() => navigate("/appointments")} className="w-full rounded-xl bg-teal-500 py-2 text-sm text-white hover:bg-teal-600">Open appointment</button>
+                  <button onClick={() => navigate(`/patients/${selectedEvent.patient_id}`)} className="w-full rounded-xl bg-gray-100 py-2 text-sm text-gray-700 hover:bg-gray-200">View patient</button>
                 </div>
               ) : (
                 <div className="flex gap-2">

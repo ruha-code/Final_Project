@@ -28,7 +28,7 @@ const STATUS_LABELS = {
 };
 
 const PATIENT_APPOINTMENT_GRID = "grid-cols-[minmax(0,1.45fr)_minmax(0,0.95fr)_100px_90px_120px_120px]";
-const DOCTOR_APPOINTMENT_GRID = "grid-cols-[minmax(0,1.45fr)_minmax(0,1.1fr)_minmax(0,0.95fr)_100px_90px_130px_210px]";
+const DOCTOR_APPOINTMENT_GRID = "grid-cols-[minmax(0,1.45fr)_minmax(0,1.1fr)_minmax(0,0.95fr)_100px_90px_130px_220px]";
 
 function StatusBadge({ status, className = "" }) {
   return (
@@ -635,10 +635,12 @@ export default function Appointments() {
           </div>
         )}
 
-        {!isDoctor() && <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2">
           {(isPatient()
             ? [{ value: "UPCOMING", label: "Upcoming" }, { value: "HISTORY", label: "History" }, { value: "CANCELLED", label: "Cancelled" }]
-            : [{ value: "ALL", label: "All" }, { value: "SCHEDULED", label: "Scheduled" }, { value: "ONGOING", label: "Ongoing" }, { value: "COMPLETED", label: "Completed" }, { value: "CANCELLED", label: "Cancelled" }]
+            : isDoctor()
+              ? [{ value: "ALL", label: "All" }, { value: "TODAY", label: "Today" }, { value: "SCHEDULED", label: "Scheduled" }, { value: "ONGOING", label: "Ongoing" }, { value: "COMPLETED", label: "Completed" }, { value: "CANCELLED", label: "Cancelled" }]
+              : [{ value: "ALL", label: "All" }, { value: "SCHEDULED", label: "Scheduled" }, { value: "ONGOING", label: "Ongoing" }, { value: "COMPLETED", label: "Completed" }, { value: "CANCELLED", label: "Cancelled" }]
           ).map((option) => (
             <button
               key={option.value}
@@ -648,7 +650,7 @@ export default function Appointments() {
               {option.label}
             </button>
           ))}
-        </div>}
+        </div>
 
         <div className="overflow-hidden rounded-3xl border bg-white shadow-sm">
           {filteredAppointments.length === 0 ? (
@@ -661,7 +663,7 @@ export default function Appointments() {
             <div className="overflow-x-auto">
               <div className="min-w-[900px]">
                 <div className={`grid gap-4 border-b bg-gray-50 px-6 py-3 text-xs font-medium uppercase tracking-wide text-gray-400 ${isPatient() ? PATIENT_APPOINTMENT_GRID : DOCTOR_APPOINTMENT_GRID}`}>
-                  {isPatient() ? <><span>Doctor</span><span>Specialty</span><span>Date</span><span>Time</span><span className="text-center">Status</span><span className="text-center">Actions</span></> : <><span>Patient</span><span>Doctor</span><span>Type</span><span>Date</span><span>Time</span><span>Status</span><span className="text-right">Actions</span></>}
+                  {isPatient() ? <><span>Doctor</span><span>Specialty</span><span>Date</span><span>Time</span><span className="text-center">Status</span><span className="text-center">Actions</span></> : <><span>Patient</span><span>Doctor</span><span>Type</span><span>Date</span><span>Time</span><span className="text-center">Status</span><span className="text-center">Actions</span></>}
                 </div>
                 <div className="divide-y">
                   {filteredAppointments.map((appointment) => {
@@ -706,8 +708,10 @@ export default function Appointments() {
                             <span className="truncate capitalize text-gray-500">{appointment.appointment_type?.toLowerCase().replace("_", " ")}</span>
                             <span className="whitespace-nowrap text-gray-500">{dateTime.date}</span>
                             <span className="whitespace-nowrap text-gray-500">{dateTime.time}</span>
-                            <StatusBadge status={appointment.status} />
-                            <div className="flex items-center justify-end gap-2">
+                            <div className="flex items-center justify-center">
+                              <StatusBadge status={appointment.status} />
+                            </div>
+                            <div className="flex items-center justify-center gap-2">
                               {isDoctor() && doctorPrimaryAction && (
                                 <button
                                   onClick={() => {
@@ -715,18 +719,18 @@ export default function Appointments() {
                                     void handleDoctorPrimaryAction(appointment);
                                   }}
                                   disabled={actionLoading === appointment.id}
-                                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:opacity-60 ${doctorPrimaryAction.tone}`}
+                                  className={`w-fit whitespace-nowrap rounded-lg px-3 py-1.5 text-center text-xs font-medium transition disabled:opacity-60 ${doctorPrimaryAction.tone}`}
                                 >
                                   {actionLoading === appointment.id ? "Updating..." : doctorPrimaryAction.label}
                                 </button>
                               )}
-                              {hasDoctorMenu && (
-                                <div className="relative">
+                              {isDoctor() && (
+                                <div className="relative shrink-0">
                                   <button
                                     type="button"
-                                    onClick={() => setOpenActionMenu(openActionMenu === appointment.id ? null : appointment.id)}
-                                    disabled={actionLoading === appointment.id}
-                                    className="rounded-lg border border-gray-200 p-2 text-gray-500 transition hover:bg-gray-50 disabled:opacity-60"
+                                    onClick={() => hasDoctorMenu && setOpenActionMenu(openActionMenu === appointment.id ? null : appointment.id)}
+                                    disabled={actionLoading === appointment.id || !hasDoctorMenu}
+                                    className={`rounded-lg border border-gray-200 px-2 py-1.5 text-gray-500 transition hover:bg-gray-50 disabled:opacity-60 ${!hasDoctorMenu ? "invisible pointer-events-none" : ""}`}
                                     aria-label="More actions"
                                   >
                                     <MoreVertical size={14} />
