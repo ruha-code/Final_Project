@@ -1,13 +1,14 @@
-import { useState, useEffect } from "react";
-import { MoreVertical, Plus, X, Edit, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { MoreVertical, Plus, X } from "lucide-react";
+
 import Badge from "../Badge";
 import { api } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 
 const STATUS_STYLES = {
   AVAILABLE: "bg-teal-100 text-teal-600",
-  LOW: "bg-yellow-100 text-yellow-600",
-  OUT: "bg-red-100 text-red-500",
+  LOW: "bg-yellow-100 text-yellow-700",
+  OUT: "bg-red-100 text-red-600",
 };
 
 const STATUS_LABELS = {
@@ -16,36 +17,63 @@ const STATUS_LABELS = {
   OUT: "Out",
 };
 
-function parseIntegerInput(value, fallback = 0) {
-  if (value === "" || value === null || value === undefined) return fallback;
+const UNIT_OPTIONS = ["pcs", "boxes", "kits", "rolls", "vials", "bottles", "packs", "ml", "l", "g", "kg"];
+
+function formatDate(value) {
+  if (!value) return "—";
+  return new Date(`${value}T00:00:00`).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function parseIntegerInput(value) {
+  if (value === "" || value === null || value === undefined) return null;
   const parsed = parseInt(value, 10);
-  return Number.isNaN(parsed) ? fallback : parsed;
+  return Number.isNaN(parsed) ? null : parsed;
 }
 
 function ItemModal({ onClose, onSaved, editData }) {
   const [form, setForm] = useState({
     name: editData?.name || "",
     category: editData?.category || "MEDICATIONS",
-    quantity: editData?.quantity ? String(editData.quantity) : "",
+    quantity: editData ? String(editData.quantity) : "",
     unit: editData?.unit || "pcs",
-    stock_percentage: editData?.stock_percentage || 0,
-    status: editData?.status || "AVAILABLE",
-    expires_at: editData?.expires_at ? editData.expires_at.split("T")[0] : "",
+    expires_at: editData?.expires_at || "",
   });
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSubmit = async () => {
-    if (!form.name) return;
+    setError("");
+    const quantity = parseIntegerInput(form.quantity);
+    const maxAllowedDate = `${new Date().getFullYear() + 30}-12-31`;
+    if (!form.name.trim()) {
+      setError("Name is required");
+      return;
+    }
+    if (quantity === null || quantity < 0) {
+      setError("Quantity must be 0 or greater");
+      return;
+    }
+    if (!UNIT_OPTIONS.includes(form.unit)) {
+      setError("Select a valid unit");
+      return;
+    }
+    if (form.expires_at && (form.expires_at < "2000-01-01" || form.expires_at > maxAllowedDate)) {
+      setError("Expiry date must be realistic");
+      return;
+    }
+
     setSaving(true);
     try {
       const payload = {
-        name: form.name,
+        name: form.name.trim(),
         category: form.category,
-        quantity: parseIntegerInput(form.quantity, 0),
+        quantity,
         unit: form.unit,
-        stock_percentage: form.stock_percentage,
-        status: form.status,
-        ...(form.expires_at && { expires_at: form.expires_at }),
+        expires_at: form.expires_at || null,
       };
       if (editData) {
         await api.put(`/inventory/${editData.id}`, payload);
@@ -55,37 +83,38 @@ function ItemModal({ onClose, onSaved, editData }) {
       onSaved();
       onClose();
     } catch (err) {
-      console.error("Failed to save:", err);
+      setError(err.message || "Failed to save item");
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-white w-[480px] rounded-2xl shadow-xl overflow-hidden">
-        <div className="flex justify-between items-center px-6 py-4 bg-teal-50 border-b">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+      <div className="w-[500px] overflow-hidden rounded-2xl bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b bg-teal-50 px-6 py-4">
           <h2 className="font-semibold">{editData ? "Edit" : "Add"} Inventory Item</h2>
-          <button onClick={onClose} className="p-1 hover:bg-gray-200 rounded-lg">
+          <button onClick={onClose} className="rounded-lg p-1 hover:bg-gray-200">
             <X size={18} />
           </button>
         </div>
-        <div className="p-6 space-y-4">
+        <div className="space-y-4 p-6">
+          {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
           <div>
-            <label className="text-sm text-gray-500 mb-1 block">Name *</label>
+            <label className="mb-1 block text-sm text-gray-500">Name *</label>
             <input
               value={form.name}
-              onChange={(e) => setForm({...form, name: e.target.value})}
-              className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
+              onChange={(event) => setForm({ ...form, name: event.target.value })}
+              className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-sm text-gray-500 mb-1 block">Category</label>
+              <label className="mb-1 block text-sm text-gray-500">Category</label>
               <select
                 value={form.category}
-                onChange={(e) => setForm({...form, category: e.target.value})}
-                className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
+                onChange={(event) => setForm({ ...form, category: event.target.value })}
+                className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400"
               >
                 <option value="MEDICATIONS">Medications</option>
                 <option value="CONSUMABLES">Consumables</option>
@@ -94,40 +123,50 @@ function ItemModal({ onClose, onSaved, editData }) {
               </select>
             </div>
             <div>
-              <label className="text-sm text-gray-500 mb-1 block">Unit</label>
-              <input
+              <label className="mb-1 block text-sm text-gray-500">Unit</label>
+              <select
                 value={form.unit}
-                onChange={(e) => setForm({...form, unit: e.target.value})}
-                className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
-              />
+                onChange={(event) => setForm({ ...form, unit: event.target.value })}
+                className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400"
+              >
+                {UNIT_OPTIONS.map((unit) => (
+                  <option key={unit} value={unit}>{unit}</option>
+                ))}
+              </select>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-sm text-gray-500 mb-1 block">Quantity</label>
+              <label className="mb-1 block text-sm text-gray-500">Quantity</label>
               <input
                 type="number"
+                min={0}
                 value={form.quantity}
-                onChange={(e) => setForm({...form, quantity: e.target.value})}
-                className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
+                onChange={(event) => setForm({ ...form, quantity: event.target.value })}
+                className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400"
               />
             </div>
             <div>
-              <label className="text-sm text-gray-500 mb-1 block">Expiry Date</label>
+              <label className="mb-1 block text-sm text-gray-500">Expiry Date</label>
               <input
                 type="date"
+                min="2000-01-01"
+                max={`${new Date().getFullYear() + 30}-12-31`}
                 value={form.expires_at}
-                onChange={(e) => setForm({...form, expires_at: e.target.value})}
-                className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
+                onChange={(event) => setForm({ ...form, expires_at: event.target.value })}
+                className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400"
               />
             </div>
           </div>
+          <div className="rounded-xl border border-dashed bg-gray-50 px-3 py-2 text-xs text-gray-500">
+            Stock status is calculated automatically from quantity and category threshold.
+          </div>
           <div className="flex gap-3 pt-2">
-            <button onClick={onClose} className="flex-1 py-2 bg-gray-100 rounded-xl text-sm">Cancel</button>
+            <button onClick={onClose} className="flex-1 rounded-xl bg-gray-100 py-2 text-sm">Cancel</button>
             <button
               onClick={handleSubmit}
               disabled={saving}
-              className="flex-1 py-2 bg-teal-500 text-white rounded-xl text-sm hover:bg-teal-600 disabled:opacity-50"
+              className="flex-1 rounded-xl bg-teal-500 py-2 text-sm text-white hover:bg-teal-600 disabled:opacity-50"
             >
               {saving ? "Saving..." : editData ? "Update" : "Create"}
             </button>
@@ -138,15 +177,168 @@ function ItemModal({ onClose, onSaved, editData }) {
   );
 }
 
-export default function InventoryTable({ search = "", status = "All", onRefresh }) {
+function StockAdjustModal({ item, operation, onClose, onSaved }) {
+  const [amount, setAmount] = useState("");
+  const [reason, setReason] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const actionLabel = operation === "INCREASE" ? "Restock" : "Use Stock";
+
+  const handleSubmit = async () => {
+    setError("");
+    const parsedAmount = parseIntegerInput(amount);
+    if (parsedAmount === null || parsedAmount <= 0) {
+      setError("Enter a valid amount greater than zero");
+      return;
+    }
+    if (operation === "DECREASE" && parsedAmount > item.quantity) {
+      setError("Cannot use more than current stock");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await api.post(`/inventory/${item.id}/adjust`, {
+        operation,
+        amount: parsedAmount,
+        reason: reason.trim() || null,
+      });
+      onSaved();
+      onClose();
+    } catch (err) {
+      setError(err.message || "Failed to adjust stock");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+      <div className="w-[420px] overflow-hidden rounded-2xl bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b bg-teal-50 px-6 py-4">
+          <h2 className="font-semibold">{actionLabel} - {item.name}</h2>
+          <button onClick={onClose} className="rounded-lg p-1 hover:bg-gray-200">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="space-y-4 p-6">
+          {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+          <p className="text-xs text-gray-500">Current stock: {item.quantity} {item.unit}</p>
+          <div>
+            <label className="mb-1 block text-sm text-gray-500">Amount</label>
+            <input
+              type="number"
+              min={1}
+              value={amount}
+              onChange={(event) => setAmount(event.target.value)}
+              className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm text-gray-500">Reason (optional)</label>
+            <textarea
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+              rows={3}
+              className="w-full resize-none rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400"
+            />
+          </div>
+          <div className="flex gap-3 pt-1">
+            <button onClick={onClose} className="flex-1 rounded-xl bg-gray-100 py-2 text-sm">Cancel</button>
+            <button
+              onClick={handleSubmit}
+              disabled={saving}
+              className="flex-1 rounded-xl bg-teal-500 py-2 text-sm text-white hover:bg-teal-600 disabled:opacity-50"
+            >
+              {saving ? "Saving..." : actionLabel}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ItemDetailsModal({ item, onClose }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+      <div className="w-[520px] overflow-hidden rounded-2xl bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b bg-teal-50 px-6 py-4">
+          <h2 className="font-semibold">Inventory Item Details</h2>
+          <button onClick={onClose} className="rounded-lg p-1 hover:bg-gray-200">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="space-y-4 p-6">
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <p className="text-xs text-gray-400">Name</p>
+              <p className="font-medium">{item.name}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400">Category</p>
+              <p>{item.category}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400">Quantity</p>
+              <p>{item.quantity} {item.unit}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400">Status</p>
+              <p>{STATUS_LABELS[item.status] || item.status}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400">Low Stock Threshold</p>
+              <p>{item.low_stock_threshold} {item.unit}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400">Stock Level</p>
+              <p>{item.stock_percentage}% of category target</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400">Expiry</p>
+              <p>{formatDate(item.expires_at)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400">Last Updated</p>
+              <p>{new Date(item.updated_at).toLocaleString("en-GB")}</p>
+            </div>
+          </div>
+          {item.is_expired && (
+            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">This item is expired.</p>
+          )}
+          {!item.is_expired && item.is_expiring_soon && (
+            <p className="rounded-lg bg-orange-50 px-3 py-2 text-sm text-orange-600">This item is expiring within 30 days.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function InventoryTable({
+  search = "",
+  status = "All",
+  onMutation,
+  onCountChange,
+}) {
   const { isAdmin } = useAuth();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeMenu, setActiveMenu] = useState(null);
   const [modal, setModal] = useState(null);
   const [editData, setEditData] = useState(null);
+  const [viewItem, setViewItem] = useState(null);
+  const [adjustItem, setAdjustItem] = useState(null);
+  const [adjustOperation, setAdjustOperation] = useState("INCREASE");
   const [reloadKey, setReloadKey] = useState(0);
+
   const triggerReload = () => setReloadKey((current) => current + 1);
+  const handleMutation = () => {
+    triggerReload();
+    if (onMutation) onMutation();
+  };
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -158,32 +350,34 @@ export default function InventoryTable({ search = "", status = "All", onRefresh 
           if (status !== "All") params.set("status", status.toUpperCase());
           const query = params.toString();
           const data = await api.get(query ? `/inventory?${query}` : "/inventory");
-          setItems(data);
+          setItems(Array.isArray(data) ? data : []);
+          if (onCountChange) onCountChange(Array.isArray(data) ? data.length : 0);
         } catch (err) {
           console.error("Failed to fetch inventory:", err);
+          setItems([]);
+          if (onCountChange) onCountChange(0);
         } finally {
           setLoading(false);
         }
       };
 
       void fetchInventory();
-    }, 300);
+    }, 250);
 
     return () => clearTimeout(timer);
-  }, [search, status, reloadKey]);
+  }, [search, status, reloadKey, onCountChange]);
 
   if (loading) {
     return (
-      <div className="bg-white rounded-2xl border flex items-center justify-center h-32">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-500"></div>
+      <div className="flex h-32 items-center justify-center rounded-2xl border bg-white">
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-teal-500" />
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-2xl border overflow-hidden">
-      {/* HEADER */}
-      <div className="grid grid-cols-5 px-6 py-3 text-xs text-gray-400 bg-gray-50">
+    <div className="overflow-hidden rounded-2xl border bg-white">
+      <div className="grid grid-cols-5 bg-gray-50 px-6 py-3 text-xs text-gray-400">
         <span>Item</span>
         <span>Stock</span>
         <span>Expiry</span>
@@ -191,8 +385,11 @@ export default function InventoryTable({ search = "", status = "All", onRefresh 
         <div className="flex justify-end">
           {isAdmin() && (
             <button
-              onClick={() => { setEditData(null); setModal(true); }}
-              className="text-teal-600 hover:bg-teal-50 px-2 py-1 rounded-lg flex items-center gap-1"
+              onClick={() => {
+                setEditData(null);
+                setModal(true);
+              }}
+              className="flex items-center gap-1 rounded-lg px-2 py-1 text-teal-600 hover:bg-teal-50"
             >
               <Plus size={12} /> Add
             </button>
@@ -200,39 +397,32 @@ export default function InventoryTable({ search = "", status = "All", onRefresh 
         </div>
       </div>
 
-      {/* ROWS */}
       {items.map((item) => (
         <div
           key={item.id}
-          className="grid grid-cols-5 items-center px-6 py-4 border-t hover:bg-gray-50 relative"
+          className="relative grid grid-cols-5 items-center border-t px-6 py-4 hover:bg-gray-50"
         >
-          {/* ITEM */}
           <div className="flex items-center gap-3">
             {item.image_url ? (
               <img
                 src={item.image_url}
-                className="w-10 h-10 rounded-lg object-cover"
+                className="h-10 w-10 rounded-lg object-cover"
                 alt={item.name}
               />
             ) : (
-              <div className="w-10 h-10 rounded-lg bg-teal-100 flex items-center justify-center text-teal-600 font-semibold text-sm">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-100 text-sm font-semibold text-teal-600">
                 {item.name?.charAt(0)}
               </div>
             )}
             <div>
               <p className="font-medium">{item.name}</p>
-              <p className="text-xs text-gray-400 capitalize">
-                {item.category?.toLowerCase()}
-              </p>
+              <p className="text-xs text-gray-400">{item.category}</p>
             </div>
           </div>
 
-          {/* STOCK */}
           <div>
-            <p className="text-sm">
-              {item.quantity} {item.unit}
-            </p>
-            <div className="h-2 bg-gray-200 rounded-full mt-1 w-32">
+            <p className="text-sm">{item.quantity} {item.unit}</p>
+            <div className="mt-1 h-2 w-36 rounded-full bg-gray-200">
               <div
                 className={`h-2 rounded-full ${
                   item.stock_percentage > 25
@@ -244,51 +434,92 @@ export default function InventoryTable({ search = "", status = "All", onRefresh 
                 style={{ width: `${item.stock_percentage}%` }}
               />
             </div>
+            <p className="mt-1 text-[11px] text-gray-400">
+              {item.stock_percentage}% of target • low at {item.low_stock_threshold} {item.unit}
+            </p>
           </div>
 
-          {/* EXPIRY */}
-          <span className={`text-xs ${item.expires_at && new Date(item.expires_at) <= new Date(Date.now() + 30*24*60*60*1000) ? "text-orange-500" : "text-gray-500"}`}>
-            {item.expires_at ? new Date(item.expires_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—"}
-          </span>
+          <div className="text-xs">
+            <p className={`${item.is_expired ? "text-red-600" : item.is_expiring_soon ? "text-orange-600" : "text-gray-500"}`}>
+              {formatDate(item.expires_at)}
+            </p>
+            {item.is_expired && <p className="text-[11px] text-red-500">Expired</p>}
+            {!item.is_expired && item.is_expiring_soon && <p className="text-[11px] text-orange-500">Expiring soon</p>}
+          </div>
 
-          {/* STATUS */}
-          <Badge
-            className={`rounded-full px-3 py-1 text-xs ${STATUS_STYLES[item.status] || "bg-gray-100 text-gray-500"}`}
-          >
-            {STATUS_LABELS[item.status] || item.status}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge className={`rounded-full px-3 py-1 text-xs ${STATUS_STYLES[item.status] || "bg-gray-100 text-gray-500"}`}>
+              {STATUS_LABELS[item.status] || item.status}
+            </Badge>
+            {item.is_expired && (
+              <Badge className="rounded-full bg-red-100 px-2 py-1 text-xs text-red-600">
+                Expired
+              </Badge>
+            )}
+          </div>
 
-          {/* ACTION */}
           <div className="relative flex justify-end">
             <button
-              onClick={() =>
-                setActiveMenu(activeMenu === item.id ? null : item.id)
-              }
-              className="p-2 hover:bg-gray-100 rounded-lg"
+              onClick={() => setActiveMenu(activeMenu === item.id ? null : item.id)}
+              className="rounded-lg p-2 hover:bg-gray-100"
             >
               <MoreVertical size={16} />
             </button>
 
             {activeMenu === item.id && (
-              <div className="absolute right-0 top-10 bg-white border rounded-xl shadow-md w-32 z-10">
-                <button className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-50">
+              <div className="absolute right-0 top-10 z-10 w-40 rounded-xl border bg-white shadow-md">
+                <button
+                  onClick={() => {
+                    setViewItem(item);
+                    setActiveMenu(null);
+                  }}
+                  className="block w-full px-4 py-2 text-left text-sm hover:bg-gray-50"
+                >
                   View
                 </button>
                 <button
-                  onClick={() => { setEditData(item); setModal(true); setActiveMenu(null); }}
-                  className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-50"
+                  onClick={() => {
+                    setEditData(item);
+                    setModal(true);
+                    setActiveMenu(null);
+                  }}
+                  className="block w-full px-4 py-2 text-left text-sm hover:bg-gray-50"
                 >
                   Edit
+                </button>
+                <button
+                  onClick={() => {
+                    setAdjustItem(item);
+                    setAdjustOperation("INCREASE");
+                    setActiveMenu(null);
+                  }}
+                  className="block w-full px-4 py-2 text-left text-sm hover:bg-gray-50"
+                >
+                  Restock
+                </button>
+                <button
+                  onClick={() => {
+                    setAdjustItem(item);
+                    setAdjustOperation("DECREASE");
+                    setActiveMenu(null);
+                  }}
+                  className="block w-full px-4 py-2 text-left text-sm hover:bg-gray-50"
+                >
+                  Use Stock
                 </button>
                 <button
                   onClick={async () => {
                     if (!window.confirm("Delete this item?")) return;
                     try {
                       await api.delete(`/inventory/${item.id}`);
-                      triggerReload();
-                    } catch (err) { console.error(err); }
+                      handleMutation();
+                    } catch (err) {
+                      console.error(err);
+                    } finally {
+                      setActiveMenu(null);
+                    }
                   }}
-                  className="block w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-50"
+                  className="block w-full px-4 py-2 text-left text-sm text-red-500 hover:bg-gray-50"
                 >
                   Delete
                 </button>
@@ -299,19 +530,35 @@ export default function InventoryTable({ search = "", status = "All", onRefresh 
       ))}
 
       {items.length === 0 && (
-        <div className="text-center py-10 text-gray-400 text-sm">
+        <div className="py-10 text-center text-sm text-gray-400">
           No items found
         </div>
       )}
 
       {modal && (
         <ItemModal
-          onClose={() => { setModal(null); setEditData(null); }}
-          onSaved={() => {
-            triggerReload();
-            if (onRefresh) onRefresh();
+          onClose={() => {
+            setModal(null);
+            setEditData(null);
           }}
+          onSaved={handleMutation}
           editData={editData}
+        />
+      )}
+
+      {viewItem && (
+        <ItemDetailsModal
+          item={viewItem}
+          onClose={() => setViewItem(null)}
+        />
+      )}
+
+      {adjustItem && (
+        <StockAdjustModal
+          item={adjustItem}
+          operation={adjustOperation}
+          onClose={() => setAdjustItem(null)}
+          onSaved={handleMutation}
         />
       )}
     </div>

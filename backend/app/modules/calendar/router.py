@@ -65,7 +65,7 @@ async def update_event(event_id: int, dto: CalendarEventUpdate, db: AsyncSession
     if not event:
         raise NotFoundException("Event not found")
  
-    for field, value in dto.model_dump(exclude_none=True).items():
+    for field, value in dto.model_dump(exclude_unset=True).items():
         setattr(event, field, value)
  
     await db.commit()

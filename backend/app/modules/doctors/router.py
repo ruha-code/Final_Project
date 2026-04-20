@@ -160,7 +160,7 @@ async def update_my_doctor_profile(
     if not doctor:
         raise NotFoundException("Doctor profile not found.")
 
-    updates = dto.model_dump(exclude_none=True)
+    updates = dto.model_dump(exclude_unset=True)
 
     if "full_name" in updates:
         current_user.full_name = updates.pop("full_name")
@@ -392,7 +392,7 @@ async def update_doctor_admin(
     if not doctor:
         raise NotFoundException("Doctor not found")
 
-    updates = dto.model_dump(exclude_none=True)
+    updates = dto.model_dump(exclude_unset=True)
 
     if "full_name" in updates:
         doctor.user.full_name = updates.pop("full_name")

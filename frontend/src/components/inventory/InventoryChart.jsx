@@ -1,13 +1,14 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { api } from "../../services/api";
 
-export default function InventoryChart() {
+export default function InventoryChart({ reloadKey = 0 }) {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
+      setLoading(true);
       try {
         const items = await api.get("/inventory");
         const byCategory = {};
@@ -31,8 +32,8 @@ export default function InventoryChart() {
         setLoading(false);
       }
     };
-    fetchData();
-  }, []);
+    void fetchData();
+  }, [reloadKey]);
 
   if (loading) {
     return (

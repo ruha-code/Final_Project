@@ -4,7 +4,9 @@ import {
   AlertTriangle,
   XCircle,
   Clock,
+  CalendarX2,
   ArrowDown,
+  ArrowUp,
   Truck,
 } from "lucide-react";
 
@@ -13,26 +15,48 @@ import InventoryChart from "../components/inventory/InventoryChart";
 import InventoryFilters from "../components/inventory/InventoryFilters";
 import { api } from "../services/api";
 
-function getActivityIcon(action) {
+function getActivityIcon(action, extraData) {
+  if (action === "INVENTORY_UPDATE" && extraData?.operation === "INCREASE") return ArrowUp;
+  if (action === "INVENTORY_UPDATE" && extraData?.operation === "DECREASE") return ArrowDown;
   if (action?.includes("ADD")) return Package;
   if (action?.includes("REMOVE")) return ArrowDown;
   if (action?.includes("LOW")) return AlertTriangle;
   return Truck;
 }
 
-function getActivityColor(action) {
+function getActivityColor(action, extraData) {
+  if (action === "INVENTORY_UPDATE" && extraData?.operation === "INCREASE") return "bg-teal-100 text-teal-600";
+  if (action === "INVENTORY_UPDATE" && extraData?.operation === "DECREASE") return "bg-red-100 text-red-500";
   if (action?.includes("ADD")) return "bg-teal-100 text-teal-600";
   if (action?.includes("REMOVE")) return "bg-red-100 text-red-500";
   if (action?.includes("LOW")) return "bg-yellow-100 text-yellow-600";
   return "bg-blue-100 text-blue-600";
 }
 
-function getActivityText(action) {
-  if (action === "INVENTORY_ADD") return "Item added";
-  if (action === "INVENTORY_REMOVE") return "Item removed";
-  if (action === "INVENTORY_LOW") return "Low stock alert";
-  if (action === "INVENTORY_UPDATE") return "Inventory updated";
+function getActivityText(entry) {
+  const action = entry?.action;
+  const extraData = entry?.extra_data || {};
+  if (action === "INVENTORY_ADD") return `Added ${extraData.item_name || "item"}`;
+  if (action === "INVENTORY_REMOVE") return `Deleted ${extraData.item_name || "item"}`;
+  if (action === "INVENTORY_LOW") return `Low stock alert: ${extraData.item_name || "item"}`;
+  if (action === "INVENTORY_UPDATE" && extraData.operation === "INCREASE") {
+    return `Restocked ${extraData.amount} ${extraData.item_name || ""}`.trim();
+  }
+  if (action === "INVENTORY_UPDATE" && extraData.operation === "DECREASE") {
+    return `Used ${extraData.amount} ${extraData.item_name || ""}`.trim();
+  }
+  if (action === "INVENTORY_UPDATE") return `Updated ${extraData.item_name || "item"}`;
   return "Inventory updated";
+}
+
+function formatActivityTime(value) {
+  if (!value) return "";
+  return new Date(value).toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function StatCard({ title, value, icon: Icon, color }) {
@@ -59,6 +83,7 @@ export default function Inventory() {
     total: 0,
     low: 0,
     out: 0,
+    expired: 0,
     expiringSoon: 0,
   });
   const [categoryBreakdown, setCategoryBreakdown] = useState({
@@ -68,20 +93,28 @@ export default function Inventory() {
     OTHER: 0,
   });
   const [activities, setActivities] = useState([]);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [resultCount, setResultCount] = useState(0);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
         const data = await api.get("/inventory");
         const now = new Date();
+        now.setHours(0, 0, 0, 0);
         const in30days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
         setStats({
           total: data.length,
           low: data.filter((i) => i.status === "LOW").length,
           out: data.filter((i) => i.status === "OUT").length,
+          expired: data.filter(
+            (i) => i.expires_at && new Date(`${i.expires_at}T00:00:00`) < now,
+          ).length,
           expiringSoon: data.filter(
-            (i) => i.expires_at && new Date(i.expires_at) <= in30days,
+            (i) => i.expires_at
+              && new Date(`${i.expires_at}T00:00:00`) >= now
+              && new Date(`${i.expires_at}T00:00:00`) <= in30days,
           ).length,
         });
 
@@ -123,12 +156,12 @@ export default function Inventory() {
 
     fetchStats();
     fetchActivities();
-  }, []);
+  }, [refreshKey]);
 
   return (
     <div className="space-y-6">
       {/* STATS */}
-      <div className="grid grid-cols-4 gap-6">
+      <div className="grid grid-cols-5 gap-6">
         <StatCard
           title="Total Items"
           value={stats.total.toLocaleString()}
@@ -153,12 +186,18 @@ export default function Inventory() {
           icon={Clock}
           color="bg-blue-100 text-blue-600"
         />
+        <StatCard
+          title="Expired"
+          value={stats.expired}
+          icon={CalendarX2}
+          color="bg-red-100 text-red-600"
+        />
       </div>
 
       {/* CHART + CATEGORY */}
       <div className="grid grid-cols-3 gap-6">
         <div className="col-span-2">
-          <InventoryChart />
+          <InventoryChart reloadKey={refreshKey} />
         </div>
 
         <div className="bg-white rounded-2xl border p-5">
@@ -200,9 +239,15 @@ export default function Inventory() {
             setSearch={setSearch}
             status={status}
             setStatus={setStatus}
+            resultCount={resultCount}
           />
 
-          <InventoryTable search={search} status={status} />
+          <InventoryTable
+            search={search}
+            status={status}
+            onMutation={() => setRefreshKey((value) => value + 1)}
+            onCountChange={setResultCount}
+          />
         </div>
 
         {/* ACTIVITIES */}
@@ -214,14 +259,17 @@ export default function Inventory() {
               <p className="text-gray-400 text-xs">No recent activities</p>
             ) : (
               activities.map((a, i) => {
-                const Icon = getActivityIcon(a.action);
-                const color = getActivityColor(a.action);
+                const Icon = getActivityIcon(a.action, a.extra_data);
+                const color = getActivityColor(a.action, a.extra_data);
                 return (
                   <div key={a.id || i} className="flex items-center gap-3 hover:bg-gray-50 p-2 rounded-lg transition">
                     <div className={`w-8 h-8 flex items-center justify-center rounded-lg ${color}`}>
                       <Icon size={14} />
                     </div>
-                    <p>{getActivityText(a.action)}</p>
+                    <div>
+                      <p>{getActivityText(a)}</p>
+                      <p className="text-[11px] text-gray-400">{formatActivityTime(a.created_at)}</p>
+                    </div>
                   </div>
                 );
               })

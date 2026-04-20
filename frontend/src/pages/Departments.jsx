@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Building2, Layers, Users, MapPin, ArrowRight, Search, Plus, X, Edit, Trash2 } from "lucide-react";
+import { Building2, Layers, Users, MapPin, ArrowRight, Search, Plus, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../services/api";
 import { useAuth } from "../context/AuthContext";
@@ -38,7 +38,7 @@ function MiniStats({ departments }) {
       <h3 className="font-semibold text-sm">Department Insights</h3>
       {allZero ? (
         <p className="text-xs text-gray-400">
-          Metrics not configured yet. Edit a department to set satisfaction, efficiency and success rates.
+          Metrics are calculated automatically from appointment outcomes and update as live data changes.
         </p>
       ) : (
         <div className="space-y-3 text-sm">
@@ -110,34 +110,11 @@ function DepartmentCard({ dep, onEdit, onDelete }) {
   );
 }
 
-function MetricInput({ label, value, onChange }) {
-  return (
-    <div>
-      <div className="flex justify-between text-xs text-gray-500 mb-1">
-        <label>{label}</label>
-        <span>{Math.round(value || 0)}%</span>
-      </div>
-      <input
-        type="range"
-        min="0"
-        max="100"
-        step="1"
-        value={value || 0}
-        onChange={(e) => onChange(parseFloat(e.target.value))}
-        className="w-full accent-teal-500"
-      />
-    </div>
-  );
-}
-
 function DepartmentModal({ onClose, onSaved, editData }) {
   const [form, setForm] = useState({
     name: editData?.name || "",
     location: editData?.location || "",
     description: editData?.description || "",
-    patient_satisfaction: editData?.patient_satisfaction ?? 0,
-    efficiency: editData?.efficiency ?? 0,
-    treatment_success: editData?.treatment_success ?? 0,
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -198,23 +175,10 @@ function DepartmentModal({ onClose, onSaved, editData }) {
             />
           </div>
 
-          <div className="pt-2 border-t space-y-3">
-            <p className="text-xs text-gray-400 font-medium">Performance Metrics</p>
-            <MetricInput
-              label="Patient Satisfaction"
-              value={form.patient_satisfaction}
-              onChange={(v) => setForm({ ...form, patient_satisfaction: v })}
-            />
-            <MetricInput
-              label="Efficiency"
-              value={form.efficiency}
-              onChange={(v) => setForm({ ...form, efficiency: v })}
-            />
-            <MetricInput
-              label="Treatment Success"
-              value={form.treatment_success}
-              onChange={(v) => setForm({ ...form, treatment_success: v })}
-            />
+          <div className="rounded-xl border border-dashed bg-gray-50 p-3">
+            <p className="text-xs text-gray-500">
+              Performance metrics are calculated automatically from department activity and cannot be edited manually.
+            </p>
           </div>
 
           <div className="flex gap-3 pt-2">

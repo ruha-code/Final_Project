@@ -9,9 +9,6 @@ class DepartmentCreate(BaseModel):
     description: Optional[str] = None
     image_url: Optional[str] = None
     head_doctor_id: Optional[int] = None
-    patient_satisfaction: float = 0.0
-    efficiency: float = 0.0
-    treatment_success: float = 0.0
  
  
 class DepartmentUpdate(BaseModel):
@@ -20,9 +17,6 @@ class DepartmentUpdate(BaseModel):
     description: Optional[str] = None
     image_url: Optional[str] = None
     head_doctor_id: Optional[int] = None
-    patient_satisfaction: Optional[float] = None
-    efficiency: Optional[float] = None
-    treatment_success: Optional[float] = None
  
  
 class DepartmentResponse(BaseModel):

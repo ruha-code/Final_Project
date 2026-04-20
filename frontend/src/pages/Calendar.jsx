@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Pencil, Trash2, X } from "lucide-react";
 
@@ -6,13 +6,85 @@ import { api } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-const categoryColors = { ADMIN: "bg-teal-500", SYSTEM: "bg-green-400", TRAINING: "bg-gray-400" };
+const ADMIN_CATEGORY_META = {
+  ADMIN: { label: "Admin Meetings", color: "bg-teal-500" },
+  SYSTEM: { label: "System & Maintenance", color: "bg-emerald-500" },
+  TRAINING: { label: "Training Sessions", color: "bg-slate-500" },
+};
+const DOCTOR_STATUS_META = {
+  SCHEDULED: { label: "Scheduled", color: "bg-blue-500" },
+  ONGOING: { label: "Ongoing", color: "bg-teal-500" },
+  COMPLETED: { label: "Completed", color: "bg-emerald-500" },
+  CANCELLED: { label: "Cancelled", color: "bg-rose-500" },
+};
 
-function EventModal({ onClose, onSaved, editData, currentYear, currentMonth, daysInMonth }) {
+const pad2 = (value) => String(value).padStart(2, "0");
+
+function formatEventTime(value) {
+  if (!value) return "";
+  if (typeof value === "string") {
+    const matched = value.match(/^(\d{1,2}):(\d{2})/);
+    if (matched) return `${matched[1].padStart(2, "0")}:${matched[2]}`;
+  }
+  return String(value);
+}
+
+function normalizeTitle(value) {
+  const cleaned = String(value || "").replace(/\s+/g, " ").trim();
+  if (!cleaned) return "Untitled event";
+  if (cleaned === cleaned.toLowerCase()) {
+    return cleaned.replace(/\b\w/g, (char) => char.toUpperCase());
+  }
+  return cleaned;
+}
+
+function parseIsoDate(isoDate) {
+  const parts = String(isoDate || "").split("-");
+  if (parts.length !== 3) return null;
+  const [year, month, day] = parts.map((part) => Number(part));
+  if (!year || !month || !day) return null;
+  return { year, month, day, iso: `${year}-${pad2(month)}-${pad2(day)}` };
+}
+
+function formatFullDate(isoDate) {
+  const parsed = parseIsoDate(isoDate);
+  if (!parsed) return "";
+  return new Date(parsed.year, parsed.month - 1, parsed.day).toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function formatSelectedDate(year, month, day) {
+  return new Date(year, month - 1, day).toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function getCategoryLabel(category, doctorMode) {
+  if (doctorMode) {
+    return DOCTOR_STATUS_META[category]?.label || category;
+  }
+  return ADMIN_CATEGORY_META[category]?.label || category;
+}
+
+function getEventColor(category, doctorMode) {
+  if (doctorMode) {
+    return DOCTOR_STATUS_META[category]?.color || "bg-teal-500";
+  }
+  return ADMIN_CATEGORY_META[category]?.color || "bg-gray-500";
+}
+
+function EventModal({ onClose, onSaved, editData, currentYear, currentMonth, daysInMonth, defaultDate }) {
+  const monthStart = `${currentYear}-${pad2(currentMonth)}-01`;
+  const monthEnd = `${currentYear}-${pad2(currentMonth)}-${pad2(daysInMonth)}`;
   const [form, setForm] = useState({
     title: editData?.title || "",
-    date: editData?.date || "",
-    time: editData?.time || "",
+    date: editData?.dateValue || defaultDate || monthStart,
+    time: formatEventTime(editData?.time) || "",
     category: editData?.category || "ADMIN",
   });
   const [saving, setSaving] = useState(false);
@@ -20,12 +92,14 @@ function EventModal({ onClose, onSaved, editData, currentYear, currentMonth, day
   const handleSubmit = async () => {
     if (!form.title || !form.date) return;
     setSaving(true);
-    const day = String(form.date).padStart(2, "0");
-    const month = String(currentMonth).padStart(2, "0");
-    const event_date = `${currentYear}-${month}-${day}`;
 
     try {
-      const payload = { title: form.title, event_date, event_time: form.time || null, category: form.category };
+      const payload = {
+        title: normalizeTitle(form.title),
+        event_date: form.date,
+        event_time: form.time || null,
+        category: form.category,
+      };
       if (editData) await api.put(`/calendar/${editData.id}`, payload);
       else await api.post("/calendar", payload);
       onSaved();
@@ -44,19 +118,43 @@ function EventModal({ onClose, onSaved, editData, currentYear, currentMonth, day
           <h2 className="text-lg font-semibold">{editData ? "Edit Event" : "Create Event"}</h2>
           <button onClick={onClose} className="rounded-lg p-1 hover:bg-gray-200"><X size={18} /></button>
         </div>
+        <p className="text-xs text-gray-500">
+          {editData ? "Editing for" : "Creating for"} {formatFullDate(form.date)}
+        </p>
         <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Event title" className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400" />
         <div className="grid grid-cols-2 gap-3">
-          <input type="number" min="1" max={daysInMonth} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} placeholder="Day" className="rounded-xl bg-gray-100 px-4 py-2 text-sm" />
-          <input value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} placeholder="HH:MM" className="rounded-xl bg-gray-100 px-4 py-2 text-sm" />
+          <input type="date" min={monthStart} max={monthEnd} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className="rounded-xl bg-gray-100 px-4 py-2 text-sm" />
+          <input type="time" step="60" value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} className="rounded-xl bg-gray-100 px-4 py-2 text-sm" />
         </div>
         <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm">
-          <option value="ADMIN">ADMIN</option>
-          <option value="SYSTEM">SYSTEM</option>
-          <option value="TRAINING">TRAINING</option>
+          {Object.entries(ADMIN_CATEGORY_META).map(([value, info]) => (
+            <option key={value} value={value}>{info.label}</option>
+          ))}
         </select>
         <div className="flex gap-3">
           <button onClick={onClose} className="flex-1 rounded-xl bg-gray-100 py-2 text-sm">Cancel</button>
           <button onClick={handleSubmit} disabled={saving || !form.title || !form.date} className="flex-1 rounded-xl bg-teal-500 py-2 text-sm text-white hover:bg-teal-600 disabled:opacity-50">{saving ? "Saving..." : editData ? "Update" : "Create"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DeleteConfirmModal({ eventTitle, deleting, onCancel, onConfirm }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+      <div className="w-[360px] rounded-2xl bg-white p-6 shadow-xl">
+        <h3 className="text-base font-semibold text-gray-900">Delete Event</h3>
+        <p className="mt-2 text-sm text-gray-500">
+          Are you sure you want to delete "{eventTitle}"?
+        </p>
+        <div className="mt-5 flex gap-3">
+          <button onClick={onCancel} disabled={deleting} className="flex-1 rounded-xl bg-gray-100 py-2 text-sm text-gray-700 hover:bg-gray-200 disabled:opacity-60">
+            Cancel
+          </button>
+          <button onClick={onConfirm} disabled={deleting} className="flex-1 rounded-xl bg-red-500 py-2 text-sm text-white hover:bg-red-600 disabled:opacity-60">
+            {deleting ? "Deleting..." : "Delete"}
+          </button>
         </div>
       </div>
     </div>
@@ -76,6 +174,9 @@ export default function Calendar() {
   const [modal, setModal] = useState(null);
   const [editingEvent, setEditingEvent] = useState(null);
   const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [deleteCandidate, setDeleteCandidate] = useState(null);
+  const [deleting, setDeleting] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
 
   const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
@@ -84,45 +185,87 @@ export default function Calendar() {
 
   useEffect(() => {
     const fetchData = async () => {
+      setLoading(true);
       try {
         if (isDoctor()) {
           const appointments = await api.get("/appointments/my");
-          const doctorEvents = (appointments || []).map((item) => {
-            const value = new Date(item.appointment_time);
-            return {
-              id: item.id,
-              title: item.patient_name || "Patient",
+          const doctorEvents = (appointments || [])
+            .map((item) => {
+              const value = new Date(item.appointment_time);
+              const dateValue = `${value.getFullYear()}-${pad2(value.getMonth() + 1)}-${pad2(value.getDate())}`;
+              return {
+                id: item.id,
+              title: normalizeTitle(item.patient_name || "Patient"),
               date: value.getDate(),
-              time: value.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
-              category: item.status,
+              dateValue,
+              time: formatEventTime(value.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })),
+              category: String(item.status || "").toUpperCase(),
               patient_id: item.patient_id,
-            };
-          }).filter((item) => {
-            const appointmentDate = new Date((appointments || []).find((entry) => entry.id === item.id)?.appointment_time);
-            return appointmentDate.getMonth() + 1 === currentMonth && appointmentDate.getFullYear() === currentYear;
-          });
+              };
+            })
+            .filter((item) => {
+              const parsed = parseIsoDate(item.dateValue);
+              return parsed && parsed.month === currentMonth && parsed.year === currentYear;
+            });
           setEvents(doctorEvents);
           setError(null);
           return;
         }
 
         const data = await api.get(`/calendar?month=${currentMonth}&year=${currentYear}`);
-        setEvents((data || []).map((item) => ({
-          id: item.id,
-          title: item.title,
-          date: new Date(item.event_date).getDate(),
-          time: item.event_time || "",
-          category: item.category,
-        })));
+        const normalized = (data || [])
+          .map((item) => {
+            const parsed = parseIsoDate(item.event_date);
+            if (!parsed) return null;
+            return {
+              id: item.id,
+              title: normalizeTitle(item.title),
+              date: parsed.day,
+              dateValue: parsed.iso,
+              time: formatEventTime(item.event_time),
+              category: String(item.category || "ADMIN").toUpperCase(),
+            };
+          })
+          .filter(Boolean);
+        setEvents(normalized);
         setError(null);
       } catch (err) {
+        console.error("Failed to load calendar data:", err);
         setError("Failed to load calendar data");
+      } finally {
+        setLoading(false);
       }
     };
     void fetchData();
   }, [currentMonth, currentYear, isDoctor, reloadKey]);
 
-  const getEvents = (day) => events.filter((item) => item.date === day && (filter === "all" || item.category === filter.toUpperCase()));
+  const filteredMonthCount = useMemo(
+    () => events.filter((item) => (filter === "all" || item.category === filter.toUpperCase())).length,
+    [events, filter],
+  );
+
+  const activeFilters = isDoctor()
+    ? [
+      { value: "all", label: "All Appointments" },
+      { value: "scheduled", label: "Scheduled" },
+      { value: "ongoing", label: "Ongoing" },
+      { value: "completed", label: "Completed" },
+      { value: "cancelled", label: "Cancelled" },
+    ]
+    : [
+      { value: "all", label: "All Events" },
+      { value: "admin", label: ADMIN_CATEGORY_META.ADMIN.label },
+      { value: "system", label: ADMIN_CATEGORY_META.SYSTEM.label },
+      { value: "training", label: ADMIN_CATEGORY_META.TRAINING.label },
+    ];
+
+  const getEvents = (day) => events
+    .filter((item) => item.date === day && (filter === "all" || item.category === filter.toUpperCase()))
+    .sort((left, right) => {
+      const leftTime = left.time || "99:99";
+      const rightTime = right.time || "99:99";
+      return leftTime.localeCompare(rightTime);
+    });
   const triggerReload = () => setReloadKey((current) => current + 1);
 
   const prevMonth = () => {
@@ -161,46 +304,105 @@ export default function Calendar() {
           )}
 
           <div className="space-y-2 text-sm">
-            {(isDoctor() ? ["all", "scheduled", "ongoing", "completed", "cancelled"] : ["all", "admin", "system", "training"]).map((value) => (
-              <div key={value} onClick={() => setFilter(value)} className={`cursor-pointer rounded-lg px-3 py-2 transition ${filter === value ? "bg-teal-50 text-teal-600" : "text-gray-600 hover:bg-gray-50"}`}>
-                {value.toUpperCase()}
+            {activeFilters.map((option) => (
+              <div key={option.value} onClick={() => setFilter(option.value)} className={`cursor-pointer rounded-lg px-3 py-2 transition ${filter === option.value ? "bg-teal-50 text-teal-600" : "text-gray-600 hover:bg-gray-50"}`}>
+                {option.label}
               </div>
             ))}
           </div>
+
+          {!isDoctor() && (
+            <div className="border-t pt-4">
+              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-400">Color Legend</p>
+              <div className="space-y-2">
+                {Object.entries(ADMIN_CATEGORY_META).map(([category, meta]) => (
+                  <div key={category} className="flex items-center gap-2 text-xs text-gray-600">
+                    <span className={`h-2.5 w-2.5 rounded-full ${meta.color}`} />
+                    <span>{meta.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="rounded-2xl border bg-white p-5">
+          {!loading && filteredMonthCount === 0 && (
+            <div className="mb-3 rounded-xl border border-dashed bg-gray-50 px-3 py-2 text-xs text-gray-500">
+              No matching events for {MONTH_NAMES[currentMonth - 1]} {currentYear}.
+            </div>
+          )}
           <div className="mb-2 grid grid-cols-7 px-2 text-xs text-gray-400">
             {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => <div key={day}>{day}</div>)}
           </div>
-          <div className="grid grid-cols-7 overflow-hidden rounded-xl border">
-            {Array.from({ length: firstDayOfWeek }).map((_, i) => (
-              <div key={`empty-${i}`} className="min-h-[7rem] border bg-gray-50/40" />
-            ))}
-            {days.map((day) => (
-              <div key={day} onClick={() => { setSelectedDay(day); setSelectedEvent(null); }} className={`min-h-[7rem] cursor-pointer border p-2 transition-all ${selectedDay === day ? "bg-teal-50" : "hover:bg-gray-50"}`}>
-                <p className="text-xs text-gray-400">{day}</p>
-                <div className="mt-1 space-y-1">
-                  {getEvents(day).slice(0, 3).map((event) => (
-                    <div key={event.id} onClick={(nativeEvent) => { nativeEvent.stopPropagation(); setSelectedEvent(event); setSelectedDay(day); }} className={`truncate rounded-md px-2 py-1.5 text-[11px] text-white shadow-sm ${isDoctor() ? "bg-teal-500" : categoryColors[event.category] || "bg-gray-400"}`}>
-                      {event.time ? `${event.time} ` : ""}{event.title}
+          {loading ? (
+            <div className="flex h-[28rem] items-center justify-center rounded-xl border">
+              <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-teal-500" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-7 overflow-hidden rounded-xl border">
+              {Array.from({ length: firstDayOfWeek }).map((_, i) => (
+                <div key={`empty-${i}`} className="min-h-[7rem] border bg-gray-50/40" />
+              ))}
+              {days.map((day) => {
+                const dayEvents = getEvents(day);
+                const previewEvents = dayEvents.slice(0, 2);
+                const hiddenCount = dayEvents.length - previewEvents.length;
+
+                return (
+                  <div
+                    key={day}
+                    onClick={() => {
+                      setSelectedDay(day);
+                      setSelectedEvent(null);
+                    }}
+                    className={`min-h-[7rem] cursor-pointer border p-2 transition-all ${
+                      selectedDay === day
+                        ? "bg-teal-100 ring-2 ring-inset ring-teal-400"
+                        : "hover:bg-gray-50"
+                    }`}
+                  >
+                    <p className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs ${selectedDay === day ? "bg-teal-500 text-white" : "text-gray-500"}`}>
+                      {day}
+                    </p>
+                    <div className="mt-1 space-y-1">
+                      {previewEvents.map((event) => (
+                        <div
+                          key={event.id}
+                          onClick={(nativeEvent) => {
+                            nativeEvent.stopPropagation();
+                            setSelectedEvent(event);
+                            setSelectedDay(day);
+                          }}
+                          className={`truncate rounded-md px-2 py-1.5 text-[11px] text-white shadow-sm ${getEventColor(event.category, isDoctor())}`}
+                        >
+                          {event.time ? `${event.time} ` : ""}{event.title}
+                        </div>
+                      ))}
+                      {hiddenCount > 0 && (
+                        <p className="px-1 text-[10px] font-medium text-gray-500">+{hiddenCount} more</p>
+                      )}
                     </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <div className="rounded-2xl border bg-white p-5">
           <h3 className="mb-4 font-medium">{isDoctor() ? "Appointments" : "Schedule Details"}</h3>
-          {selectedEvent ? (
+          {loading ? (
+            <p className="text-sm text-gray-400">Loading...</p>
+          ) : selectedEvent ? (
             <div className="space-y-3">
-              <div className={`space-y-2 rounded-xl p-4 text-white ${isDoctor() ? "bg-teal-500" : categoryColors[selectedEvent.category] || "bg-gray-400"}`}>
+              <div className={`space-y-2 rounded-xl p-4 text-white ${getEventColor(selectedEvent.category, isDoctor())}`}>
                 <p className="font-semibold">{selectedEvent.title}</p>
                 {selectedEvent.time && <p className="text-sm">{selectedEvent.time}</p>}
-                <p className="text-xs opacity-80">Day {selectedEvent.date}</p>
-                <span className="inline-block rounded-md bg-white/20 px-2 py-0.5 text-xs">{selectedEvent.category}</span>
+                <p className="text-xs opacity-90">{formatFullDate(selectedEvent.dateValue)}</p>
+                <span className="inline-block rounded-md bg-white/20 px-2 py-0.5 text-xs">
+                  {getCategoryLabel(selectedEvent.category, isDoctor())}
+                </span>
               </div>
 
               {isDoctor() ? (
@@ -212,15 +414,8 @@ export default function Calendar() {
                 <div className="flex gap-2">
                   <button onClick={() => { setEditingEvent(selectedEvent); setModal("edit"); }} className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-gray-100 py-2 text-sm text-teal-600 hover:bg-teal-50"><Pencil size={14} /> Edit</button>
                   <button
-                    onClick={async () => {
-                      if (!window.confirm("Delete this event?")) return;
-                      try {
-                        await api.delete(`/calendar/${selectedEvent.id}`);
-                        setSelectedEvent(null);
-                        triggerReload();
-                      } catch (err) {
-                        console.error("Failed to delete event:", err);
-                      }
+                    onClick={() => {
+                      setDeleteCandidate(selectedEvent);
                     }}
                     className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-gray-100 py-2 text-sm text-red-500 hover:bg-red-50"
                   >
@@ -231,11 +426,13 @@ export default function Calendar() {
             </div>
           ) : selectedDay ? (
             <>
-              <p className="mb-3 text-sm text-gray-400">Day {selectedDay}</p>
+              <p className="mb-3 text-sm text-gray-500">{formatSelectedDate(currentYear, currentMonth, selectedDay)}</p>
               {getEvents(selectedDay).length > 0 ? getEvents(selectedDay).map((event) => (
                 <div key={event.id} onClick={() => setSelectedEvent(event)} className="mb-3 cursor-pointer rounded-xl bg-gray-50 p-3 hover:bg-gray-100">
                   <p className="text-sm font-medium">{event.title}</p>
-                  <p className="text-xs text-gray-400">{event.time || "No time set"}</p>
+                  <p className="text-xs text-gray-400">
+                    {event.time || "No time set"} - {getCategoryLabel(event.category, isDoctor())}
+                  </p>
                 </div>
               )) : <p className="text-sm text-gray-400">No items</p>}
             </>
@@ -253,6 +450,30 @@ export default function Calendar() {
           currentYear={currentYear}
           currentMonth={currentMonth}
           daysInMonth={daysInMonth}
+          defaultDate={selectedDay ? `${currentYear}-${pad2(currentMonth)}-${pad2(selectedDay)}` : `${currentYear}-${pad2(currentMonth)}-01`}
+        />
+      )}
+
+      {deleteCandidate && (
+        <DeleteConfirmModal
+          eventTitle={deleteCandidate.title}
+          deleting={deleting}
+          onCancel={() => setDeleteCandidate(null)}
+          onConfirm={async () => {
+            setDeleting(true);
+            try {
+              await api.delete(`/calendar/${deleteCandidate.id}`);
+              if (selectedEvent?.id === deleteCandidate.id) {
+                setSelectedEvent(null);
+              }
+              setDeleteCandidate(null);
+              triggerReload();
+            } catch (err) {
+              console.error("Failed to delete event:", err);
+            } finally {
+              setDeleting(false);
+            }
+          }}
         />
       )}
     </>
