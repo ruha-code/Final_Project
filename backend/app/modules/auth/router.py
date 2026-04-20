@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import re
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
@@ -9,7 +10,12 @@ import uuid
 
 from app.core.database import get_db
 from app.core.dependencies import RoleChecker, get_current_user, oauth2_scheme
-from app.core.exceptions import ConflictException, UnauthorizedException, RateLimitException
+from app.core.exceptions import (
+    ConflictException,
+    UnauthorizedException,
+    RateLimitException,
+    ValidationException,
+)
 from app.core.pagination import paginate
 from app.core.security import decode_access_token, hash_password, create_access_token
 from app.core.cache import (
@@ -33,10 +39,40 @@ from app.modules.auth.models import User, UserRole
 from app.modules.audit.router import log, Actions
 
 router = APIRouter(tags=["Auth"])
+FULL_NAME_PATTERN = re.compile(
+    r"^(?=.{2,100}$)[^\W\d_]+(?:[ .'-][^\W\d_]+)*$",
+    re.UNICODE,
+)
+USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9._-]{3,30}$")
+PASSWORD_PATTERN = re.compile(r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,128}$")
 
 
 class RefreshRequest(BaseModel):
     refresh_token: str
+
+
+def _validate_admin_managed_user_payload(
+    *, full_name: str, username: str, password: str
+) -> tuple[str, str]:
+    normalized_name = " ".join(full_name.strip().split())
+    normalized_username = username.strip()
+
+    if not FULL_NAME_PATTERN.fullmatch(normalized_name):
+        raise ValidationException(
+            "Full name must contain letters and may include spaces, apostrophes, periods, or hyphens"
+        )
+
+    if not USERNAME_PATTERN.fullmatch(normalized_username):
+        raise ValidationException(
+            "Username must be 3-30 characters and use only letters, numbers, dots, underscores, or hyphens"
+        )
+
+    if not PASSWORD_PATTERN.fullmatch(password):
+        raise ValidationException(
+            "Password must be at least 8 characters and include uppercase, lowercase, and a digit"
+        )
+
+    return normalized_name, normalized_username
 
 
 def get_auth_service(db: AsyncSession = Depends(get_db)) -> AuthService:
@@ -239,21 +275,25 @@ async def create_doctor_account(
     current_user: User = Depends(RoleChecker(["ADMIN"])),
 ):
     from app.modules.doctors.models import Doctor
+    normalized_name, normalized_username = _validate_admin_managed_user_payload(
+        full_name=dto.full_name,
+        username=dto.username,
+        password=dto.password,
+    )
+    normalized_email = dto.email.strip().lower()
 
-    # Check email unique
-    result = await db.execute(select(User).where(User.email == dto.email))
+    result = await db.execute(select(User).where(User.email == normalized_email))
     if result.scalar_one_or_none():
         raise ConflictException("Email already registered")
 
-    # Check username unique
-    result = await db.execute(select(User).where(User.username == dto.username))
+    result = await db.execute(select(User).where(User.username == normalized_username))
     if result.scalar_one_or_none():
         raise ConflictException("Username already taken")
 
     user = User(
-        full_name=dto.full_name,
-        username=dto.username,
-        email=dto.email,
+        full_name=normalized_name,
+        username=normalized_username,
+        email=normalized_email,
         phone=dto.phone,
         password_hash=hash_password(dto.password),
         role=UserRole.DOCTOR,
@@ -292,18 +332,25 @@ async def create_admin_account(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(RoleChecker(["ADMIN"])),
 ):
-    result = await db.execute(select(User).where(User.email == dto.email))
+    normalized_name, normalized_username = _validate_admin_managed_user_payload(
+        full_name=dto.full_name,
+        username=dto.username,
+        password=dto.password,
+    )
+    normalized_email = dto.email.strip().lower()
+
+    result = await db.execute(select(User).where(User.email == normalized_email))
     if result.scalar_one_or_none():
         raise ConflictException("Email already registered")
 
-    result = await db.execute(select(User).where(User.username == dto.username))
+    result = await db.execute(select(User).where(User.username == normalized_username))
     if result.scalar_one_or_none():
         raise ConflictException("Username already taken")
 
     user = User(
-        full_name=dto.full_name,
-        username=dto.username,
-        email=dto.email,
+        full_name=normalized_name,
+        username=normalized_username,
+        email=normalized_email,
         phone=dto.phone,
         password_hash=hash_password(dto.password),
         role=UserRole.ADMIN,
@@ -338,9 +385,15 @@ async def get_users(
     if role:
         query = query.where(User.role == role)
     if search:
-        query = query.where(
-            or_(User.username.ilike(f"%{search}%"), User.email.ilike(f"%{search}%"))
-        )
+        normalized_search = search.strip()
+        if normalized_search:
+            query = query.where(
+                or_(
+                    User.username.ilike(f"%{normalized_search}%"),
+                    User.email.ilike(f"%{normalized_search}%"),
+                    User.full_name.ilike(f"%{normalized_search}%"),
+                )
+            )
 
     paged = await paginate(query, page, page_size, db)
 
@@ -380,15 +433,26 @@ async def update_user(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    if dto.email and dto.email != user.email:
-        existing = await db.execute(select(User).where(User.email == dto.email))
+    normalized_email = dto.email.strip().lower() if dto.email else None
+
+    if normalized_email and normalized_email != user.email:
+        existing = await db.execute(select(User).where(User.email == normalized_email))
         if existing.scalar_one_or_none():
             raise ConflictException("Email already in use")
+    if dto.username and dto.username != user.username:
+        existing = await db.execute(select(User).where(User.username == dto.username))
+        if existing.scalar_one_or_none():
+            raise ConflictException("Username already in use")
+
+    if dto.role is not None and user.id == current_user.id and dto.role != UserRole.ADMIN:
+        raise ValidationException("You cannot remove your own admin role")
 
     if dto.full_name is not None:
         user.full_name = dto.full_name
+    if dto.username is not None:
+        user.username = dto.username
     if dto.email is not None:
-        user.email = dto.email
+        user.email = normalized_email
     if dto.phone is not None:
         user.phone = dto.phone
     if dto.role is not None:

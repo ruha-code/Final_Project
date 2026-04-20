@@ -406,7 +406,7 @@ function MainLayout({ children }) {
     const entries = [
       { label: "Dashboard", description: "Overview page", path: "/dashboard", roles: ["ADMIN", "DOCTOR", "PATIENT"] },
       { label: "Appointments", description: "Manage appointments", path: "/appointments", roles: ["ADMIN", "DOCTOR", "PATIENT"] },
-      { label: "Messages", description: "Chat with users", path: "/messages", roles: ["ADMIN", "DOCTOR", "PATIENT"] },
+      { label: "Messages", description: "Chat with users", path: "/messages", roles: ["DOCTOR", "PATIENT"] },
       { label: "My Profile", description: "Update account profile", path: dynamicProfilePath, roles: ["ADMIN", "DOCTOR", "PATIENT"] },
       { label: "My Health", description: "Read-only health record", path: "/patient/health", roles: ["PATIENT"] },
       { label: "Doctors", description: "Browse doctors", path: "/doctors", roles: ["ADMIN", "PATIENT"] },
@@ -524,12 +524,9 @@ function MainLayout({ children }) {
             {isPatient() && menuItem("/patient/profile", "My Profile")}
             {(isAdmin() || isDoctor()) && menuItem("/calendar", "Calendar")}
             {isAdmin() && menuItem("/inventory", "Inventory")}
-            {menuItem("/messages", "Messages")}
+            {(isDoctor() || isPatient()) && menuItem("/messages", "Messages")}
             {isAdmin() && (
                 <>
-                  <li className="pt-4 pb-1 px-4 text-xs text-gray-400 font-medium uppercase tracking-wide">
-                    Admin
-                  </li>
                 {menuItem("/admin/users", "Users")}
                 {menuItem("/admin/audit-logs", "Audit Logs")}
                 {menuItem("/admin/analytics", "Analytics")}

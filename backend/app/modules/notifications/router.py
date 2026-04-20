@@ -36,20 +36,28 @@ def _format_dt(value: datetime) -> str:
 
 
 def _available_notification_types_for_role(role: UserRole) -> list[NotificationType]:
-    notification_types = [NotificationType.MESSAGE, NotificationType.APPOINTMENT]
-    if role in {UserRole.ADMIN, UserRole.DOCTOR}:
-        notification_types.append(NotificationType.INVENTORY)
     if role == UserRole.ADMIN:
-        notification_types.append(NotificationType.CALENDAR)
-    return notification_types
+        return [
+            NotificationType.APPOINTMENT,
+            NotificationType.INVENTORY,
+            NotificationType.CALENDAR,
+        ]
+    if role == UserRole.DOCTOR:
+        return [
+            NotificationType.MESSAGE,
+            NotificationType.APPOINTMENT,
+            NotificationType.INVENTORY,
+        ]
+    return [NotificationType.MESSAGE, NotificationType.APPOINTMENT]
 
 
 def _allowed_preference_fields_for_role(role: UserRole) -> set[str]:
     fields = {
-        "mute_message_notifications",
         "mute_appointment_notifications",
         "appointment_reminder_hours",
     }
+    if role in {UserRole.DOCTOR, UserRole.PATIENT}:
+        fields.add("mute_message_notifications")
     if role in {UserRole.ADMIN, UserRole.DOCTOR}:
         fields.add("mute_inventory_notifications")
     if role == UserRole.ADMIN:
@@ -240,25 +248,6 @@ async def _build_notifications_for_user(
                 )
 
     elif current_user.role == UserRole.ADMIN:
-        unread_result = await db.execute(
-            select(func.count(Message.id), func.max(Message.id)).where(Message.is_read == False)
-        )
-        admin_row = unread_result.one()
-        unread_count = int(admin_row[0] or 0)
-        latest_msg_id = int(admin_row[1] or 0)
-        if unread_count > 0:
-            _append_notification(
-                items,
-                preference,
-                key=f"messages-unread-admin-{latest_msg_id}",
-                notification_type=NotificationType.MESSAGE,
-                title="Unread messages in system",
-                message=f"There are {unread_count} unread message(s) in active chats.",
-                level=NotificationLevel.INFO,
-                route="/messages",
-                created_at=now_utc,
-            )
-
         today = date.today()
         tomorrow = today + timedelta(days=1)
         appointments_today_result = await db.execute(

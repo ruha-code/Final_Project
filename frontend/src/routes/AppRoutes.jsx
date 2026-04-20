@@ -67,11 +67,11 @@ function AppRoutes() {
           }
         />
 
-        {/* Messages - All authenticated users */}
+        {/* Messages - Doctor and Patient only */}
         <Route
           path="/messages"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["DOCTOR", "PATIENT"]}>
               <MainLayout>
                 <Messages />
               </MainLayout>

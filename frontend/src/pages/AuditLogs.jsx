@@ -1,176 +1,388 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Search,
+  User,
+  Activity,
+  Calendar,
+  Shield,
+  Trash2,
+  Package2,
+} from "lucide-react";
+
 import { api } from "../services/api";
-import { Search, Filter, User, Activity, Calendar, Settings, Shield } from "lucide-react";
 
-const ACTION_ICONS = {
-  REGISTER: User,
-  LOGIN: User,
-  SETUP_PATIENT_PROFILE: User,
-  SETUP_DOCTOR_PROFILE: User,
-  SET_DOCTOR_SCHEDULE: Calendar,
-  BOOK_APPOINTMENT: Calendar,
-  CANCEL_APPOINTMENT: Calendar,
-  COMPLETE_APPOINTMENT: Calendar,
-  DEACTIVATE_USER: Shield,
-  ACTIVATE_USER: Shield,
-  VIEW_AUDIT_LOGS: Activity,
-  VIEW_ANALYTICS: Activity,
+const DEFAULT_PAGE_SIZE = 25;
+
+const ACTION_META = {
+  REGISTER: { icon: User, color: "bg-green-100 text-green-700", label: "Registered" },
+  LOGIN: { icon: User, color: "bg-blue-100 text-blue-700", label: "Logged in" },
+  LOGOUT: { icon: User, color: "bg-gray-100 text-gray-700", label: "Logged out" },
+  SETUP_PATIENT_PROFILE: {
+    icon: User,
+    color: "bg-purple-100 text-purple-700",
+    label: "Created patient profile",
+  },
+  UPDATE_PATIENT_PROFILE: {
+    icon: User,
+    color: "bg-purple-100 text-purple-700",
+    label: "Updated patient profile",
+  },
+  SETUP_DOCTOR_PROFILE: {
+    icon: User,
+    color: "bg-purple-100 text-purple-700",
+    label: "Created doctor profile",
+  },
+  UPDATE_DOCTOR_PROFILE: {
+    icon: User,
+    color: "bg-purple-100 text-purple-700",
+    label: "Updated doctor profile",
+  },
+  SET_DOCTOR_SCHEDULE: {
+    icon: Calendar,
+    color: "bg-teal-100 text-teal-700",
+    label: "Updated doctor schedule",
+  },
+  BOOK_APPOINTMENT: {
+    icon: Calendar,
+    color: "bg-teal-100 text-teal-700",
+    label: "Booked appointment",
+  },
+  CANCEL_APPOINTMENT: {
+    icon: Calendar,
+    color: "bg-red-100 text-red-700",
+    label: "Cancelled appointment",
+  },
+  COMPLETE_APPOINTMENT: {
+    icon: Calendar,
+    color: "bg-green-100 text-green-700",
+    label: "Completed appointment",
+  },
+  DEACTIVATE_USER: {
+    icon: Shield,
+    color: "bg-red-100 text-red-700",
+    label: "Deactivated user",
+  },
+  ACTIVATE_USER: {
+    icon: Shield,
+    color: "bg-green-100 text-green-700",
+    label: "Activated user",
+  },
+  DELETE_USER: {
+    icon: Trash2,
+    color: "bg-red-100 text-red-700",
+    label: "Deleted user",
+  },
+  UPDATE_USER: {
+    icon: User,
+    color: "bg-blue-100 text-blue-700",
+    label: "Updated user",
+  },
+  UPDATE_PATIENT: {
+    icon: User,
+    color: "bg-blue-100 text-blue-700",
+    label: "Updated patient",
+  },
+  DELETE_PATIENT: {
+    icon: Trash2,
+    color: "bg-red-100 text-red-700",
+    label: "Deleted patient",
+  },
+  UPDATE_DOCTOR: {
+    icon: User,
+    color: "bg-blue-100 text-blue-700",
+    label: "Updated doctor",
+  },
+  DELETE_DOCTOR: {
+    icon: Trash2,
+    color: "bg-red-100 text-red-700",
+    label: "Deleted doctor",
+  },
+  DELETE_APPOINTMENT: {
+    icon: Trash2,
+    color: "bg-red-100 text-red-700",
+    label: "Deleted appointment",
+  },
+  INVENTORY_ADD: {
+    icon: Package2,
+    color: "bg-emerald-100 text-emerald-700",
+    label: "Added inventory item",
+  },
+  INVENTORY_UPDATE: {
+    icon: Package2,
+    color: "bg-sky-100 text-sky-700",
+    label: "Updated inventory item",
+  },
+  INVENTORY_REMOVE: {
+    icon: Package2,
+    color: "bg-orange-100 text-orange-700",
+    label: "Removed inventory item",
+  },
+  INVENTORY_LOW: {
+    icon: Package2,
+    color: "bg-amber-100 text-amber-700",
+    label: "Inventory low warning",
+  },
+  VIEW_AUDIT_LOGS: {
+    icon: Activity,
+    color: "bg-gray-100 text-gray-700",
+    label: "Viewed audit logs",
+  },
+  VIEW_ANALYTICS: {
+    icon: Activity,
+    color: "bg-gray-100 text-gray-700",
+    label: "Viewed analytics",
+  },
 };
 
-const ACTION_COLORS = {
-  REGISTER: "bg-green-100 text-green-600",
-  LOGIN: "bg-blue-100 text-blue-600",
-  SETUP_PATIENT_PROFILE: "bg-purple-100 text-purple-600",
-  SETUP_DOCTOR_PROFILE: "bg-purple-100 text-purple-600",
-  SET_DOCTOR_SCHEDULE: "bg-teal-100 text-teal-600",
-  BOOK_APPOINTMENT: "bg-teal-100 text-teal-600",
-  CANCEL_APPOINTMENT: "bg-red-100 text-red-500",
-  COMPLETE_APPOINTMENT: "bg-green-100 text-green-600",
-  DEACTIVATE_USER: "bg-red-100 text-red-500",
-  ACTIVATE_USER: "bg-green-100 text-green-600",
-  VIEW_AUDIT_LOGS: "bg-gray-100 text-gray-600",
-  VIEW_ANALYTICS: "bg-gray-100 text-gray-600",
-};
-
-const ACTION_LABELS = {
-  REGISTER: "Registered",
-  LOGIN: "Logged in",
-  SETUP_PATIENT_PROFILE: "Set up patient profile",
-  SETUP_DOCTOR_PROFILE: "Set up doctor profile",
-  SET_DOCTOR_SCHEDULE: "Updated schedule",
-  BOOK_APPOINTMENT: "Booked appointment",
-  CANCEL_APPOINTMENT: "Cancelled appointment",
-  COMPLETE_APPOINTMENT: "Completed appointment",
-  DEACTIVATE_USER: "Deactivated user",
-  ACTIVATE_USER: "Activated user",
-  VIEW_AUDIT_LOGS: "Viewed audit logs",
-  VIEW_ANALYTICS: "Viewed analytics",
-};
-
-function formatDate(dateStr) {
-  const d = new Date(dateStr);
-  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+function humanizeAction(action) {
+  if (!action) return "Unknown action";
+  if (ACTION_META[action]?.label) return ACTION_META[action].label;
+  return action
+    .toLowerCase()
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
-function formatTime(dateStr) {
-  const d = new Date(dateStr);
-  return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+function formatDateTime(value) {
+  const date = new Date(value);
+  return {
+    date: date.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }),
+    time: date.toLocaleTimeString("en-GB", {
+      hour: "2-digit",
+      minute: "2-digit",
+    }),
+  };
 }
 
 export default function AuditLogs() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [page, setPage] = useState(1);
+  const [pages, setPages] = useState(1);
+  const [total, setTotal] = useState(0);
   const [actionFilter, setActionFilter] = useState("");
-  const [dateFilter, setDateFilter] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setPage(1);
+      setSearch(searchInput.trim());
+    }, 250);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchInput]);
 
   useEffect(() => {
     const fetchLogs = async () => {
       setLoading(true);
+      setError("");
+
       try {
         const params = new URLSearchParams();
-        params.set("page", page);
-        params.set("page_size", "50");
+        params.set("page", String(page));
+        params.set("page_size", String(DEFAULT_PAGE_SIZE));
+        params.set(
+          "timezone_offset_minutes",
+          String(new Date().getTimezoneOffset()),
+        );
         if (actionFilter) params.set("action", actionFilter);
-        if (dateFilter) params.set("start_date", dateFilter);
-        
+        if (startDate) params.set("start_date", startDate);
+        if (endDate) params.set("end_date", endDate);
+        if (search) params.set("q", search);
+
         const data = await api.get(`/audit/audit-logs?${params.toString()}`);
-        setLogs(data.items || []);
+        setLogs(Array.isArray(data?.items) ? data.items : []);
+        setTotal(Number.isFinite(data?.total) ? data.total : 0);
+        setPages(Number.isFinite(data?.pages) && data.pages > 0 ? data.pages : 1);
       } catch (err) {
-        console.error("Failed to fetch logs:", err);
+        setError(err.message || "Failed to fetch audit logs");
+        setLogs([]);
+        setTotal(0);
+        setPages(1);
       } finally {
         setLoading(false);
       }
     };
-    fetchLogs();
-  }, [page, actionFilter, dateFilter]);
 
-  const uniqueActions = [...new Set(logs.map((l) => l.action).filter(Boolean))];
+    void fetchLogs();
+  }, [page, actionFilter, startDate, endDate, search]);
 
-  const filteredLogs = logs.filter((log) => {
-    if (search && !log.action?.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
-  });
+  useEffect(() => {
+    if (page > pages) {
+      setPage(pages);
+    }
+  }, [page, pages]);
+
+  const actionOptions = useMemo(() => {
+    const keys = new Set([
+      ...Object.keys(ACTION_META),
+      ...logs.map((log) => log.action_key || log.action),
+    ]);
+    return [...keys]
+      .filter(Boolean)
+      .sort((first, second) => humanizeAction(first).localeCompare(humanizeAction(second)))
+      .map((action) => ({
+        value: action,
+        label: humanizeAction(action),
+      }));
+  }, [logs]);
+
+  const clearFilters = () => {
+    setPage(1);
+    setActionFilter("");
+    setStartDate("");
+    setEndDate("");
+    setSearchInput("");
+    setSearch("");
+  };
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold">Audit Logs</h2>
-        <p className="text-sm text-gray-400">System activity log</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="text-2xl font-semibold">Audit Logs</h2>
+          <p className="text-sm text-gray-400">
+            Review security and activity events with consistent actor and target context.
+          </p>
+        </div>
+        <div className="rounded-xl border bg-white px-3 py-2 text-sm text-gray-600">
+          Total records: <span className="font-semibold text-gray-800">{total}</span>
+        </div>
       </div>
 
-      {/* FILTERS */}
-      <div className="flex gap-4">
-        <div className="relative flex-1">
+      <div className="grid gap-3 md:grid-cols-5">
+        <div className="relative md:col-span-2">
           <Search size={16} className="absolute left-3 top-3 text-gray-400" />
           <input
             type="text"
-            placeholder="Search actions..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-white border pl-10 px-4 py-2 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
+            placeholder="Search by action, actor, or IP..."
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
+            className="w-full rounded-xl border bg-white py-2 pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-teal-400"
           />
         </div>
+
         <select
           value={actionFilter}
-          onChange={(e) => { setActionFilter(e.target.value); setPage(1); }}
-          className="bg-white border px-4 py-2 rounded-xl text-sm"
+          onChange={(event) => {
+            setActionFilter(event.target.value);
+            setPage(1);
+          }}
+          className="rounded-xl border bg-white px-4 py-2 text-sm"
         >
-          <option value="">All Actions</option>
-          {uniqueActions.map((action) => (
-            <option key={action} value={action}>{ACTION_LABELS[action] || action}</option>
+          <option value="">All actions</option>
+          {actionOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
           ))}
         </select>
+
         <input
           type="date"
-          value={dateFilter}
-          onChange={(e) => { setDateFilter(e.target.value); setPage(1); }}
-          className="bg-white border px-4 py-2 rounded-xl text-sm"
+          value={startDate}
+          onChange={(event) => {
+            setStartDate(event.target.value);
+            setPage(1);
+          }}
+          className="rounded-xl border bg-white px-4 py-2 text-sm"
+          aria-label="Start date"
+        />
+
+        <input
+          type="date"
+          value={endDate}
+          onChange={(event) => {
+            setEndDate(event.target.value);
+            setPage(1);
+          }}
+          className="rounded-xl border bg-white px-4 py-2 text-sm"
+          aria-label="End date"
         />
       </div>
 
-      {/* TABLE */}
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={clearFilters}
+          className="rounded-xl border bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+        >
+          Clear filters
+        </button>
+      </div>
+
       {loading ? (
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-500" />
+        <div className="flex h-64 items-center justify-center">
+          <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-teal-500" />
         </div>
-      ) : filteredLogs.length === 0 ? (
-        <div className="bg-white rounded-xl border p-10 text-center text-gray-400">
-          No logs found
+      ) : error ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-600">
+          {error}
+        </div>
+      ) : logs.length === 0 ? (
+        <div className="rounded-xl border bg-white p-10 text-center text-gray-400">
+          No logs found for the selected filters.
         </div>
       ) : (
-        <div className="bg-white rounded-xl border overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b">
+        <div className="overflow-x-auto rounded-xl border bg-white">
+          <table className="min-w-full">
+            <thead className="border-b bg-gray-50">
               <tr>
-                <th className="text-left px-6 py-3 text-xs text-gray-400 font-medium">Timestamp</th>
-                <th className="text-left px-6 py-3 text-xs text-gray-400 font-medium">Action</th>
-                <th className="text-left px-6 py-3 text-xs text-gray-400 font-medium">User</th>
-                <th className="text-left px-6 py-3 text-xs text-gray-400 font-medium">IP Address</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400">Timestamp</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400">Action</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400">Actor</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400">Target</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400">IP Address</th>
               </tr>
             </thead>
             <tbody>
-              {filteredLogs.map((log) => {
-                const Icon = ACTION_ICONS[log.action] || Activity;
-                const color = ACTION_COLORS[log.action] || "bg-gray-100 text-gray-600";
+              {logs.map((log) => {
+                const effectiveAction = log.action_key || log.action;
+                const Icon = ACTION_META[effectiveAction]?.icon || Activity;
+                const color = ACTION_META[effectiveAction]?.color || "bg-gray-100 text-gray-700";
+                const { date, time } = formatDateTime(log.created_at);
+                const actorName =
+                  log.actor_name || (log.user_id ? `User #${log.user_id}` : "System");
+                const actorMeta =
+                  log.actor_username
+                    ? `@${log.actor_username}`
+                    : log.actor_role || "";
+                const targetLabel =
+                  log.target_label ||
+                  (log.entity_type && log.entity_id
+                    ? `${log.entity_type} #${log.entity_id}`
+                    : "-");
+
                 return (
-                  <tr key={log.id} className="border-b hover:bg-gray-50">
+                  <tr key={log.id} className="border-b last:border-b-0 hover:bg-gray-50">
                     <td className="px-6 py-4">
-                      <p className="text-sm">{formatDate(log.created_at)}</p>
-                      <p className="text-xs text-gray-400">{formatTime(log.created_at)}</p>
+                      <p className="text-sm text-gray-800">{date}</p>
+                      <p className="text-xs text-gray-400">{time}</p>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs ${color}`}>
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium ${color}`}
+                      >
                         <Icon size={12} />
-                        {ACTION_LABELS[log.action] || log.action}
+                        {log.action_label || humanizeAction(effectiveAction)}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-500">
-                      User #{log.user_id}
+                    <td className="px-6 py-4">
+                      <p className="text-sm text-gray-700">{actorName}</p>
+                      {actorMeta && <p className="text-xs text-gray-400">{actorMeta}</p>}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-400">
-                      {log.ip_address || "—"}
+                    <td className="px-6 py-4 text-sm text-gray-700">{targetLabel}</td>
+                    <td className="px-6 py-4 text-sm text-gray-500">
+                      {log.ip_address || "Unknown"}
                     </td>
                   </tr>
                 );
@@ -180,15 +392,29 @@ export default function AuditLogs() {
         </div>
       )}
 
-      {/* PAGINATION */}
-      {page > 1 && (
-        <button
-          onClick={() => setPage(page - 1)}
-          className="bg-white border px-4 py-2 rounded-xl text-sm"
-        >
-          Previous
-        </button>
-      )}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-gray-500">
+          Page {page} of {pages}
+        </p>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setPage((current) => Math.max(1, current - 1))}
+            disabled={page === 1 || loading}
+            className="rounded-xl border bg-white px-4 py-2 text-sm text-gray-700 disabled:opacity-50"
+          >
+            Previous
+          </button>
+          <button
+            type="button"
+            onClick={() => setPage((current) => Math.min(pages, current + 1))}
+            disabled={page >= pages || loading}
+            className="rounded-xl border bg-white px-4 py-2 text-sm text-gray-700 disabled:opacity-50"
+          >
+            Next
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

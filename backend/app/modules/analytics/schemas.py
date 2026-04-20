@@ -21,4 +21,7 @@ class DoctorStats(BaseModel):
     total: int
     completed: int
     cancelled: int
+    scheduled: int
+    ongoing: int
+    pending: int
     completion_rate: float

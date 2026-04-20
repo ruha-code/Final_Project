@@ -11,6 +11,16 @@ function parseIntegerInput(value, fallback) {
   return Number.isNaN(parsed) ? fallback : parsed;
 }
 
+const FULL_NAME_REGEX = /^(?=.{2,100}$)\p{L}+(?:[ .'-]\p{L}+)*$/u;
+const USERNAME_REGEX = /^[A-Za-z0-9._-]{3,30}$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_REGEX = /^\+?[0-9()\-\s]{7,20}$/;
+const STRONG_PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,128}$/;
+
+function normalizeName(value) {
+  return value.trim().replace(/\s+/g, " ");
+}
+
 function StatusBadge({ isAvailable }) {
   return (
     <Badge
@@ -40,21 +50,39 @@ function AddDoctorModal({ onClose, onCreated }) {
 
   const handleSubmit = async () => {
     setError("");
-    if (!form.full_name || !form.username || !form.email || !form.password) {
+
+    const normalizedName = normalizeName(form.full_name);
+    const normalizedUsername = form.username.trim();
+    const normalizedEmail = form.email.trim().toLowerCase();
+    const normalizedPhone = form.phone.trim();
+
+    if (!normalizedName || !normalizedUsername || !normalizedEmail || !form.password) {
       return setError("Name, username, email and password are required");
     }
-    if (form.password.length < 8) {
-      return setError("Password must be at least 8 characters with a digit");
+    if (!FULL_NAME_REGEX.test(normalizedName)) {
+      return setError("Full name must contain letters and may include spaces, apostrophes, periods, or hyphens.");
+    }
+    if (!USERNAME_REGEX.test(normalizedUsername)) {
+      return setError("Username must be 3-30 characters and can include letters, numbers, dots, underscores, or hyphens.");
+    }
+    if (!EMAIL_REGEX.test(normalizedEmail)) {
+      return setError("Please enter a valid email address.");
+    }
+    if (normalizedPhone && !PHONE_REGEX.test(normalizedPhone)) {
+      return setError("Phone must be 7-20 characters and contain only digits or +-() symbols.");
+    }
+    if (!STRONG_PASSWORD_REGEX.test(form.password)) {
+      return setError("Password must be at least 8 characters and include uppercase, lowercase, and a digit.");
     }
 
     setLoading(true);
     try {
       await api.post("/auth/admin/users/create-doctor", {
-        full_name: form.full_name.trim(),
-        username: form.username.trim(),
-        email: form.email.trim(),
+        full_name: normalizedName,
+        username: normalizedUsername,
+        email: normalizedEmail,
         password: form.password,
-        phone: form.phone.trim() || null,
+        phone: normalizedPhone || null,
       });
       onCreated();
       onClose();
@@ -121,7 +149,7 @@ function AddDoctorModal({ onClose, onCreated }) {
               type="password"
               value={form.password}
               onChange={handleChange}
-              placeholder="Min 8 chars, include a digit"
+              placeholder="Use uppercase, lowercase and a number"
               className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-teal-400"
             />
           </div>

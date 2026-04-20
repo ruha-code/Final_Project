@@ -61,8 +61,6 @@ def _build_conv(conv: Conversation, current_user_id: int) -> ConversationRespons
 
 async def _ensure_access(conv: Conversation, user: User, db: AsyncSession) -> None:
     """Raise ForbiddenException if the user is not part of this conversation."""
-    if user.role == "ADMIN":
-        return
     if user.role == "PATIENT":
         result = await db.execute(select(Patient).where(Patient.user_id == user.id))
         patient = result.scalar_one_or_none()
@@ -73,6 +71,8 @@ async def _ensure_access(conv: Conversation, user: User, db: AsyncSession) -> No
         doctor = result.scalar_one_or_none()
         if not doctor or conv.doctor_id != doctor.id:
             raise ForbiddenException("This conversation does not belong to you")
+    else:
+        raise ForbiddenException("Messaging is available only for doctors and patients")
 
 
 async def _get_recipient_user_id(conv: Conversation, sender: User, db: AsyncSession) -> int | None:
@@ -96,7 +96,7 @@ async def _get_recipient_user_id(conv: Conversation, sender: User, db: AsyncSess
     summary="Get my conversations (sorted by latest message)",
 )
 async def get_conversations(
-    current_user: User = Depends(RoleChecker(["PATIENT", "DOCTOR", "ADMIN"])),
+    current_user: User = Depends(RoleChecker(["PATIENT", "DOCTOR"])),
     db: AsyncSession = Depends(get_db),
 ):
     query = select(Conversation).options(*_load_opts())
@@ -180,7 +180,7 @@ async def get_messages(
     conv_id: int,
     page: int = Query(1, ge=1),
     page_size: int = Query(100, le=200),
-    current_user: User = Depends(RoleChecker(["PATIENT", "DOCTOR", "ADMIN"])),
+    current_user: User = Depends(RoleChecker(["PATIENT", "DOCTOR"])),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(Conversation).where(Conversation.id == conv_id))
@@ -240,7 +240,7 @@ async def get_messages(
 async def send_message(
     conv_id: int,
     dto: MessageCreate,
-    current_user: User = Depends(RoleChecker(["PATIENT", "DOCTOR", "ADMIN"])),
+    current_user: User = Depends(RoleChecker(["PATIENT", "DOCTOR"])),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -315,7 +315,7 @@ async def send_message(
 )
 async def mark_as_read(
     conv_id: int,
-    current_user: User = Depends(RoleChecker(["PATIENT", "DOCTOR", "ADMIN"])),
+    current_user: User = Depends(RoleChecker(["PATIENT", "DOCTOR"])),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(Conversation).where(Conversation.id == conv_id))
@@ -428,6 +428,9 @@ async def chat_websocket(
     user = await db.get(User, payload.get("user_id"))
     if not user or not user.is_active:
         await websocket.close(code=4001, reason="User not found or inactive")
+        return
+    if user.role not in {"PATIENT", "DOCTOR"}:
+        await websocket.close(code=4003, reason="Access denied")
         return
 
     

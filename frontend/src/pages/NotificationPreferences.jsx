@@ -38,7 +38,7 @@ const TYPE_CONFIG = {
 };
 
 function getFallbackTypesByRole(role) {
-  if (role === "ADMIN") return TYPE_ORDER;
+  if (role === "ADMIN") return ["APPOINTMENT", "INVENTORY", "CALENDAR"];
   if (role === "DOCTOR") return ["MESSAGE", "APPOINTMENT", "INVENTORY"];
   return ["MESSAGE", "APPOINTMENT"];
 }
@@ -114,10 +114,14 @@ export default function NotificationPreferences() {
     try {
       setSaving(true);
       const payload = {
-        mute_message_notifications: form.mute_message_notifications,
-        mute_appointment_notifications: form.mute_appointment_notifications,
         appointment_reminder_hours: reminderHours,
       };
+      if (availableTypes.includes("MESSAGE")) {
+        payload.mute_message_notifications = form.mute_message_notifications;
+      }
+      if (availableTypes.includes("APPOINTMENT")) {
+        payload.mute_appointment_notifications = form.mute_appointment_notifications;
+      }
       if (availableTypes.includes("INVENTORY")) {
         payload.mute_inventory_notifications = form.mute_inventory_notifications;
       }
