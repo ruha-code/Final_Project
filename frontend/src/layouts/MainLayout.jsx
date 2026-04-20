@@ -1,8 +1,9 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { Search, Bell, CalendarClock, Package2, LogOut, MessageSquare, Settings, Users, X } from "lucide-react";
+import { Search, Bell, CalendarClock, Package2, LogOut, MessageSquare, Settings, Users, X, LayoutDashboard, CalendarDays, Stethoscope, UserRound, Building2, CalendarRange, UserPlus, HeartPulse, UserCircle, Calendar, Package, MessageCircle, ShieldCheck, FileText, BarChart3 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
+import ChatBot from "../components/ChatBot";
 
 const TOAST_LIFETIME_MS = 5000;
 const TOAST_EXIT_MS = 220;
@@ -165,20 +166,21 @@ function MainLayout({ children }) {
     toastRemovalTimersRef.current = {};
   }, []);
 
-  const menuItem = (path, name) => {
+  const menuItem = (path, name, Icon) => {
     const isActive = location.pathname.startsWith(path);
 
     return (
       <li
         key={path}
         onClick={() => navigate(path)}
-        className={`px-4 py-2.5 rounded-xl cursor-pointer text-sm transition ${
+        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl cursor-pointer text-sm transition ${
           isActive
             ? "bg-teal-500 text-white"
             : "text-gray-500 hover:bg-gray-100"
         }`}
       >
-        {name}
+        {Icon && <Icon size={18} />}
+        <span>{name}</span>
       </li>
     );
   };
@@ -512,24 +514,24 @@ function MainLayout({ children }) {
           </div>
 
             <ul className="space-y-2">
-            {menuItem("/dashboard", "Dashboard")}
-            {menuItem("/appointments", "Appointments")}
-            {isAdmin() && menuItem("/patients", "Patients")}
-            {(isAdmin() || isPatient()) && menuItem("/doctors", "Doctors")}
-            {isAdmin() && menuItem("/departments", "Departments")}
-            {isDoctor() && menuItem("/schedule", "My Schedule")}
-            {isDoctor() && menuItem("/my-patients", "My Patients")}
-            {isDoctor() && menuItem("/doctor/profile", "My Profile")}
-            {isPatient() && menuItem("/patient/health", "My Health")}
-            {isPatient() && menuItem("/patient/profile", "My Profile")}
-            {(isAdmin() || isDoctor()) && menuItem("/calendar", "Calendar")}
-            {isAdmin() && menuItem("/inventory", "Inventory")}
-            {(isDoctor() || isPatient()) && menuItem("/messages", "Messages")}
+            {menuItem("/dashboard", "Dashboard", LayoutDashboard)}
+            {menuItem("/appointments", "Appointments", CalendarDays)}
+            {isAdmin() && menuItem("/patients", "Patients", UserRound)}
+            {(isAdmin() || isPatient()) && menuItem("/doctors", "Doctors", Stethoscope)}
+            {isAdmin() && menuItem("/departments", "Departments", Building2)}
+            {isDoctor() && menuItem("/schedule", "My Schedule", CalendarRange)}
+            {isDoctor() && menuItem("/my-patients", "My Patients", UserPlus)}
+            {isDoctor() && menuItem("/doctor/profile", "My Profile", UserCircle)}
+            {isPatient() && menuItem("/patient/health", "My Health", HeartPulse)}
+            {isPatient() && menuItem("/patient/profile", "My Profile", UserCircle)}
+            {(isAdmin() || isDoctor()) && menuItem("/calendar", "Calendar", Calendar)}
+            {isAdmin() && menuItem("/inventory", "Inventory", Package)}
+            {(isDoctor() || isPatient()) && menuItem("/messages", "Messages", MessageCircle)}
             {isAdmin() && (
                 <>
-                {menuItem("/admin/users", "Users")}
-                {menuItem("/admin/audit-logs", "Audit Logs")}
-                {menuItem("/admin/analytics", "Analytics")}
+                {menuItem("/admin/users", "Users", ShieldCheck)}
+                {menuItem("/admin/audit-logs", "Audit Logs", FileText)}
+                {menuItem("/admin/analytics", "Analytics", BarChart3)}
                 </>
               )}
             </ul>
@@ -807,7 +809,7 @@ function MainLayout({ children }) {
       </div>
 
       {toastNotifications.length > 0 && (
-        <div className="pointer-events-none fixed bottom-5 right-5 z-[70] flex w-full max-w-sm flex-col gap-3">
+        <div className="pointer-events-none fixed bottom-24 right-5 z-[70] flex w-full max-w-sm flex-col gap-3">
           {toastNotifications.map((notification) => (
             <div
               key={notification.key}
@@ -855,6 +857,8 @@ function MainLayout({ children }) {
           ))}
         </div>
       )}
+
+      {isPatient() && <ChatBot />}
     </div>
   );
 }
