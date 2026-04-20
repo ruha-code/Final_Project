@@ -33,6 +33,9 @@ from app.modules.auth.schemas import (
     UserResponse,
     UserUpdateSchema,
     AdminUserUpdateSchema,
+    VerifyCodeSchema,
+    ForgotPasswordSchema,
+    ResetPasswordSchema,
 )
 from app.modules.auth.service import AuthService
 from app.modules.auth.models import User, UserRole
@@ -80,7 +83,7 @@ def get_auth_service(db: AsyncSession = Depends(get_db)) -> AuthService:
 
 
 @router.post(
-    "/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED
+    "/register", status_code=status.HTTP_201_CREATED
 )
 async def register(
     dto: RegisterSchema,
@@ -98,13 +101,6 @@ async def register(
         raise RateLimitException("Too many registration attempts. Please try again later.")
 
     result = await auth_service.register(dto)
-
-    if result["role"] == UserRole.PATIENT:
-        from app.modules.patients.models import Patient
-
-        patient = Patient(user_id=result["user_id"])
-        db.add(patient)
-        await db.commit()
 
     await log(
         db=db,
@@ -141,6 +137,98 @@ async def login(
         action=Actions.LOGIN,
         entity_type="User",
         entity_id=result["user_id"],
+        request=request,
+    )
+    return result
+
+
+@router.post("/verify", response_model=TokenResponse)
+async def verify_email(
+    dto: VerifyCodeSchema,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    auth_service: AuthService = Depends(get_auth_service),
+):
+    client_ip = request.client.host if request.client else "unknown"
+    allowed, _ = await check_rate_limit(
+        RateLimitKeys.register_ip(client_ip),
+        max_requests=5,
+        window_seconds=300,
+    )
+    if not allowed:
+        raise RateLimitException("Too many verification attempts. Please try again later.")
+
+    result = await auth_service.verify_code(dto.email, dto.code)
+
+    from app.modules.patients.models import Patient
+    patient = Patient(user_id=result["user_id"])
+    db.add(patient)
+    await db.commit()
+
+    await log(
+        db=db,
+        user_id=result["user_id"],
+        action=Actions.REGISTER,
+        entity_type="User",
+        entity_id=result["user_id"],
+        request=request,
+    )
+    return result
+
+
+@router.post("/resend-verification")
+async def resend_verification(
+    dto: ForgotPasswordSchema,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    auth_service: AuthService = Depends(get_auth_service),
+):
+    client_ip = request.client.host if request.client else "unknown"
+    allowed, _ = await check_rate_limit(
+        RateLimitKeys.register_ip(client_ip),
+        max_requests=3,
+        window_seconds=300,
+    )
+    if not allowed:
+        raise RateLimitException("Too many requests. Please try again later.")
+
+    result = await auth_service.resend_verification_code(dto.email)
+    return result
+
+
+@router.post("/forgot-password")
+async def forgot_password(
+    dto: ForgotPasswordSchema,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    auth_service: AuthService = Depends(get_auth_service),
+):
+    client_ip = request.client.host if request.client else "unknown"
+    allowed, _ = await check_rate_limit(
+        RateLimitKeys.login_ip(client_ip),
+        max_requests=3,
+        window_seconds=300,
+    )
+    if not allowed:
+        raise RateLimitException("Too many requests. Please try again later.")
+
+    result = await auth_service.forgot_password(dto.email)
+    return result
+
+
+@router.post("/reset-password")
+async def reset_password(
+    dto: ResetPasswordSchema,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    auth_service: AuthService = Depends(get_auth_service),
+):
+    result = await auth_service.reset_password(dto.token, dto.new_password)
+    await log(
+        db=db,
+        user_id=None,
+        action="PASSWORD_RESET",
+        entity_type="User",
         request=request,
     )
     return result

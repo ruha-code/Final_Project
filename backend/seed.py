@@ -472,6 +472,7 @@ async def seed_admin(session) -> User:
         password_hash=hash_password("admin123"),
         role=UserRole.ADMIN,
         phone="+1 555-0000",
+        is_verified=True,
     )
     session.add(admin)
     await session.flush()
@@ -491,6 +492,7 @@ async def seed_doctors(session, dept_map: dict) -> list[Doctor]:
             password_hash=hash_password("doctor123"),
             role=UserRole.DOCTOR,
             phone=f"+1 555-02{i:02d}",
+            is_verified=True,
         )
         session.add(user)
         await session.flush()
@@ -538,6 +540,7 @@ async def seed_patients(session) -> list[Patient]:
             password_hash=hash_password("patient123"),
             role=UserRole.PATIENT,
             phone=d["phone"],
+            is_verified=True,
         )
         session.add(user)
         await session.flush()

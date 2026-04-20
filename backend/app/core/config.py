@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""     
     EMAILS_FROM: str = ""          
     EMAILS_ENABLED: bool = False 
+    FRONTEND_URL: str = "http://localhost:5173"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

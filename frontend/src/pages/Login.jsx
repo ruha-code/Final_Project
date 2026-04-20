@@ -142,7 +142,10 @@ function Login() {
                 />
                 <span className="text-sm text-gray-600">Remember me</span>
               </label>
-              <span className="text-sm text-teal-600 hover:text-teal-700 cursor-pointer font-medium">
+              <span
+                onClick={() => navigate("/forgot-password")}
+                className="text-sm text-teal-600 hover:text-teal-700 cursor-pointer font-medium"
+              >
                 Forgot password?
               </span>
             </div>

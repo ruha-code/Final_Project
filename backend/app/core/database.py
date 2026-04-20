@@ -61,6 +61,23 @@ async def _ensure_legacy_schema(conn) -> None:
             )
         )
 
+    if not await _column_exists("users", "is_verified", conn):
+        await conn.execute(
+            text(
+                """
+                ALTER TABLE users
+                ADD COLUMN is_verified BOOLEAN DEFAULT false NOT NULL,
+                ADD COLUMN verification_code VARCHAR(6),
+                ADD COLUMN verification_code_expires TIMESTAMPTZ,
+                ADD COLUMN reset_token VARCHAR(255),
+                ADD COLUMN reset_token_expires TIMESTAMPTZ
+                """
+            )
+        )
+        await conn.execute(
+            text("UPDATE users SET is_verified = true WHERE is_verified IS NULL")
+        )
+
 
 async def init_db():
     """Create missing tables and patch known legacy schema gaps."""

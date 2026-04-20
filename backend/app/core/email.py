@@ -236,3 +236,60 @@ async def send_new_message_notification(
         f"New message from {sender_name}",
         _base_template("You have a new message 💬", body),
     )
+
+
+async def send_verification_code(
+    recipient_email: str,
+    recipient_name: str,
+    code: str,
+) -> None:
+    body = f"""
+        <p>Dear <strong>{recipient_name}</strong>,</p>
+        <p>Thank you for registering with Medlink. Please use the following
+        verification code to activate your account:</p>
+        <div style="text-align:center;margin:24px 0;">
+          <span style="display:inline-block;background:#f0fdf4;color:#059669;
+                       font-size:32px;font-weight:bold;letter-spacing:8px;
+                       padding:16px 32px;border-radius:8px;border:2px solid #059669;">
+            {code}
+          </span>
+        </div>
+        <p>This code will expire in 10 minutes. If you did not request this,
+        please ignore this email.</p>
+    """
+    await _send(
+        recipient_email,
+        "Verify Your Medlink Account",
+        _base_template("Your verification code 🔐", body),
+    )
+
+
+async def send_password_reset(
+    recipient_email: str,
+    recipient_name: str,
+    reset_link: str,
+) -> None:
+    body = f"""
+        <p>Dear <strong>{recipient_name}</strong>,</p>
+        <p>We received a request to reset your Medlink password. Click the
+        button below to create a new password:</p>
+        <div style="text-align:center;margin:24px 0;">
+          <a href="{reset_link}"
+             style="display:inline-block;background:#0d9488;color:#fff;
+                    padding:14px 32px;border-radius:8px;text-decoration:none;
+                    font-size:16px;font-weight:bold;">
+            Reset Password
+          </a>
+        </div>
+        <p style="color:#94a3b8;font-size:13px;">Or copy this link:<br>
+        <a href="{reset_link}" style="color:#0d9488;word-break:break-all;">
+          {reset_link}
+        </a></p>
+        <p>This link will expire in 30 minutes. If you did not request a
+        password reset, please ignore this email.</p>
+    """
+    await _send(
+        recipient_email,
+        "Reset Your Medlink Password",
+        _base_template("Password reset request 🔑", body),
+    )

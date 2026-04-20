@@ -49,17 +49,33 @@ export function AuthProvider({ children }) {
     return refreshUser();
   };
 
-  const register = async ({ name, username, email, password, role }) => {
+  const register = async ({ name, username, email, password }) => {
     const response = await api.post("/auth/register", {
       full_name: name,
       username,
       email,
       password,
-      role: role || ROLES.PATIENT,
     });
+    return response;
+  };
+
+  const verifyCode = async ({ email, code }) => {
+    const response = await api.post("/auth/verify", { email, code });
     api.setToken(response.access_token);
     if (response.refresh_token) api.setRefreshToken(response.refresh_token);
     return refreshUser();
+  };
+
+  const resendVerification = async (email) => {
+    return api.post("/auth/resend-verification", { email });
+  };
+
+  const forgotPassword = async (email) => {
+    return api.post("/auth/forgot-password", { email });
+  };
+
+  const resetPassword = async (token, newPassword) => {
+    return api.post("/auth/reset-password", { token, new_password: newPassword });
   };
 
   const logout = async () => {
@@ -93,6 +109,10 @@ export function AuthProvider({ children }) {
         user,
         login,
         register,
+        verifyCode,
+        resendVerification,
+        forgotPassword,
+        resetPassword,
         logout,
         loading,
         isAuthenticated: !!user,

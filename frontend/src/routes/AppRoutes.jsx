@@ -15,6 +15,9 @@ const Messages = lazy(() => import("../pages/Messages"));
 const Appointments = lazy(() => import("../pages/Appointments"));
 const Login = lazy(() => import("../pages/Login"));
 const Register = lazy(() => import("../pages/Register"));
+const VerifyCode = lazy(() => import("../pages/VerifyCode"));
+const ForgotPassword = lazy(() => import("../pages/ForgotPassword"));
+const ResetPassword = lazy(() => import("../pages/ResetPassword"));
 const Calendar = lazy(() => import("../pages/Calendar"));
 const Patients = lazy(() => import("../pages/Patients"));
 const PatientDetails = lazy(() => import("../pages/PatientDetails"));
@@ -54,6 +57,9 @@ function AppRoutes() {
         {/* AUTH */}
         <Route path="/" element={<AuthRoute><Login /></AuthRoute>} />
         <Route path="/register" element={<AuthRoute><Register /></AuthRoute>} />
+        <Route path="/verify" element={<AuthRoute><VerifyCode /></AuthRoute>} />
+        <Route path="/forgot-password" element={<AuthRoute><ForgotPassword /></AuthRoute>} />
+        <Route path="/reset-password" element={<AuthRoute><ResetPassword /></AuthRoute>} />
 
         {/* Dashboard - All authenticated users */}
         <Route

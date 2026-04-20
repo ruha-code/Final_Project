@@ -53,7 +53,7 @@ function Register() {
         password: form.password,
       });
 
-      navigate("/dashboard");
+      navigate("/verify", { state: { email: form.email.trim() } });
     } catch (err) {
       setError(err.message || "Failed to create account");
     } finally {

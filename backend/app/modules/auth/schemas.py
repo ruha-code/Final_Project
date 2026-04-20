@@ -84,6 +84,7 @@ class UserResponse(BaseModel):
     phone: Optional[str] = None
     avatar_url: Optional[str] = None
     is_active: bool
+    is_verified: bool
 
 
 class UserUpdateSchema(BaseModel):
@@ -134,3 +135,34 @@ class AdminUserUpdateSchema(BaseModel):
         if not PHONE_PATTERN.fullmatch(cleaned):
             raise ValueError("Phone must be 7-20 characters and contain only digits or +-() symbols")
         return cleaned
+
+
+class VerifyCodeSchema(BaseModel):
+    email: EmailStr
+    code: str
+
+    @field_validator("code")
+    @classmethod
+    def code_validate(cls, v: str) -> str:
+        cleaned = v.strip()
+        if not re.match(r"^\d{6}$", cleaned):
+            raise ValueError("Code must be 6 digits")
+        return cleaned
+
+
+class ForgotPasswordSchema(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordSchema(BaseModel):
+    token: str
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def password_strength(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        if not any(c.isdigit() for c in v):
+            raise ValueError("Password must contain at least one digit")
+        return v
