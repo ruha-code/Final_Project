@@ -29,6 +29,35 @@ const STATUS_LABELS = {
 
 const PATIENT_APPOINTMENT_GRID = "grid-cols-[minmax(0,1.45fr)_minmax(0,0.95fr)_100px_90px_120px_120px]";
 const DOCTOR_APPOINTMENT_GRID = "grid-cols-[minmax(0,1.45fr)_minmax(0,1.1fr)_minmax(0,0.95fr)_100px_90px_130px_220px]";
+const VALID_APPOINTMENT_STATUSES = new Set(["SCHEDULED", "ONGOING", "COMPLETED", "CANCELLED"]);
+
+function sanitizeAppointments(records) {
+  if (!Array.isArray(records)) return [];
+
+  const seen = new Set();
+  return records.filter((item) => {
+    if (!item || typeof item !== "object") return false;
+    if (typeof item.id !== "number" || seen.has(item.id)) return false;
+    if (!item.appointment_time || !VALID_APPOINTMENT_STATUSES.has(item.status)) return false;
+    seen.add(item.id);
+    return true;
+  });
+}
+
+async function fetchAllAdminAppointments() {
+  const pageSize = 100;
+  const allItems = [];
+  let page = 1;
+
+  while (true) {
+    const data = await api.get(`/appointments/admin/all?page=${page}&page_size=${pageSize}`);
+    allItems.push(...(Array.isArray(data?.items) ? data.items : []));
+    if (!data?.has_next) break;
+    page += 1;
+  }
+
+  return sanitizeAppointments(allItems);
+}
 
 function StatusBadge({ status, className = "" }) {
   return (
@@ -100,6 +129,45 @@ function CompleteModal({ onClose, onConfirm, loading }) {
               className="flex-1 rounded-xl bg-green-500 px-4 py-2.5 text-sm text-white hover:bg-green-600 disabled:opacity-60"
             >
               {loading ? "Completing..." : "Complete"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DeleteConfirmModal({ appointment, onClose, onConfirm, loading }) {
+  if (!appointment) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b bg-red-50 px-6 py-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Delete Appointment</h2>
+            <p className="text-sm text-gray-500">This action permanently removes the appointment record.</p>
+          </div>
+          <button onClick={onClose} className="rounded-lg p-1 hover:bg-white">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="space-y-4 p-6">
+          <div className="rounded-2xl bg-gray-50 p-4 text-sm">
+            <p className="font-medium text-gray-800">{appointment.patient_name}</p>
+            <p className="mt-1 text-gray-500">Doctor: {appointment.doctor_name}</p>
+            <p className="text-gray-500">Status: {STATUS_LABELS[appointment.status] || appointment.status}</p>
+          </div>
+          <div className="flex gap-3">
+            <button onClick={onClose} className="flex-1 rounded-xl bg-gray-100 px-4 py-2.5 text-sm text-gray-700">
+              Cancel
+            </button>
+            <button
+              onClick={() => onConfirm(appointment.id)}
+              disabled={loading}
+              className="flex-1 rounded-xl bg-red-500 px-4 py-2.5 text-sm text-white hover:bg-red-600 disabled:opacity-60"
+            >
+              {loading ? "Deleting..." : "Delete"}
             </button>
           </div>
         </div>
@@ -430,6 +498,7 @@ export default function Appointments() {
   const [showBooking, setShowBooking] = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
   const [completeModal, setCompleteModal] = useState(null);
+  const [deleteModal, setDeleteModal] = useState(null);
   const [openActionMenu, setOpenActionMenu] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [bookingContext, setBookingContext] = useState({ doctorId: null, date: "", time: "" });
@@ -454,12 +523,12 @@ export default function Appointments() {
         setLoading(true);
         setPageError("");
         if (isAdmin()) {
-          const data = await api.get("/appointments/admin/all?page=1&page_size=100");
-          setAppointments(data?.items || []);
+          const data = await fetchAllAdminAppointments();
+          setAppointments(data);
           return;
         }
         const data = await api.get("/appointments/my");
-        setAppointments(Array.isArray(data) ? data : []);
+        setAppointments(sanitizeAppointments(Array.isArray(data) ? data : []));
       } catch (err) {
         setPageError(err.message || "Failed to load appointments");
       } finally {
@@ -525,11 +594,11 @@ export default function Appointments() {
   };
 
   const handleDelete = async (appointmentId) => {
-    if (!window.confirm("Delete this appointment permanently?")) return;
     try {
       setActionLoading(appointmentId);
       await api.delete(`/appointments/${appointmentId}`);
       setFeedback({ tone: "success", message: "Appointment deleted successfully." });
+      setDeleteModal(null);
       triggerReload();
     } catch (err) {
       setFeedback({ tone: "error", message: err.message || "Failed to delete appointment" });
@@ -539,36 +608,41 @@ export default function Appointments() {
   };
 
   const todayKey = getTodayLocalDate();
+  const searchValue = search.trim().toLowerCase();
+  const searchMatchedAppointments = appointments.filter((appointment) => (
+    !searchValue
+    || appointment.patient_name?.toLowerCase().includes(searchValue)
+    || appointment.doctor_name?.toLowerCase().includes(searchValue)
+    || appointment.doctor_specialty?.toLowerCase().includes(searchValue)
+    || appointment.reason?.toLowerCase().includes(searchValue)
+  ));
 
-  const filteredAppointments = appointments.filter((appointment) => {
-    const value = search.trim().toLowerCase();
-    const matchesSearch = !value
-      || appointment.patient_name?.toLowerCase().includes(value)
-      || appointment.doctor_name?.toLowerCase().includes(value)
-      || appointment.doctor_specialty?.toLowerCase().includes(value)
-      || appointment.reason?.toLowerCase().includes(value);
-    if (!matchesSearch) return false;
+  const filteredAppointments = searchMatchedAppointments
+    .filter((appointment) => {
+      if (isPatient()) {
+        if (filter === "UPCOMING") return isUpcomingAppointment(appointment);
+        if (filter === "HISTORY") return isHistoricalAppointment(appointment);
+        if (filter === "CANCELLED") return appointment.status === "CANCELLED";
+        return true;
+      }
 
-    if (isPatient()) {
-      if (filter === "UPCOMING") return isUpcomingAppointment(appointment);
-      if (filter === "HISTORY") return isHistoricalAppointment(appointment);
-      if (filter === "CANCELLED") return appointment.status === "CANCELLED";
-      return true;
-    }
+      if (filter === "TODAY") return formatAppointmentDateTime(appointment.appointment_time).dateKey === todayKey;
+      if (filter === "ALL") return true;
+      return appointment.status === filter;
+    })
+    .sort((first, second) => new Date(first.appointment_time).getTime() - new Date(second.appointment_time).getTime());
 
-    if (filter === "TODAY") return formatAppointmentDateTime(appointment.appointment_time).dateKey === todayKey;
-    if (filter === "ALL") return true;
-    return appointment.status === filter;
-  }).sort((first, second) => new Date(first.appointment_time).getTime() - new Date(second.appointment_time).getTime());
+  const countSource = searchValue ? searchMatchedAppointments : appointments;
 
-  const nextAppointment = appointments
+  const nextAppointment = countSource
     .filter(isUpcomingAppointment)
     .sort((first, second) => new Date(first.appointment_time).getTime() - new Date(second.appointment_time).getTime())[0];
-  const upcomingCount = appointments.filter(isUpcomingAppointment).length;
-  const historyCount = appointments.filter(isHistoricalAppointment).length;
-  const todayCount = appointments.filter((appointment) => formatAppointmentDateTime(appointment.appointment_time).dateKey === todayKey).length;
-  const completedCount = appointments.filter((appointment) => appointment.status === "COMPLETED").length;
-  const scheduledCount = appointments.filter((appointment) => appointment.status === "SCHEDULED").length;
+  const upcomingCount = countSource.filter(isUpcomingAppointment).length;
+  const historyCount = countSource.filter(isHistoricalAppointment).length;
+  const todayCount = countSource.filter((appointment) => formatAppointmentDateTime(appointment.appointment_time).dateKey === todayKey).length;
+  const completedCount = countSource.filter((appointment) => appointment.status === "COMPLETED").length;
+  const scheduledCount = countSource.filter((appointment) => appointment.status === "SCHEDULED").length;
+  const ongoingCount = countSource.filter((appointment) => appointment.status === "ONGOING").length;
 
   if (loading) {
     return (
@@ -630,7 +704,7 @@ export default function Appointments() {
           <div className="grid gap-4 lg:grid-cols-4">
             <SummaryCard title="Today" value={todayCount} description="Appointments happening today." active={filter === "TODAY"} onClick={() => setFilter("TODAY")} />
             <SummaryCard title="Scheduled" value={scheduledCount} description="Upcoming visits waiting to start." active={filter === "SCHEDULED"} onClick={() => setFilter("SCHEDULED")} />
-            <SummaryCard title="Ongoing" value={appointments.filter((appointment) => appointment.status === "ONGOING").length} description="Appointments currently in progress." active={filter === "ONGOING"} onClick={() => setFilter("ONGOING")} />
+            <SummaryCard title="Ongoing" value={ongoingCount} description="Appointments currently in progress." active={filter === "ONGOING"} onClick={() => setFilter("ONGOING")} />
             <SummaryCard title="Completed" value={completedCount} description="Visits already completed." active={filter === "COMPLETED"} onClick={() => setFilter("COMPLETED")} />
           </div>
         )}
@@ -640,7 +714,7 @@ export default function Appointments() {
             ? [{ value: "UPCOMING", label: "Upcoming" }, { value: "HISTORY", label: "History" }, { value: "CANCELLED", label: "Cancelled" }]
             : isDoctor()
               ? [{ value: "ALL", label: "All" }, { value: "TODAY", label: "Today" }, { value: "SCHEDULED", label: "Scheduled" }, { value: "ONGOING", label: "Ongoing" }, { value: "COMPLETED", label: "Completed" }, { value: "CANCELLED", label: "Cancelled" }]
-              : [{ value: "ALL", label: "All" }, { value: "SCHEDULED", label: "Scheduled" }, { value: "ONGOING", label: "Ongoing" }, { value: "COMPLETED", label: "Completed" }, { value: "CANCELLED", label: "Cancelled" }]
+              : [{ value: "ALL", label: "All" }, { value: "TODAY", label: "Today" }, { value: "SCHEDULED", label: "Scheduled" }, { value: "ONGOING", label: "Ongoing" }, { value: "COMPLETED", label: "Completed" }, { value: "CANCELLED", label: "Cancelled" }]
           ).map((option) => (
             <button
               key={option.value}
@@ -765,7 +839,7 @@ export default function Appointments() {
                                   )}
                                 </div>
                               )}
-                              {isAdmin() && appointment.status !== "COMPLETED" && <button onClick={() => handleDelete(appointment.id)} disabled={actionLoading === appointment.id} className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs text-gray-600 hover:bg-red-50 hover:text-red-600 disabled:opacity-60"><Trash2 size={12} /></button>}
+                              {isAdmin() && appointment.status === "CANCELLED" && <button onClick={() => setDeleteModal(appointment)} disabled={actionLoading === appointment.id} className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs text-gray-600 hover:bg-red-50 hover:text-red-600 disabled:opacity-60"><Trash2 size={12} /></button>}
                               {!doctorPrimaryAction && !canCancel && !canComplete && !isAdmin() && <span className="text-xs text-gray-300">No actions</span>}
                             </div>
                           </>
@@ -798,6 +872,15 @@ export default function Appointments() {
           onClose={() => setCompleteModal(null)}
           onConfirm={handleComplete}
           loading={actionLoading === completeModal}
+        />
+      )}
+
+      {deleteModal && (
+        <DeleteConfirmModal
+          appointment={deleteModal}
+          onClose={() => setDeleteModal(null)}
+          onConfirm={handleDelete}
+          loading={actionLoading === deleteModal.id}
         />
       )}
     </>

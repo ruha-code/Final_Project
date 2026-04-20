@@ -220,7 +220,7 @@ class PatientResponse(BaseModel):
     condition: Optional[str] = None
     notes: Optional[str] = None
     patient_type: str = "OUTPATIENT"
-    patient_status: str = "ADMITTED"
+    patient_status: str = "IN_TREATMENT"
     admission_date: Optional[date] = None
     room_location: Optional[str] = None
     emergency_contact_name: Optional[str] = None

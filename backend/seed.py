@@ -1,10 +1,3 @@
-"""
-Seed script — populates the database with realistic test data.
-
-Usage:
-    cd backend
-    python seed.py
-"""
 
 import asyncio
 from datetime import date, time, datetime, timezone, timedelta
@@ -38,10 +31,6 @@ from app.modules.inventory.models import (
 from app.modules.messages.models import Conversation, Message
 from app.modules.calendar.models import CalendarEvent, EventCategory
 
-
-# ---------------------------------------------------------------------------
-# Raw data
-# ---------------------------------------------------------------------------
 
 DEPARTMENTS_DATA = [
     {
@@ -418,10 +407,19 @@ INVENTORY_DATA = [
     },
 ]
 
+APPOINTMENT_REASONS = [
+    "Routine blood pressure follow-up",
+    "Persistent headache and dizziness",
+    "Post-treatment evaluation",
+    "Medication adjustment review",
+    "Chest discomfort checkup",
+    "Skin rash consultation",
+    "Back pain reassessment",
+    "Pregnancy progress check",
+    "Migraine management follow-up",
+    "Diabetes control monitoring",
+]
 
-# ---------------------------------------------------------------------------
-# Seed functions
-# ---------------------------------------------------------------------------
 
 
 async def clear_all(session):
@@ -512,7 +510,6 @@ async def seed_doctors(session, dept_map: dict) -> list[Doctor]:
         session.add(doctor)
         await session.flush()
 
-        # Mon-Fri schedule: 08:00 - 17:00
         for day in range(5):
             schedule = DoctorSchedule(
                 doctor_id=doctor.id,
@@ -563,7 +560,6 @@ async def seed_patients(session) -> list[Patient]:
         session.add(patient)
         await session.flush()
 
-        # Add some health vitals
         for days_ago in [7, 3, 0]:
             vital = HealthVital(
                 patient_id=patient.id,
@@ -585,34 +581,63 @@ async def seed_patients(session) -> list[Patient]:
 
 async def seed_appointments(session, patients: list, doctors: list):
     print("Seeding appointments...")
-    types = list(AppointmentType)
-    statuses = [
-        AppointmentStatus.COMPLETED,
-        AppointmentStatus.COMPLETED,
-        AppointmentStatus.SCHEDULED,
-        AppointmentStatus.ONGOING,
-        AppointmentStatus.CANCELLED,
-    ]
+    now = datetime.now(timezone.utc).replace(second=0, microsecond=0)
+    day_offsets = [-7, 0, 7]  # past, today, future
+    appointment_types = list(AppointmentType)
+    doctor_slot_index = {doctor.id: 0 for doctor in doctors}
     count = 0
-    for i, patient in enumerate(patients):
-        doctor = doctors[i % len(doctors)]
-        for j in range(3):
-            days_offset = (j - 1) * 7  # past, today, future
-            apt_time = datetime.now(timezone.utc).replace(
-                hour=9 + j * 2, minute=0, second=0, microsecond=0
-            ) + timedelta(days=days_offset)
+    for patient_index, patient in enumerate(patients):
+        doctor = doctors[patient_index % len(doctors)]
+        for visit_index, day_offset in enumerate(day_offsets):
+            slot_index = doctor_slot_index[doctor.id]
+            doctor_slot_index[doctor.id] += 1
 
-            status = statuses[(i + j) % len(statuses)]
+            slot_hour = 8 + (slot_index % 9)
+            slot_minute = 30 if ((slot_index // 9) % 2) else 0
+            extra_day = slot_index // 18
+            appointment_day = (now + timedelta(days=day_offset + extra_day)).date()
+            apt_time = datetime.combine(
+                appointment_day,
+                time(slot_hour, slot_minute),
+                tzinfo=timezone.utc,
+            )
+
+            if day_offset < 0:
+                status = (
+                    AppointmentStatus.CANCELLED
+                    if (slot_index + patient_index) % 4 == 0
+                    else AppointmentStatus.COMPLETED
+                )
+            elif day_offset == 0:
+                status = (
+                    AppointmentStatus.ONGOING
+                    if (slot_index + visit_index) % 5 == 0
+                    else AppointmentStatus.SCHEDULED
+                )
+            else:
+                status = AppointmentStatus.SCHEDULED
+
+            reason = APPOINTMENT_REASONS[
+                (patient_index + visit_index + slot_index) % len(APPOINTMENT_REASONS)
+            ]
             apt = Appointment(
                 patient_id=patient.id,
                 doctor_id=doctor.id,
                 appointment_time=apt_time,
                 duration_minutes=30,
-                appointment_type=types[j % len(types)],
+                appointment_type=appointment_types[
+                    (patient_index + visit_index) % len(appointment_types)
+                ],
                 status=status,
-                reason="Routine checkup and follow-up",
-                completed_at=apt_time
+                reason=reason,
+                notes="Visit completed successfully."
                 if status == AppointmentStatus.COMPLETED
+                else None,
+                completed_at=apt_time + timedelta(minutes=30)
+                if status == AppointmentStatus.COMPLETED
+                else None,
+                cancelled_at=now - timedelta(hours=2)
+                if status == AppointmentStatus.CANCELLED
                 else None,
             )
             session.add(apt)
@@ -719,11 +744,6 @@ async def seed_calendar(session, admin: User):
         )
     await session.commit()
     print(f"  Created {len(events)} calendar events.")
-
-
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
 
 
 async def main():

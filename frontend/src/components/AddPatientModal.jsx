@@ -35,7 +35,17 @@ export default function AddPatientModal({ open, onClose, onSuccess }) {
     const { name, value } = e.target;
     setError("");
     setFieldErrors((prev) => (prev[name] ? { ...prev, [name]: "" } : prev));
-    setForm((prev) => ({ ...prev, [name]: value }));
+    setForm((prev) => {
+      if (name === "patient_type" && value === "OUTPATIENT") {
+        return {
+          ...prev,
+          patient_type: value,
+          admission_date: "",
+          room_location: "",
+        };
+      }
+      return { ...prev, [name]: value };
+    });
   };
 
   const handleSubmit = async () => {
@@ -218,13 +228,30 @@ export default function AddPatientModal({ open, onClose, onSuccess }) {
               </div>
               <div>
                 <label className="mb-1 block text-xs text-gray-500">Admission Date</label>
-                <input name="admission_date" type="date" value={form.admission_date} onChange={handleChange} className={fieldClass(Boolean(fieldErrors.admission_date))} />
+                <input
+                  name="admission_date"
+                  type="date"
+                  value={form.admission_date}
+                  onChange={handleChange}
+                  disabled={form.patient_type !== "INPATIENT"}
+                  className={fieldClass(Boolean(fieldErrors.admission_date))}
+                />
               </div>
               <div>
                 <label className="mb-1 block text-xs text-gray-500">Room Location</label>
-                <input name="room_location" value={form.room_location} onChange={handleChange} placeholder="e.g. Room 204" className={fieldClass(Boolean(fieldErrors.room_location))} />
+                <input
+                  name="room_location"
+                  value={form.room_location}
+                  onChange={handleChange}
+                  placeholder="e.g. Room 204"
+                  disabled={form.patient_type !== "INPATIENT"}
+                  className={fieldClass(Boolean(fieldErrors.room_location))}
+                />
               </div>
             </div>
+            {form.patient_type !== "INPATIENT" && (
+              <p className="mt-2 text-xs text-gray-400">Admission timeline fields apply only to inpatients.</p>
+            )}
           </div>
 
           <div className="border-t pt-6">

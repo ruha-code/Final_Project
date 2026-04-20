@@ -32,6 +32,17 @@ function getStatusClass(status) {
   return "bg-red-100 text-red-500";
 }
 
+function toTimestamp(value) {
+  if (!value) return 0;
+  const timestamp = new Date(value).getTime();
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+function isSameLocalDay(timestamp, nowTimestamp) {
+  if (!timestamp || !nowTimestamp) return false;
+  return new Date(timestamp).toDateString() === new Date(nowTimestamp).toDateString();
+}
+
 function SummaryCard({ title, value, subtitle }) {
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
@@ -245,7 +256,7 @@ function AdminDashboard({ stats, barData, lineData, recentAppointments, topDocto
           </div>
         </div>
         <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-sm font-semibold text-gray-700">Recent Appointments</h2>
+          <h2 className="mb-4 text-sm font-semibold text-gray-700">Recent Appointments (Latest 5)</h2>
           <div className="space-y-2">
             <div className="mb-2 grid grid-cols-5 px-4 text-xs text-gray-400"><span>Patient</span><span>Doctor</span><span>Type</span><span>Date</span><span>Status</span></div>
             {recentAppointments.length === 0 ? <p className="px-4 py-3 text-sm text-gray-400">No appointments yet</p> : recentAppointments.map((item) => {
@@ -257,12 +268,12 @@ function AdminDashboard({ stats, barData, lineData, recentAppointments, topDocto
       </div>
       <div className="w-80 space-y-6">
         <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-          <h2 className="mb-4 text-sm font-semibold">Agenda</h2>
-          {safeAgendaItems.length === 0 ? <p className="text-xs text-gray-400">No upcoming events</p> : <div className="space-y-3">{safeAgendaItems.map((event, index) => <div key={`${event.title}-${index}`} className="rounded-xl bg-teal-50 p-3"><p className="text-sm font-medium text-gray-800">{event.title}</p><p className="text-xs capitalize text-gray-400">{event.category?.toLowerCase()}</p></div>)}</div>}
+          <h2 className="mb-4 text-sm font-semibold">Action Queue</h2>
+          {safeAgendaItems.length === 0 ? <p className="text-xs text-gray-400">No appointments need attention right now</p> : <div className="space-y-3">{safeAgendaItems.map((event) => <div key={event.id} className="rounded-xl bg-teal-50 p-3"><p className="text-sm font-medium text-gray-800">{event.title}</p><p className="text-xs capitalize text-gray-400">{event.category?.toLowerCase()}</p><p className="mt-1 text-xs text-gray-500">{event.subtitle}</p></div>)}</div>}
         </div>
         <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
           <h2 className="mb-4 text-sm font-semibold">Doctors' Schedule</h2>
-          {topDoctors.length === 0 ? <p className="text-xs text-gray-400">No doctors registered</p> : <div className="space-y-4">{topDoctors.map((doctor) => <div key={doctor.id} className="flex items-center justify-between"><div><p className="text-sm font-medium text-gray-800">{doctor.full_name}</p><p className="text-xs text-gray-400">{doctor.department_name || doctor.specialty || "-"}</p></div><Badge className={`rounded-full px-3 py-1 text-xs font-medium ${doctor.is_available ? "bg-green-100 text-green-700" : "bg-red-100 text-red-500"}`}>{doctor.is_available ? "Available" : "Unavailable"}</Badge></div>)}</div>}
+          {topDoctors.length === 0 ? <p className="text-xs text-gray-400">No doctors registered</p> : <div className="space-y-4">{topDoctors.map((doctor) => <div key={doctor.id} className="flex items-center justify-between gap-3"><div><p className="text-sm font-medium text-gray-800">{doctor.full_name}</p><p className="text-xs text-gray-400">{doctor.department_name || doctor.specialty || "-"}</p><p className="mt-1 text-xs text-gray-500">{doctor.availability_detail}</p></div><Badge className={`rounded-full px-3 py-1 text-xs font-medium ${doctor.is_available_now ? "bg-green-100 text-green-700" : "bg-red-100 text-red-500"}`}>{doctor.availability_label}</Badge></div>)}</div>}
         </div>
       </div>
     </div>
@@ -283,13 +294,132 @@ function groupPatientsByAge(patients) {
 }
 
 function groupAppointmentsByMonth(appointments) {
-  const months = {};
+  const months = new Map();
   appointments.forEach((appointment) => {
     if (!appointment.appointment_time) return;
-    const key = new Date(appointment.appointment_time).toLocaleDateString("en-US", { month: "short" });
-    months[key] = (months[key] || 0) + 1;
+    const date = new Date(appointment.appointment_time);
+    if (Number.isNaN(date.getTime())) return;
+    const key = `${date.getUTCFullYear()}-${date.getUTCMonth()}`;
+    months.set(key, {
+      count: (months.get(key)?.count || 0) + 1,
+      date: new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1)),
+    });
   });
-  return Object.entries(months).map(([name, count]) => ({ name, count }));
+  return [...months.values()]
+    .sort((a, b) => a.date - b.date)
+    .map((entry) => ({
+      name: entry.date.toLocaleDateString("en-US", {
+        month: "short",
+        year: "2-digit",
+        timeZone: "UTC",
+      }),
+      count: entry.count,
+    }));
+}
+
+function buildActionQueue(appointments) {
+  const now = Date.now();
+  return appointments
+    .filter((item) => item.status === "ONGOING" || item.status === "SCHEDULED")
+    .map((item) => ({ ...item, timestamp: toTimestamp(item.appointment_time) }))
+    .filter((item) => item.timestamp > 0)
+    .sort((a, b) => {
+      const priorityA = a.status === "ONGOING" ? 0 : 1;
+      const priorityB = b.status === "ONGOING" ? 0 : 1;
+      if (priorityA !== priorityB) return priorityA - priorityB;
+      const distanceA = Math.abs(a.timestamp - now);
+      const distanceB = Math.abs(b.timestamp - now);
+      return distanceA - distanceB;
+    })
+    .slice(0, 4)
+    .map((item) => {
+      const info = formatDateTime(item.appointment_time);
+      return {
+        id: item.id,
+        title: `${item.patient_name} with ${item.doctor_name}`,
+        category: item.status,
+        subtitle: `${info.date} at ${info.time}`,
+      };
+    });
+}
+
+function buildDoctorScheduleSummary(doctors, appointments) {
+  const now = Date.now();
+  return doctors
+    .map((doctor) => {
+      const doctorAppointments = appointments.filter(
+        (item) => item.doctor_id === doctor.id && item.status !== "CANCELLED",
+      );
+
+      const hasOngoing = doctorAppointments.some((item) => item.status === "ONGOING");
+      const hasScheduledNow = doctorAppointments.some((item) => {
+        if (item.status !== "SCHEDULED") return false;
+        const start = toTimestamp(item.appointment_time);
+        if (!start) return false;
+        const duration = Number(item.duration_minutes) || Number(doctor.consultation_duration_minutes) || 30;
+        const end = start + duration * 60 * 1000;
+        return start <= now && end > now;
+      });
+      const isBusyNow = hasOngoing || hasScheduledNow;
+      const isAvailableNow = Boolean(doctor.is_available) && !isBusyNow;
+
+      const nextAppointment = doctorAppointments
+        .filter((item) => ["SCHEDULED", "ONGOING"].includes(item.status))
+        .map((item) => ({ ...item, timestamp: toTimestamp(item.appointment_time) }))
+        .filter((item) => item.timestamp >= now)
+        .sort((a, b) => a.timestamp - b.timestamp)[0];
+
+      const nextInfo = formatDateTime(nextAppointment?.appointment_time);
+      const todayCount = doctorAppointments.filter((item) =>
+        isSameLocalDay(toTimestamp(item.appointment_time), now),
+      ).length;
+      const nextTimestamp = nextAppointment ? toTimestamp(nextAppointment.appointment_time) : Number.POSITIVE_INFINITY;
+
+      return {
+        ...doctor,
+        is_available_now: isAvailableNow,
+        availability_label: !doctor.is_available
+          ? "Marked unavailable"
+          : isBusyNow
+            ? "Busy now"
+            : "Available now",
+        availability_detail: nextAppointment
+          ? `Next: ${nextInfo.date} ${nextInfo.time}`
+          : todayCount > 0
+            ? `${todayCount} appointment(s) today`
+            : "No upcoming visits",
+        today_count: todayCount,
+        next_timestamp: nextTimestamp,
+      };
+    })
+    .sort(
+      (a, b) =>
+        b.today_count - a.today_count
+        || a.next_timestamp - b.next_timestamp
+        || a.full_name.localeCompare(b.full_name),
+    )
+    .slice(0, 3);
+}
+
+function sortAppointmentsByRecent(appointments) {
+  return [...appointments].sort(
+    (a, b) => toTimestamp(b.appointment_time) - toTimestamp(a.appointment_time),
+  );
+}
+
+async function fetchAllAdminAppointments() {
+  const pageSize = 100;
+  const allItems = [];
+  let page = 1;
+
+  while (true) {
+    const data = await api.get(`/appointments/admin/all?page=${page}&page_size=${pageSize}`);
+    allItems.push(...(Array.isArray(data?.items) ? data.items : []));
+    if (data?.has_next !== true) break;
+    page += 1;
+  }
+
+  return allItems;
 }
 
 export default function Dashboard() {
@@ -311,22 +441,23 @@ export default function Dashboard() {
       try {
         setLoading(true);
         if (isAdmin()) {
-          const [patients, doctors, appointments, calendar] = await Promise.allSettled([
+          const [patients, doctors, appointments] = await Promise.allSettled([
             api.get("/patients"),
             api.get("/doctors"),
-            api.get("/appointments/admin/all?page=1&page_size=100"),
-            api.get("/calendar"),
+            fetchAllAdminAppointments(),
           ]);
           const patientList = patients.status === "fulfilled" ? patients.value : [];
           const doctorList = doctors.status === "fulfilled" ? doctors.value : [];
-          const appointmentData = appointments.status === "fulfilled" ? appointments.value : { items: [], total: 0 };
-          const calendarData = calendar.status === "fulfilled" ? calendar.value : [];
-          setStats({ totalPatients: patientList.length, doctors: doctorList.length, appointments: appointmentData.total ?? appointmentData.items?.length ?? 0 });
-          setRecentAppointments(appointmentData.items?.slice(0, 5) || []);
-          setTopDoctors(doctorList.slice(0, 3));
+          const appointmentList = appointments.status === "fulfilled" && Array.isArray(appointments.value)
+            ? appointments.value
+            : [];
+          const sortedAppointments = sortAppointmentsByRecent(appointmentList);
+          setStats({ totalPatients: patientList.length, doctors: doctorList.length, appointments: sortedAppointments.length });
+          setRecentAppointments(sortedAppointments.slice(0, 5));
+          setTopDoctors(buildDoctorScheduleSummary(doctorList, sortedAppointments));
           setBarData(groupPatientsByAge(patientList));
-          setLineData(groupAppointmentsByMonth(appointmentData.items || []));
-          setAgendaItems(Array.isArray(calendarData) ? calendarData.slice(0, 3) : []);
+          setLineData(groupAppointmentsByMonth(sortedAppointments));
+          setAgendaItems(buildActionQueue(sortedAppointments));
           setDoctorPatients([]);
         } else if (isDoctor()) {
           const [patients, appointments] = await Promise.allSettled([api.get("/patients"), api.get("/appointments/my")]);

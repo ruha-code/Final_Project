@@ -10,7 +10,12 @@ from app.core.dependencies import get_current_user, RoleChecker
 from app.core.exceptions import NotFoundException, ConflictException, ForbiddenException
 from app.modules.audit.router import Actions, log
 from app.modules.auth.models import User
-from app.modules.patients.models import Patient, HealthVital
+from app.modules.patients.models import (
+    Patient,
+    HealthVital,
+    PatientStatus,
+    PatientType,
+)
 from app.modules.patients.schemas import (
     PatientProfileCreate,
     PatientProfileUpdate,
@@ -48,6 +53,24 @@ def _build_detail(patient: Patient) -> PatientDetailResponse:
         avatar_url=patient.user.avatar_url,
     )
 
+
+def _validate_patient_timeline(
+    *,
+    patient_type: PatientType,
+    patient_status: PatientStatus,
+    admission_date,
+    room_location,
+):
+    if patient_type == PatientType.OUTPATIENT:
+        if patient_status == PatientStatus.ADMITTED:
+            raise ConflictException("ADMITTED status is only valid for inpatients")
+        if admission_date is not None:
+            raise ConflictException("Outpatients should not have an admission date")
+        if room_location and str(room_location).strip():
+            raise ConflictException("Outpatients should not have a room location")
+    elif admission_date is None:
+        raise ConflictException("Inpatients must include an admission date")
+
 @router.post(
     "/profile",
     response_model=PatientDetailResponse,
@@ -59,6 +82,18 @@ async def setup_patient_profile(
     current_user: User = Depends(patient_only),
     db: AsyncSession = Depends(get_db),
 ):
+    target_status = (
+        PatientStatus.ADMITTED
+        if dto.patient_type == PatientType.INPATIENT
+        else PatientStatus.IN_TREATMENT
+    )
+    _validate_patient_timeline(
+        patient_type=dto.patient_type,
+        patient_status=target_status,
+        admission_date=dto.admission_date,
+        room_location=dto.room_location,
+    )
+
     result = await db.execute(select(Patient).where(Patient.user_id == current_user.id))
     patient = result.scalar_one_or_none()
     if patient:
@@ -87,6 +122,7 @@ async def setup_patient_profile(
         patient.condition = dto.condition
         patient.notes = dto.notes
         patient.patient_type = dto.patient_type
+        patient.patient_status = target_status
         patient.admission_date = dto.admission_date
         patient.room_location = dto.room_location
         patient.emergency_contact_name = dto.emergency_contact_name
@@ -102,6 +138,7 @@ async def setup_patient_profile(
             condition=dto.condition,
             notes=dto.notes,
             patient_type=dto.patient_type,
+            patient_status=target_status,
             admission_date=dto.admission_date,
             room_location=dto.room_location,
             emergency_contact_name=dto.emergency_contact_name,
@@ -186,6 +223,19 @@ async def update_my_patient_profile(
         raise NotFoundException("Patient profile not found. Please set it up first.")
 
     updates = dto.model_dump(exclude_none=True)
+
+    timeline_fields = {"patient_type", "patient_status", "admission_date", "room_location"}
+    if timeline_fields.intersection(updates):
+        target_type = updates.get("patient_type", patient.patient_type)
+        target_status = updates.get("patient_status", patient.patient_status)
+        target_admission_date = updates.get("admission_date", patient.admission_date)
+        target_room_location = updates.get("room_location", patient.room_location)
+        _validate_patient_timeline(
+            patient_type=target_type,
+            patient_status=target_status,
+            admission_date=target_admission_date,
+            room_location=target_room_location,
+        )
 
     if "full_name" in updates:
         current_user.full_name = updates.pop("full_name")
@@ -328,6 +378,12 @@ async def update_doctor_notes(
 
     patient.notes = dto.notes
     if dto.patient_status is not None:
+        _validate_patient_timeline(
+            patient_type=patient.patient_type,
+            patient_status=dto.patient_status,
+            admission_date=patient.admission_date,
+            room_location=patient.room_location,
+        )
         patient.patient_status = dto.patient_status
 
     await db.commit()
@@ -377,6 +433,19 @@ async def update_patient(
                 "Doctors can only update notes and patient_status via this endpoint"
             )
 
+    timeline_fields = {"patient_type", "patient_status", "admission_date", "room_location"}
+    if timeline_fields.intersection(updates):
+        target_type = updates.get("patient_type", patient.patient_type)
+        target_status = updates.get("patient_status", patient.patient_status)
+        target_admission_date = updates.get("admission_date", patient.admission_date)
+        target_room_location = updates.get("room_location", patient.room_location)
+        _validate_patient_timeline(
+            patient_type=target_type,
+            patient_status=target_status,
+            admission_date=target_admission_date,
+            room_location=target_room_location,
+        )
+
     if "full_name" in updates:
         patient.user.full_name = updates.pop("full_name")
 
@@ -414,6 +483,26 @@ async def delete_patient(
     patient = result.scalar_one_or_none()
     if not patient:
         raise NotFoundException("Patient not found")
+    if patient.patient_status != PatientStatus.DISCHARGED:
+        raise ConflictException("Only discharged patients can be deleted")
+
+    from app.modules.appointments.models import Appointment
+
+    appointments_result = await db.execute(
+        select(Appointment.id).where(Appointment.patient_id == patient_id).limit(1)
+    )
+    if appointments_result.scalar_one_or_none() is not None:
+        raise ConflictException(
+            "Patient has appointment history and cannot be hard-deleted"
+        )
+
+    vitals_result = await db.execute(
+        select(HealthVital.id).where(HealthVital.patient_id == patient_id).limit(1)
+    )
+    if vitals_result.scalar_one_or_none() is not None:
+        raise ConflictException(
+            "Patient has vitals history and cannot be hard-deleted"
+        )
 
     from app.modules.messages.models import Conversation
 

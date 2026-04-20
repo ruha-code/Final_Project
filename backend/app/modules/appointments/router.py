@@ -490,6 +490,7 @@ async def get_all_appointments(
         query = query.where(Appointment.status == status.upper())
     if doctor_id:
         query = query.where(Appointment.doctor_id == doctor_id)
+    query = query.order_by(Appointment.appointment_time.desc(), Appointment.id.desc())
     result = await paginate(query, page, page_size, db)
     result.items = [_build_detail(appointment) for appointment in result.items]
     return result
@@ -511,6 +512,8 @@ async def admin_cancel_appointment(
         raise HTTPException(status_code=404, detail="Appointment not found")
     if appointment.status == AppointmentStatus.CANCELLED:
         raise HTTPException(status_code=400, detail="Already cancelled")
+    if appointment.status == AppointmentStatus.COMPLETED:
+        raise ValidationException("Completed appointments cannot be cancelled")
 
     appointment.status = AppointmentStatus.CANCELLED
     appointment.cancelled_at = datetime.now(timezone.utc)
@@ -561,6 +564,8 @@ async def delete_appointment(
     appointment = result.scalar_one_or_none()
     if not appointment:
         raise HTTPException(status_code=404, detail="Appointment not found")
+    if appointment.status != AppointmentStatus.CANCELLED:
+        raise ValidationException("Only cancelled appointments can be deleted")
 
     await db.delete(appointment)
     await db.commit()

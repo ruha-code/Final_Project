@@ -57,7 +57,7 @@ class Patient(Base):
         Enum(PatientType), default=PatientType.OUTPATIENT, nullable=False
     )
     patient_status: Mapped[PatientStatus] = mapped_column(
-        Enum(PatientStatus), default=PatientStatus.ADMITTED, nullable=False
+        Enum(PatientStatus), default=PatientStatus.IN_TREATMENT, nullable=False
     )
     admission_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     room_location: Mapped[str | None] = mapped_column(String(50), nullable=True)
