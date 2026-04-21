@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Install deps first (cached layer — rebuilds only when package.json changes)
 COPY package*.json ./
-RUN npm ci
+RUN npm ci --production=false
 
 # Copy source and build
 COPY . .
@@ -22,7 +22,7 @@ FROM nginx:alpine
 # Copy built files
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Copy nginx config (handles SPA routing)
+# Copy nginx config (handles SPA routing + security headers)
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80

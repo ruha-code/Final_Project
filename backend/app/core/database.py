@@ -3,13 +3,28 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, Asyn
 from sqlalchemy.orm import DeclarativeBase
 from typing import AsyncGenerator
 from app.core.config import settings
+import os
 
 
 class Base(DeclarativeBase):
     pass
 
 
-engine = create_async_engine(settings.DATABASE_URL, echo=False)
+# Production-ready connection pool settings
+pool_size = int(os.getenv("DB_POOL_SIZE", "20"))
+max_overflow = int(os.getenv("DB_MAX_OVERFLOW", "10"))
+pool_timeout = int(os.getenv("DB_POOL_TIMEOUT", "30"))
+pool_recycle = int(os.getenv("DB_POOL_RECYCLE", "1800"))
+
+engine = create_async_engine(
+    settings.DATABASE_URL,
+    echo=False,
+    pool_size=pool_size,
+    max_overflow=max_overflow,
+    pool_timeout=pool_timeout,
+    pool_recycle=pool_recycle,
+    pool_pre_ping=True,
+)
 async_session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
 

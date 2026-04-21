@@ -1,3 +1,4 @@
+from sqlalchemy import text
 from app.core.middleware import RequestLoggingMiddleware
 from app.core.logging import setup_logging
 from app.core.config import settings
@@ -7,8 +8,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 import logging
+import time
+import os
 
-from app.core.database import init_db
+from app.core.database import init_db, engine
 from app.modules.auth.models import User
 from app.modules.departments.models import Department
 from app.modules.doctors.models import Doctor, DoctorSchedule
@@ -64,14 +67,31 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 
 
 app.add_middleware(RequestLoggingMiddleware)
+
+# Build CORS origins list dynamically
 _cors_origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
 ]
+
+# Add production URLs from environment
 if settings.FRONTEND_URL and settings.FRONTEND_URL not in _cors_origins:
     _cors_origins.append(settings.FRONTEND_URL)
+
+# Add HTTPS variant of frontend URL
+if settings.FRONTEND_URL:
+    https_frontend = settings.FRONTEND_URL.replace("http://", "https://")
+    if https_frontend not in _cors_origins:
+        _cors_origins.append(https_frontend)
+
+# Support for Railway auto-generated domains
+if settings.FRONTEND_URL:
+    from urllib.parse import urlparse
+    parsed = urlparse(settings.FRONTEND_URL)
+    if parsed.hostname and parsed.hostname.endswith('.railway.app'):
+        _cors_origins.append(f"https://{parsed.hostname}")
 
 app.add_middleware(
     CORSMiddleware,
@@ -98,3 +118,35 @@ app.include_router(search_router, prefix="/search", tags=["Search"])
 @app.get("/")
 async def root():
     return {"message": "Clinic Management System API"}
+
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for Railway and load balancers."""
+    health = {
+        "status": "ok",
+        "version": "1.0.0",
+        "timestamp": time.time(),
+    }
+    
+    # Check database connection
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(text("SELECT 1"))
+        health["database"] = "connected"
+    except Exception as e:
+        health["database"] = f"error: {str(e)}"
+        health["status"] = "degraded"
+    
+    return health
+
+
+@app.get("/ready")
+async def readiness_check():
+    """Readiness check — returns 200 only when all dependencies are ready."""
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(text("SELECT 1"))
+        return JSONResponse(status_code=200, content={"status": "ready"})
+    except Exception:
+        return JSONResponse(status_code=503, content={"status": "not ready"})
