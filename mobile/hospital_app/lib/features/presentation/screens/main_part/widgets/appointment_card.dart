@@ -97,17 +97,15 @@ class AppointmentCard extends StatelessWidget {
   }
 }
 
-// ──────────── Shared small widgets ────────────
 
 class _InitialsAvatar extends StatelessWidget {
   final String initials;
   final Color color;
-  final double size;
+  final double size = 44;
 
   const _InitialsAvatar({
     required this.initials,
     required this.color,
-    this.size = 44,
   });
 
   @override

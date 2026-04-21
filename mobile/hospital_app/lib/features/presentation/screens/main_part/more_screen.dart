@@ -33,7 +33,7 @@ class MoreScreen extends StatelessWidget {
               const SizedBox(height: 16),
 
               // ── Profile Card ──
-              _buildProfileCard(),
+              _buildProfileCard(context),
               const SizedBox(height: 16),
 
               // ── Menu Items ──
@@ -95,53 +95,56 @@ class MoreScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildProfileCard() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: AppDecorations.card,
-      child: Row(
-        children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: AppColors.primary,
-              borderRadius: BorderRadius.circular(26),
-            ),
-            child: const Center(
-              child: Text(
-                'R',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 18,
+  Widget _buildProfileCard(BuildContext context) {
+    return GestureDetector(
+      onTap: () => Navigator.pushReplacementNamed(context, '/profile'),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: AppDecorations.card,
+        child: Row(
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                borderRadius: BorderRadius.circular(26),
+              ),
+              child: const Center(
+                child: Text(
+                  'R',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 18,
+                  ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(width: 14),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Ruslan',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16,
-                    color: AppColors.textPrimary,
+            const SizedBox(width: 14),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Ruslan',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                      color: AppColors.textPrimary,
+                    ),
                   ),
-                ),
-                SizedBox(height: 2),
-                Text(
-                  'Admin',
-                  style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
-                ),
-              ],
+                  SizedBox(height: 2),
+                  Text(
+                    'Admin',
+                    style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const Icon(Icons.chevron_right, size: 20, color: AppColors.textTertiary),
-        ],
+            const Icon(Icons.chevron_right, size: 20, color: AppColors.textTertiary),
+          ],
+        ),
       ),
     );
   }
