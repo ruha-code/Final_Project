@@ -9,6 +9,11 @@ RUN npm ci
 
 # Copy source and build
 COPY . .
+
+# VITE_API_URL must be passed at build time (Vite bakes it into the JS bundle)
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+
 RUN npm run build
 
 # ── Stage 2: Serve with Nginx ─────────────────────────────────────────────────
