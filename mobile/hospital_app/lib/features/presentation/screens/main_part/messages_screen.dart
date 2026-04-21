@@ -48,7 +48,6 @@ class _MessagesScreenState extends State<MessagesScreen> {
     return _buildContactList();
   }
 
-  // ── Contact List ──
   Widget _buildContactList() {
     return Scaffold(
       backgroundColor: Colors.white,
