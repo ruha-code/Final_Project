@@ -1,15 +1,13 @@
 services:
-  # Frontend (React + Nginx)
   frontend:
     build: ./frontend
     container_name: clinic_frontend
     ports:
-      - "5173:80"
+      - "80:80"
     depends_on:
       - api
     restart: unless-stopped
 
-  # Backend (FastAPI)
   api:
     build: ./backend
     container_name: clinic_api
@@ -22,59 +20,33 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      mailpit:
-        condition: service_started
     restart: unless-stopped
 
-  # PostgreSQL
   db:
     image: postgres:16-alpine
     container_name: clinic_db
     environment:
-      POSTGRES_USER: clinic_user
-      POSTGRES_PASSWORD: clinic123
-      POSTGRES_DB: clinic_db
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U clinic_user -d clinic_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
-  # Redis
   redis:
     image: redis:7-alpine
     container_name: clinic_redis
-    ports:
-      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 5
-
-  mailpit:
-    image: axllent/mailpit:latest
-    container_name: clinic_mailpit
-    ports:
-      - "1025:1025"
-      - "8025:8025"
     restart: unless-stopped
-
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: clinic_pgadmin
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@example.com
-      PGADMIN_DEFAULT_PASSWORD: password
-    ports:
-      - "8080:80"
-    depends_on:
-      db:
-        condition: service_healthy
 
 volumes:
   postgres_data:
