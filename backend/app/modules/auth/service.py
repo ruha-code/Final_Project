@@ -17,22 +17,24 @@ class AuthService:
         self.db = db
  
     async def register(self, data: RegisterSchema):
-        result = await self.db.execute(select(User).where(User.email == data.email))
+        normalized_email = data.email.strip().lower()
+
+        result = await self.db.execute(select(User).where(User.email == normalized_email))
         if result.scalar_one_or_none():
             raise ConflictException("Email already registered")
- 
+
         result = await self.db.execute(select(User).where(User.username == data.username))
         if result.scalar_one_or_none():
             raise ConflictException("Username already taken")
- 
+
         code = secrets.randbelow(900000) + 100000
         code_str = str(code)
         code_expires = datetime.now(timezone.utc) + timedelta(minutes=10)
- 
+
         user = User(
             full_name=data.full_name,
             username=data.username,
-            email=data.email,
+            email=normalized_email,
             password_hash=hash_password(data.password),
             role=UserRole.PATIENT,
             is_active=False,
