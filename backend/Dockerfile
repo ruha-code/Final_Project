@@ -18,5 +18,5 @@ RUN mkdir -p /app/data
 # Expose the port uvicorn will listen on
 EXPOSE 8000
 
-# Run migrations then start the server
-CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+# Start the server (init_db handles schema creation on startup)
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
