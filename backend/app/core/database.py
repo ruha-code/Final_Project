@@ -10,9 +10,8 @@ class Base(DeclarativeBase):
     pass
 
 
-# Production-ready connection pool settings
-pool_size = int(os.getenv("DB_POOL_SIZE", "20"))
-max_overflow = int(os.getenv("DB_MAX_OVERFLOW", "10"))
+pool_size = int(os.getenv("DB_POOL_SIZE", "5"))
+max_overflow = int(os.getenv("DB_MAX_OVERFLOW", "2"))
 pool_timeout = int(os.getenv("DB_POOL_TIMEOUT", "30"))
 pool_recycle = int(os.getenv("DB_POOL_RECYCLE", "1800"))
 
@@ -48,7 +47,6 @@ async def _column_exists(table_name: str, column_name: str, conn) -> bool:
 
 
 async def _ensure_legacy_schema(conn) -> None:
-    # Keep older local/dev databases usable until proper Alembic revisions exist.
     if not await _column_exists("conversations", "updated_at", conn):
         await conn.execute(
             text(

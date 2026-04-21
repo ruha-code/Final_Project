@@ -15,6 +15,7 @@ from app.modules.inventory.models import InventoryItem
 from app.modules.messages.models import Conversation, Message
 from app.modules.calendar.models import CalendarEvent
 from app.modules.audit.models import AuditLog
+from app.modules.notifications.models import NotificationRead, NotificationPreference
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)

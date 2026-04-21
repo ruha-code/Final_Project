@@ -3,13 +3,13 @@ from app.core.middleware import RequestLoggingMiddleware
 from app.core.logging import setup_logging
 from app.core.config import settings
 from app.core import event_bus
+from app.core.cache import close_redis
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 import logging
 import time
-import os
 
 from app.core.database import init_db, engine
 from app.modules.auth.models import User
@@ -23,7 +23,6 @@ from app.modules.calendar.models import CalendarEvent
 from app.modules.audit.models import AuditLog
 from app.modules.notifications.models import NotificationRead, NotificationPreference
 
-# Routers
 from app.modules.auth.router import router as auth_router
 from app.modules.patients.router import router as patients_router
 from app.modules.doctors.router import router as doctors_router
@@ -45,6 +44,7 @@ async def lifespan(app: FastAPI):
     event_bus.setup()
     await init_db()
     yield
+    await close_redis()
 
 
 app = FastAPI(
@@ -68,7 +68,6 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 
 app.add_middleware(RequestLoggingMiddleware)
 
-# Build CORS origins list dynamically
 _cors_origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
@@ -76,17 +75,14 @@ _cors_origins = [
     "http://127.0.0.1:3000",
 ]
 
-# Add production URLs from environment
 if settings.FRONTEND_URL and settings.FRONTEND_URL not in _cors_origins:
     _cors_origins.append(settings.FRONTEND_URL)
 
-# Add HTTPS variant of frontend URL
 if settings.FRONTEND_URL:
     https_frontend = settings.FRONTEND_URL.replace("http://", "https://")
     if https_frontend not in _cors_origins:
         _cors_origins.append(https_frontend)
 
-# Support for Railway auto-generated domains
 if settings.FRONTEND_URL:
     from urllib.parse import urlparse
     parsed = urlparse(settings.FRONTEND_URL)
@@ -122,14 +118,11 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint for Railway and load balancers."""
     health = {
         "status": "ok",
         "version": "1.0.0",
         "timestamp": time.time(),
     }
-    
-    # Check database connection
     try:
         async with engine.begin() as conn:
             await conn.execute(text("SELECT 1"))
@@ -137,13 +130,11 @@ async def health_check():
     except Exception as e:
         health["database"] = f"error: {str(e)}"
         health["status"] = "degraded"
-    
     return health
 
 
 @app.get("/ready")
 async def readiness_check():
-    """Readiness check — returns 200 only when all dependencies are ready."""
     try:
         async with engine.begin() as conn:
             await conn.execute(text("SELECT 1"))
