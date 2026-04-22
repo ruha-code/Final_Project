@@ -5,6 +5,10 @@ import 'package:hospital_app/features/presentation/screens/main_part/departments
 import 'package:hospital_app/features/presentation/screens/main_part/calendar_screen.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/inventory_screen.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/messages_screen.dart';
+import 'package:hospital_app/features/presentation/screens/main_part/notifications_screen.dart';
+import 'package:hospital_app/features/presentation/screens/main_part/privacy_screen.dart';
+import 'package:hospital_app/features/presentation/screens/main_part/help_center_screen.dart';
+import 'package:hospital_app/features/presentation/screens/main_part/about_screen.dart';
 
 class MoreScreen extends StatelessWidget {
   const MoreScreen({super.key});
@@ -82,7 +86,7 @@ class MoreScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 10),
-              ..._settingsItems(),
+              ..._settingsItems(context),
               const SizedBox(height: 20),
 
               // ── Upgrade Banner ──
@@ -97,7 +101,7 @@ class MoreScreen extends StatelessWidget {
 
   Widget _buildProfileCard(BuildContext context) {
     return GestureDetector(
-      onTap: () => Navigator.pushReplacementNamed(context, '/profile'),
+      onTap: () => Navigator.pushNamed(context, '/profile'),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: AppDecorations.card,
@@ -212,25 +216,39 @@ class MoreScreen extends StatelessWidget {
     );
   }
 
-  List<Widget> _settingsItems() {
-    const items = ['Notifications', 'Privacy', 'Help Center', 'About'];
+  List<Widget> _settingsItems(BuildContext context) {
+    final items = <_SettingsItem>[
+      _SettingsItem(label: 'Notifications', screen: const NotificationsScreen()),
+      _SettingsItem(label: 'Privacy', screen: const PrivacyScreen()),
+      _SettingsItem(label: 'Help Center', screen: const HelpCenterScreen()),
+      _SettingsItem(label: 'About', screen: const AboutScreen()),
+    ];
+
     return List.generate(items.length, (i) {
-      return Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(
-          border: i < items.length - 1
-              ? const Border(bottom: BorderSide(color: AppColors.border))
-              : null,
+      final item = items[i];
+      return GestureDetector(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => item.screen),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              items[i],
-              style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
-            ),
-            const Icon(Icons.chevron_right, size: 16, color: AppColors.textTertiary),
-          ],
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            border: i < items.length - 1
+                ? const Border(bottom: BorderSide(color: AppColors.border))
+                : null,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                item.label,
+                style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
+              ),
+              const Icon(Icons.chevron_right, size: 16, color: AppColors.textTertiary),
+            ],
+          ),
         ),
       );
     });
@@ -284,4 +302,10 @@ class MoreScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+class _SettingsItem {
+  final String label;
+  final Widget screen;
+  const _SettingsItem({required this.label, required this.screen});
 }

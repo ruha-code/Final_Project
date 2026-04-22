@@ -1,18 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hospital_app/features/presentation/bloc/messages/messages_bloc.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/app_constant.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/top_nav_bar.dart';
 
-class MessagesScreen extends StatefulWidget {
+class MessagesScreen extends StatelessWidget {
   const MessagesScreen({super.key});
 
-  @override
-  State<MessagesScreen> createState() => _MessagesScreenState();
-}
-
-class _MessagesScreenState extends State<MessagesScreen> {
-  int? _selectedChat;
-
-  static const _contacts = [
+  static const _contacts = <_ContactData>[
     _ContactData(id: 1, name: 'Dr. Patel N.', initials: 'PN', color: Color(0xFF3B82F6), unread: 2, lastMsg: 'Can we schedule a review?', time: '10:32 AM'),
     _ContactData(id: 2, name: 'Susan Wong', initials: 'SW', color: Color(0xFFEC4899), unread: 0, lastMsg: 'Results are ready.', time: '9:15 AM'),
     _ContactData(id: 3, name: 'Indra Smith', initials: 'IS', color: Color(0xFFF59E0B), unread: 0, lastMsg: 'Thank you!', time: 'Yesterday'),
@@ -42,13 +37,30 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_selectedChat != null) {
-      return _buildChatView();
-    }
-    return _buildContactList();
+    return BlocBuilder<MessagesBloc, MessagesState>(
+      builder: (context, state) {
+        return PopScope(
+          canPop: !state.isInChat,
+          onPopInvoked: (didPop) {
+            if (!didPop && state.isInChat) {
+              context.read<MessagesBloc>().add(MessagesChatClosed());
+            }
+          },
+          child: state.isInChat
+              ? _ChatView(chatId: state.selectedChatId!, contacts: _contacts, chats: _chats)
+              : _ContactList(contacts: _contacts),
+        );
+      },
+    );
   }
+}
 
-  Widget _buildContactList() {
+class _ContactList extends StatelessWidget {
+  final List<_ContactData> contacts;
+  const _ContactList({required this.contacts});
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -70,36 +82,30 @@ class _MessagesScreenState extends State<MessagesScreen> {
               const SizedBox(height: 16),
               Expanded(
                 child: ListView.builder(
-                  itemCount: _contacts.length,
+                  itemCount: contacts.length,
                   itemBuilder: (context, i) {
-                    final c = _contacts[i];
+                    final c = contacts[i];
                     return GestureDetector(
-                      onTap: () => setState(() => _selectedChat = c.id),
+                      onTap: () => context.read<MessagesBloc>().add(MessagesChatOpened(c.id)),
+                      behavior: HitTestBehavior.opaque,
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         decoration: BoxDecoration(
-                          border: i < _contacts.length - 1
+                          border: i < contacts.length - 1
                               ? const Border(bottom: BorderSide(color: AppColors.border))
                               : null,
                         ),
                         child: Row(
                           children: [
-                            // Avatar with unread badge
                             Stack(
                               clipBehavior: Clip.none,
                               children: [
                                 Container(
                                   width: 44,
                                   height: 44,
-                                  decoration: BoxDecoration(
-                                    color: c.color.withValues(alpha: 0.12),
-                                    shape: BoxShape.circle,
-                                  ),
+                                  decoration: BoxDecoration(color: c.color.withValues(alpha: 0.12), shape: BoxShape.circle),
                                   child: Center(
-                                    child: Text(
-                                      c.initials,
-                                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: c.color),
-                                    ),
+                                    child: Text(c.initials, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: c.color)),
                                   ),
                                 ),
                                 if (c.unread > 0)
@@ -115,10 +121,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                                         border: Border.all(color: Colors.white, width: 2),
                                       ),
                                       child: Center(
-                                        child: Text(
-                                          '${c.unread}',
-                                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700),
-                                        ),
+                                        child: Text('${c.unread}', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
                                       ),
                                     ),
                                   ),
@@ -159,42 +162,40 @@ class _MessagesScreenState extends State<MessagesScreen> {
       ),
     );
   }
+}
 
-  // ── Chat View ──
-  Widget _buildChatView() {
-    final contact = _contacts.firstWhere((c) => c.id == _selectedChat);
-    final msgs = _chats[_selectedChat] ?? [];
+class _ChatView extends StatelessWidget {
+  final int chatId;
+  final List<_ContactData> contacts;
+  final Map<int, List<_MsgData>> chats;
+  const _ChatView({required this.chatId, required this.contacts, required this.chats});
+
+  @override
+  Widget build(BuildContext context) {
+    final contact = contacts.firstWhere((c) => c.id == chatId);
+    final msgs = chats[chatId] ?? [];
 
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
           children: [
-            // Chat header
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              decoration: const BoxDecoration(
-                border: Border(bottom: BorderSide(color: AppColors.border)),
-              ),
+              decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.border))),
               child: Row(
                 children: [
                   GestureDetector(
-                    onTap: () => setState(() => _selectedChat = null),
+                    onTap: () => context.read<MessagesBloc>().add(MessagesChatClosed()),
                     child: const Icon(Icons.arrow_back_ios_new, size: 18, color: AppColors.textPrimary),
                   ),
                   const SizedBox(width: 12),
                   Container(
                     width: 36,
                     height: 36,
-                    decoration: BoxDecoration(
-                      color: contact.color.withValues(alpha: 0.12),
-                      shape: BoxShape.circle,
-                    ),
+                    decoration: BoxDecoration(color: contact.color.withValues(alpha: 0.12), shape: BoxShape.circle),
                     child: Center(
-                      child: Text(
-                        contact.initials,
-                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: contact.color),
-                      ),
+                      child: Text(contact.initials, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: contact.color)),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -210,17 +211,12 @@ class _MessagesScreenState extends State<MessagesScreen> {
                   Container(
                     width: 32,
                     height: 32,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.08),
-                      shape: BoxShape.circle,
-                    ),
+                    decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.08), shape: BoxShape.circle),
                     child: const Icon(Icons.phone_outlined, size: 14, color: AppColors.primary),
                   ),
                 ],
               ),
             ),
-
-            // Messages
             Expanded(
               child: ListView.builder(
                 padding: const EdgeInsets.all(20),
@@ -270,13 +266,9 @@ class _MessagesScreenState extends State<MessagesScreen> {
                 },
               ),
             ),
-
-            // Input
             Container(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-              decoration: const BoxDecoration(
-                border: Border(top: BorderSide(color: AppColors.border)),
-              ),
+              decoration: const BoxDecoration(border: Border(top: BorderSide(color: AppColors.border))),
               child: Row(
                 children: [
                   Expanded(
@@ -297,10 +289,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                   Container(
                     width: 40,
                     height: 40,
-                    decoration: BoxDecoration(
-                      color: AppColors.border,
-                      shape: BoxShape.circle,
-                    ),
+                    decoration: const BoxDecoration(color: AppColors.border, shape: BoxShape.circle),
                     child: const Icon(Icons.send, size: 18, color: AppColors.textTertiary),
                   ),
                 ],
@@ -318,7 +307,15 @@ class _ContactData {
   final String name, initials, lastMsg, time;
   final Color color;
   final int unread;
-  const _ContactData({required this.id, required this.name, required this.initials, required this.color, required this.unread, required this.lastMsg, required this.time});
+  const _ContactData({
+    required this.id,
+    required this.name,
+    required this.initials,
+    required this.color,
+    required this.unread,
+    required this.lastMsg,
+    required this.time,
+  });
 }
 
 class _MsgData {
