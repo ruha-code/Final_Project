@@ -1,20 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hospital_app/features/presentation/bloc/calendar/calendar_bloc.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/app_constant.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/top_nav_bar.dart';
 
-class CalendarScreen extends StatefulWidget {
+class CalendarScreen extends StatelessWidget {
   const CalendarScreen({super.key});
 
-  @override
-  State<CalendarScreen> createState() => _CalendarScreenState();
-}
-
-class _CalendarScreenState extends State<CalendarScreen> {
-  int _selectedDay = 15;
   static const _today = 18;
   static const _daysInMonth = 31;
-  static const _startDay = 5; // March 2025 starts on Saturday (index 5 for Mon-start)
-
+  static const _startDay = 5; // March 2025 starts on Saturday
   static const _dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   static const _events = <int, List<_EventData>>{
@@ -49,13 +44,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
               ),
               const SizedBox(height: 16),
-
-              // ── Calendar Grid ──
-              _buildCalendarCard(),
+              const _CalendarCard(),
               const SizedBox(height: 20),
-
-              // ── Events ──
-              _buildEventsSection(),
+              const _EventsSection(),
               const SizedBox(height: 24),
             ],
           ),
@@ -63,116 +54,119 @@ class _CalendarScreenState extends State<CalendarScreen> {
       ),
     );
   }
+}
 
-  Widget _buildCalendarCard() {
-    // Build cells: empty slots + day numbers
+class _CalendarCard extends StatelessWidget {
+  const _CalendarCard();
+
+  @override
+  Widget build(BuildContext context) {
     final cells = <int?>[];
-    for (int i = 0; i < _startDay; i++) {
+    for (int i = 0; i < CalendarScreen._startDay; i++) {
       cells.add(null);
     }
-    for (int d = 1; d <= _daysInMonth; d++) {
+    for (int d = 1; d <= CalendarScreen._daysInMonth; d++) {
       cells.add(d);
     }
 
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: AppDecorations.card,
-      child: Column(
-        children: [
-          // Month header
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return BlocBuilder<CalendarBloc, CalendarState>(
+      builder: (context, state) {
+        return Container(
+          padding: const EdgeInsets.all(18),
+          decoration: AppDecorations.card,
+          child: Column(
             children: [
-              const Text(
-                'March 2025',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 17, color: AppColors.textPrimary),
-              ),
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _navCircle(Icons.chevron_left),
-                  const SizedBox(width: 8),
-                  _navCircle(Icons.chevron_right),
+                  const Text(
+                    'March 2025',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 17, color: AppColors.textPrimary),
+                  ),
+                  Row(
+                    children: [
+                      _navCircle(Icons.chevron_left),
+                      const SizedBox(width: 8),
+                      _navCircle(Icons.chevron_right),
+                    ],
+                  ),
                 ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: CalendarScreen._dayNames.map((d) {
+                  return Expanded(
+                    child: Center(
+                      child: Text(
+                        d,
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textTertiary),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 8),
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 7,
+                  childAspectRatio: 1,
+                  mainAxisSpacing: 4,
+                  crossAxisSpacing: 4,
+                ),
+                itemCount: cells.length,
+                itemBuilder: (context, i) {
+                  final day = cells[i];
+                  if (day == null) return const SizedBox();
+                  final isSelected = day == state.selectedDay;
+                  final isToday = day == CalendarScreen._today;
+                  final hasEvent = CalendarScreen._events.containsKey(day);
+
+                  return GestureDetector(
+                    onTap: () => context.read<CalendarBloc>().add(CalendarDaySelected(day)),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: isSelected ? AppColors.primary : Colors.transparent,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Text(
+                            '$day',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: isSelected || isToday ? FontWeight.w700 : FontWeight.w400,
+                              color: isSelected
+                                  ? Colors.white
+                                  : isToday
+                                      ? AppColors.primary
+                                      : AppColors.textPrimary,
+                            ),
+                          ),
+                          if (hasEvent && !isSelected)
+                            Positioned(
+                              bottom: 4,
+                              child: Container(
+                                width: 4,
+                                height: 4,
+                                decoration: BoxDecoration(
+                                  color: isToday ? AppColors.primary : const Color(0xFFEF4444),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
               ),
             ],
           ),
-          const SizedBox(height: 16),
-
-          // Day names
-          Row(
-            children: _dayNames.map((d) {
-              return Expanded(
-                child: Center(
-                  child: Text(
-                    d,
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textTertiary),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 8),
-
-          // Days grid
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 7,
-              childAspectRatio: 1,
-              mainAxisSpacing: 4,
-              crossAxisSpacing: 4,
-            ),
-            itemCount: cells.length,
-            itemBuilder: (context, i) {
-              final day = cells[i];
-              if (day == null) return const SizedBox();
-              final isSelected = day == _selectedDay;
-              final isToday = day == _today;
-              final hasEvent = _events.containsKey(day);
-
-              return GestureDetector(
-                onTap: () => setState(() => _selectedDay = day),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: isSelected ? AppColors.primary : Colors.transparent,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Text(
-                        '$day',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: isSelected || isToday ? FontWeight.w700 : FontWeight.w400,
-                          color: isSelected
-                              ? Colors.white
-                              : isToday
-                                  ? AppColors.primary
-                                  : AppColors.textPrimary,
-                        ),
-                      ),
-                      if (hasEvent && !isSelected)
-                        Positioned(
-                          bottom: 4,
-                          child: Container(
-                            width: 4,
-                            height: 4,
-                            decoration: BoxDecoration(
-                              color: isToday ? AppColors.primary : const Color(0xFFEF4444),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -180,51 +174,57 @@ class _CalendarScreenState extends State<CalendarScreen> {
     return Container(
       width: 28,
       height: 28,
-      decoration: BoxDecoration(
-        color: AppColors.bgGrey,
-        shape: BoxShape.circle,
-      ),
+      decoration: const BoxDecoration(color: AppColors.bgGrey, shape: BoxShape.circle),
       child: Icon(icon, size: 16, color: AppColors.textSecondary),
     );
   }
+}
 
-  Widget _buildEventsSection() {
-    final dayEvents = _events[_selectedDay];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '$_selectedDay March — ${dayEvents != null ? '${dayEvents.length} event(s)' : 'No events'}',
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-        ),
-        const SizedBox(height: 10),
-        if (dayEvents != null)
-          ...dayEvents.map((ev) => Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border(left: BorderSide(color: ev.color, width: 3)),
-                  boxShadow: AppShadows.cardLight,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(ev.title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppColors.textPrimary)),
-                    const SizedBox(height: 4),
-                    Text(ev.time, style: const TextStyle(fontSize: 12, color: AppColors.textTertiary)),
-                  ],
-                ),
-              ))
-        else
-          const Center(
-            child: Padding(
-              padding: EdgeInsets.symmetric(vertical: 30),
-              child: Text('No scheduled events', style: TextStyle(fontSize: 13, color: AppColors.textTertiary)),
+class _EventsSection extends StatelessWidget {
+  const _EventsSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<CalendarBloc, CalendarState>(
+      builder: (context, state) {
+        final dayEvents = CalendarScreen._events[state.selectedDay];
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${state.selectedDay} March — ${dayEvents != null ? '${dayEvents.length} event(s)' : 'No events'}',
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
             ),
-          ),
-      ],
+            const SizedBox(height: 10),
+            if (dayEvents != null)
+              ...dayEvents.map((ev) => Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border(left: BorderSide(color: ev.color, width: 3)),
+                      boxShadow: AppShadows.cardLight,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(ev.title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppColors.textPrimary)),
+                        const SizedBox(height: 4),
+                        Text(ev.time, style: const TextStyle(fontSize: 12, color: AppColors.textTertiary)),
+                      ],
+                    ),
+                  ))
+            else
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 30),
+                  child: Text('No scheduled events', style: TextStyle(fontSize: 13, color: AppColors.textTertiary)),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }

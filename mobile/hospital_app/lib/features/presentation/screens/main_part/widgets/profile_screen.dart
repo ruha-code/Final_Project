@@ -14,7 +14,10 @@ class ProfileScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 16),
-              const TopNavBar(subtitle: 'Profile'),
+              TopNavBar(
+                subtitle: 'Profile',
+                onBack: () => Navigator.pop(context),
+              ),
               const SizedBox(height: 24),
               const Text('Profile', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
@@ -34,9 +37,9 @@ class ProfileScreen extends StatelessWidget {
                 child: Column(
                   children: [
                     const SizedBox(height: 24),
-                    CircleAvatar(
+                    const CircleAvatar(
                       radius: 50,
-                      backgroundImage: const NetworkImage('https://i.pravatar.cc/150?img=3'),
+                      backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=3'),
                     ),
                     const SizedBox(height: 16),
                     const Text('Ruslan Akhmetov', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
@@ -62,15 +65,16 @@ class ProfileScreen extends StatelessWidget {
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: const Text('Pro Plan', style: TextStyle(fontSize: 10, color: Colors.blue)),
-                        )
+                        ),
                       ],
-                    )
+                    ),
+                    const SizedBox(height: 24),
                   ],
                 ),
-              )
+              ),
             ],
           ),
-        )
+        ),
       ),
     );
   }

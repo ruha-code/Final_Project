@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hospital_app/features/presentation/bloc/register/register_bloc.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/app_constant.dart';
 import 'package:hospital_app/features/presentation/screens/register_part/widgets/build_text_field.dart';
 
@@ -14,9 +16,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  bool _agreeTerms = false;
-  bool _obscurePassword = true;
-  bool _obscureConfirm = true;
 
   @override
   void dispose() {
@@ -29,171 +28,136 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.accent,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 48),
-              const Text(
-                'Stay on Top of Every Detail',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.primary,
-                ),
-              ),
-              const SizedBox(height: 48),
-              const Text(
-                'Create Your Medlink Account',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF1A1A2E),
-                ),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'Register to access hospital dashboard',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.black45,
-                ),
-              ),
-              const SizedBox(height: 24),
-              BuildTextField(
-                controller: _usernameController,
-                hint: 'Username',
-              ),
-              const SizedBox(height: 12),
-              BuildTextField(
-                controller: _emailController,
-                hint: 'Email Address',
-                keyboardType: TextInputType.emailAddress,
-              ),
-              const SizedBox(height: 12),
-              BuildTextField(
-                controller: _passwordController,
-                hint: 'Password',
-                obscure: _obscurePassword,
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _obscurePassword
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
-                    size: 18,
-                    color: Colors.black38,
-                  ),
-                  onPressed: () =>
-                      setState(() => _obscurePassword = !_obscurePassword),
-                ),
-              ),
-              const SizedBox(height: 12),
-              BuildTextField(
-                controller: _confirmPasswordController,
-                hint: 'Confirm Password',
-                obscure: _obscureConfirm,
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _obscureConfirm
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
-                    size: 18,
-                    color: Colors.black38,
-                  ),
-                  onPressed: () =>
-                      setState(() => _obscureConfirm = !_obscureConfirm),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: Checkbox(
-                      value: _agreeTerms,
-                      onChanged: (v) =>
-                          setState(() => _agreeTerms = v ?? false),
-                      activeColor: AppColors.primary,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'I agree to the ',
-                    style: TextStyle(fontSize: 13, color: Colors.black54),
-                  ),
-                  GestureDetector(
-                    onTap: () {},
-                    child: const Text(
-                      'Terms & Conditions',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton(
-                  onPressed: _agreeTerms ? () {
-                    Navigator.pushReplacementNamed(context, '/dashboard');                  
-                  } : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.5),
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  child: const Text(
-                    'Create Account',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Center(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+    return BlocProvider(
+      create: (_) => RegisterBloc(),
+      child: Scaffold(
+        backgroundColor: AppColors.accent,
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 28),
+            child: BlocBuilder<RegisterBloc, RegisterState>(
+              builder: (context, state) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    const SizedBox(height: 48),
                     const Text(
-                      'Already have an account? ',
+                      'Stay on Top of Every Detail',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.primary),
+                    ),
+                    const SizedBox(height: 48),
+                    const Text(
+                      'Create Your Medlink Account',
+                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: Color(0xFF1A1A2E)),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Register to access hospital dashboard',
                       style: TextStyle(fontSize: 13, color: Colors.black45),
                     ),
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: const Text(
-                        'Login',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w600,
+                    const SizedBox(height: 24),
+                    BuildTextField(controller: _usernameController, hint: 'Username'),
+                    const SizedBox(height: 12),
+                    BuildTextField(
+                      controller: _emailController,
+                      hint: 'Email Address',
+                      keyboardType: TextInputType.emailAddress,
+                    ),
+                    const SizedBox(height: 12),
+                    BuildTextField(
+                      controller: _passwordController,
+                      hint: 'Password',
+                      obscure: state.obscurePassword,
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          state.obscurePassword
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                          size: 18,
+                          color: Colors.black38,
                         ),
+                        onPressed: () => context.read<RegisterBloc>().add(RegisterPasswordVisibilityToggled()),
                       ),
                     ),
+                    const SizedBox(height: 12),
+                    BuildTextField(
+                      controller: _confirmPasswordController,
+                      hint: 'Confirm Password',
+                      obscure: state.obscureConfirm,
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          state.obscureConfirm
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                          size: 18,
+                          color: Colors.black38,
+                        ),
+                        onPressed: () => context.read<RegisterBloc>().add(RegisterConfirmVisibilityToggled()),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: Checkbox(
+                            value: state.agreeTerms,
+                            onChanged: (v) => context.read<RegisterBloc>().add(RegisterTermsChanged(v ?? false)),
+                            activeColor: AppColors.primary,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Text('I agree to the ', style: TextStyle(fontSize: 13, color: Colors.black54)),
+                        GestureDetector(
+                          onTap: () {},
+                          child: const Text(
+                            'Terms & Conditions',
+                            style: TextStyle(fontSize: 13, color: AppColors.primary, fontWeight: FontWeight.w500),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton(
+                        onPressed: state.agreeTerms
+                            ? () => Navigator.pushReplacementNamed(context, '/dashboard')
+                            : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.5),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        child: const Text('Create Account', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Center(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text('Already have an account? ', style: TextStyle(fontSize: 13, color: Colors.black45)),
+                          GestureDetector(
+                            onTap: () => Navigator.pop(context),
+                            child: const Text(
+                              'Login',
+                              style: TextStyle(fontSize: 13, color: AppColors.primary, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 32),
                   ],
-                ),
-              ),
-              const SizedBox(height: 32),
-            ],
+                );
+              },
+            ),
           ),
         ),
       ),
