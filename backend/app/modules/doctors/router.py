@@ -7,6 +7,7 @@ from datetime import date, datetime, timedelta, time, timezone
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, RoleChecker
 from app.core.exceptions import NotFoundException, ConflictException
+from app.modules.auth.admin_user_management import delete_admin_managed_user
 from app.modules.audit.router import Actions, log
 from app.modules.auth.models import User, UserRole
 from app.modules.doctors.models import Doctor, DoctorSchedule, LicenseStatus
@@ -432,9 +433,14 @@ async def delete_doctor_admin(
         raise NotFoundException("Doctor not found")
 
     user = doctor.user
-    await db.delete(doctor)
-    await db.flush()          
-    await db.delete(user)
+    if current_user.id == user.id:
+        raise ConflictException("You cannot delete yourself")
+
+    await delete_admin_managed_user(
+        db=db,
+        target_user=user,
+        acting_user=current_user,
+    )
     await db.commit()
     await log(
         db, current_user.id, "DELETE_DOCTOR", entity_type="Doctor", entity_id=doctor_id

@@ -3,7 +3,7 @@ import re
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy import delete, or_, select, update
+from sqlalchemy import or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 import uuid
@@ -39,6 +39,7 @@ from app.modules.auth.schemas import (
 )
 from app.modules.auth.service import AuthService
 from app.modules.auth.models import User, UserRole
+from app.modules.auth.admin_user_management import delete_admin_managed_user
 from app.modules.audit.router import log, Actions
 
 router = APIRouter(tags=["Auth"])
@@ -519,6 +520,7 @@ async def update_user(
     from app.modules.departments.models import Department
     from app.modules.patients.models import Patient, HealthVital
     from app.modules.appointments.models import Appointment
+    from app.modules.messages.models import Conversation
 
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
@@ -557,6 +559,13 @@ async def update_user(
                 raise ConflictException(
                     "Cannot change role while the user has doctor appointment history"
                 )
+            doctor_conversations = await db.execute(
+                select(Conversation.id).where(Conversation.doctor_id == existing_doctor.id).limit(1)
+            )
+            if doctor_conversations.scalar_one_or_none() is not None:
+                raise ConflictException(
+                    "Cannot change role while the user has doctor chat history"
+                )
             await db.execute(
                 update(Department)
                 .where(Department.head_doctor_id == existing_doctor.id)
@@ -581,6 +590,13 @@ async def update_user(
             if vitals_result.scalar_one_or_none() is not None:
                 raise ConflictException(
                     "Cannot change role while the user has patient vital history"
+                )
+            patient_conversations = await db.execute(
+                select(Conversation.id).where(Conversation.patient_id == existing_patient.id).limit(1)
+            )
+            if patient_conversations.scalar_one_or_none() is not None:
+                raise ConflictException(
+                    "Cannot change role while the user has patient chat history"
                 )
 
             await db.delete(existing_patient)
@@ -690,68 +706,11 @@ async def delete_user(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    from app.modules.doctors.models import Doctor
-    from app.modules.departments.models import Department
-    from app.modules.patients.models import Patient, HealthVital
-    from app.modules.appointments.models import Appointment
-    from app.modules.calendar.models import CalendarEvent
-    from app.modules.notifications.models import NotificationPreference, NotificationRead
-
-    doctor_result = await db.execute(select(Doctor).where(Doctor.user_id == user_id))
-    doctor = doctor_result.scalar_one_or_none()
-    if doctor:
-        doctor_appointments = await db.execute(
-            select(Appointment.id).where(Appointment.doctor_id == doctor.id).limit(1)
-        )
-        if doctor_appointments.scalar_one_or_none() is not None:
-            raise ConflictException(
-                "Cannot delete user with doctor appointment history. Deactivate the user instead."
-            )
-        await db.execute(
-            update(Department)
-            .where(Department.head_doctor_id == doctor.id)
-            .values(head_doctor_id=None)
-        )
-        await db.delete(doctor)
-
-    patient_result = await db.execute(select(Patient).where(Patient.user_id == user_id))
-    patient = patient_result.scalar_one_or_none()
-    if patient:
-        patient_appointments = await db.execute(
-            select(Appointment.id).where(Appointment.patient_id == patient.id).limit(1)
-        )
-        if patient_appointments.scalar_one_or_none() is not None:
-            raise ConflictException(
-                "Cannot delete user with patient appointment history. Deactivate the user instead."
-            )
-
-        vitals_result = await db.execute(
-            select(HealthVital.id).where(HealthVital.patient_id == patient.id).limit(1)
-        )
-        if vitals_result.scalar_one_or_none() is not None:
-            raise ConflictException(
-                "Cannot delete user with patient vital history. Deactivate the user instead."
-            )
-        await db.delete(patient)
-
-    await db.execute(
-        delete(NotificationRead).where(NotificationRead.user_id == user_id)
+    await delete_admin_managed_user(
+        db=db,
+        target_user=user,
+        acting_user=current_user,
     )
-    await db.execute(
-        delete(NotificationPreference).where(NotificationPreference.user_id == user_id)
-    )
-    await db.execute(
-        update(CalendarEvent)
-        .where(CalendarEvent.created_by == user_id)
-        .values(created_by=current_user.id)
-    )
-    await db.execute(
-        update(Appointment)
-        .where(Appointment.cancelled_by == user_id)
-        .values(cancelled_by=None)
-    )
-
-    await db.delete(user)
     await db.commit()
     await log(
         db=db,
