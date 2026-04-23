@@ -9,7 +9,7 @@ import 'package:hospital_app/features/presentation/bloc/notifications/notificati
 import 'package:hospital_app/features/presentation/bloc/patient/patient_bloc.dart';
 import 'package:hospital_app/features/presentation/bloc/privacy/privacy_bloc.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/main_screen.dart';
-import 'package:hospital_app/features/presentation/screens/main_part/widgets/profile_screen.dart';
+import 'package:hospital_app/features/presentation/screens/main_part/profile_screen.dart';
 import 'package:hospital_app/features/presentation/screens/register_part/login_screen.dart';
 import 'package:hospital_app/features/presentation/screens/register_part/register_screen.dart';
 
