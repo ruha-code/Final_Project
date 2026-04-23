@@ -146,9 +146,11 @@ async def book_appointment(
     if not patient:
         raise NotFoundException("Set up your patient profile first")
 
-    result = await db.execute(select(Doctor).where(Doctor.id == dto.doctor_id))
+    result = await db.execute(
+        select(Doctor).options(selectinload(Doctor.user)).where(Doctor.id == dto.doctor_id)
+    )
     doctor = result.scalar_one_or_none()
-    if not doctor:
+    if not doctor or not doctor.user or not doctor.user.is_active:
         raise NotFoundException("Doctor not found")
 
     local_appt_time = dto.appointment_time

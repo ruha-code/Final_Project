@@ -67,7 +67,12 @@ def _to_response(item: InventoryItem) -> InventoryItemResponse:
     return data
 
 
-@router.get("", response_model=list[InventoryItemResponse], summary="List inventory items")
+@router.get(
+    "",
+    response_model=list[InventoryItemResponse],
+    summary="List inventory items",
+    dependencies=[Depends(admin_only)],
+)
 async def list_inventory(
     status: Optional[str] = Query(default=None),
     category: Optional[str] = Query(default=None),
@@ -96,7 +101,12 @@ async def list_inventory(
     return [_to_response(item) for item in items]
 
 
-@router.get("/{item_id}", response_model=InventoryItemResponse, summary="Get inventory item")
+@router.get(
+    "/{item_id}",
+    response_model=InventoryItemResponse,
+    summary="Get inventory item",
+    dependencies=[Depends(admin_only)],
+)
 async def get_item(item_id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(InventoryItem).where(InventoryItem.id == item_id))
     item = result.scalar_one_or_none()

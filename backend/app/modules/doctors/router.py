@@ -62,16 +62,15 @@ async def list_doctors(
     query = select(Doctor).options(
         selectinload(Doctor.user),
         selectinload(Doctor.department),
-    )
+    ).join(Doctor.user).where(User.is_active.is_(True))
     if department_id:
         query = query.where(Doctor.department_id == department_id)
     if is_available is not None:
         query = query.where(Doctor.is_available == is_available)
     if search:
-        from app.modules.auth.models import User as UserModel
-        query = query.join(Doctor.user).where(
+        query = query.where(
             or_(
-                UserModel.full_name.ilike(f"%{search}%"),
+                User.full_name.ilike(f"%{search}%"),
                 Doctor.specialty.ilike(f"%{search}%"),
             )
         )
@@ -284,7 +283,8 @@ async def get_doctor_by_id(
     result = await db.execute(
         select(Doctor)
         .options(selectinload(Doctor.user), selectinload(Doctor.department))
-        .where(Doctor.id == doctor_id)
+        .join(Doctor.user)
+        .where(Doctor.id == doctor_id, User.is_active.is_(True))
     )
     doctor = result.scalar_one_or_none()
     if not doctor:
@@ -308,9 +308,11 @@ async def get_available_slots(
     ),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(Doctor).where(Doctor.id == doctor_id))
+    result = await db.execute(
+        select(Doctor).options(selectinload(Doctor.user)).where(Doctor.id == doctor_id)
+    )
     doctor = result.scalar_one_or_none()
-    if not doctor:
+    if not doctor or not doctor.user or not doctor.user.is_active:
         raise NotFoundException("Doctor not found")
 
     day_of_week = date.weekday()
@@ -373,7 +375,6 @@ async def get_available_slots(
     )
 
 
-# Admin endpoints for doctor management
 @router.put(
     "/{doctor_id}", response_model=DoctorDetailResponse, summary="Update doctor (Admin)"
 )
