@@ -509,16 +509,16 @@ export default function AdminUsers() {
   const handleToggleActive = async (userId, currentlyActive) => {
     setActionLoading(userId);
     try {
+      const response = currentlyActive
+        ? await api.put(`/auth/admin/users/${userId}/deactivate`)
+        : await api.put(`/auth/admin/users/${userId}/activate`);
       if (currentlyActive) {
-        await api.put(`/auth/admin/users/${userId}/deactivate`);
+        triggerReload();
+        showToast("success", response?.message || "User deactivated successfully.");
       } else {
-        await api.put(`/auth/admin/users/${userId}/activate`);
+        triggerReload();
+        showToast("success", response?.message || "User activated successfully.");
       }
-      triggerReload();
-      showToast(
-        "success",
-        currentlyActive ? "User deactivated successfully." : "User activated successfully.",
-      );
     } catch (err) {
       showToast("error", err.message || "Failed to update user status.");
     } finally {
@@ -554,7 +554,9 @@ export default function AdminUsers() {
 
     setConfirmAction({
       title: "Activate user",
-      message: "This user will regain access to the system.",
+      message: user.is_verified
+        ? "This user will regain access to the system."
+        : "This user will regain access to the system and be marked as verified.",
       confirmLabel: "Activate",
       confirmTone: "warning",
       onConfirm: () => handleToggleActive(user.id, false),
@@ -691,15 +693,26 @@ export default function AdminUsers() {
                     {u.role}
                   </span>
 
-                  <span
-                    className={`w-fit rounded-md px-2.5 py-1 text-xs font-medium ${
-                      u.is_active
-                        ? "bg-green-50 text-green-600"
-                        : "bg-red-50 text-red-500"
-                    }`}
-                  >
-                    {u.is_active ? "Active" : "Inactive"}
-                  </span>
+                  <div className="flex flex-wrap gap-1">
+                    <span
+                      className={`w-fit rounded-md px-2.5 py-1 text-xs font-medium ${
+                        u.is_active
+                          ? "bg-green-50 text-green-600"
+                          : "bg-red-50 text-red-500"
+                      }`}
+                    >
+                      {u.is_active ? "Active" : "Inactive"}
+                    </span>
+                    <span
+                      className={`w-fit rounded-md px-2.5 py-1 text-xs font-medium ${
+                        u.is_verified
+                          ? "bg-blue-50 text-blue-600"
+                          : "bg-amber-50 text-amber-700"
+                      }`}
+                    >
+                      {u.is_verified ? "Verified" : "Unverified"}
+                    </span>
+                  </div>
 
                   <div className="flex gap-1">
                     <button

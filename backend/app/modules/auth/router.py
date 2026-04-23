@@ -679,7 +679,13 @@ async def activate_user(
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+
+    restored_verification = not user.is_verified
     user.is_active = True
+    if restored_verification:
+        user.is_verified = True
+        user.verification_code = None
+        user.verification_code_expires = None
     await db.commit()
     await db.refresh(user)
     await log(
@@ -689,6 +695,8 @@ async def activate_user(
         entity_type="User",
         entity_id=user.id,
     )
+    if restored_verification:
+        return {"message": "User activated and verified"}
     return {"message": "User activated"}
 
 

@@ -159,7 +159,8 @@ class AuthService:
         return {"message": "Password has been reset successfully"}
  
     async def login(self, email: str, password: str):
-        result = await self.db.execute(select(User).where(User.email == email))
+        normalized_email = email.strip().lower()
+        result = await self.db.execute(select(User).where(User.email == normalized_email))
         user = result.scalar_one_or_none()
  
         if not user or not verify_password(password, user.password_hash):

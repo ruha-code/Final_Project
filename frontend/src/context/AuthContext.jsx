@@ -43,7 +43,10 @@ export function AuthProvider({ children }) {
   };
 
   const login = async ({ email, password }) => {
-    const response = await api.post("/auth/login", { email, password });
+    const response = await api.post("/auth/login", {
+      email: email.trim().toLowerCase(),
+      password,
+    });
     api.setToken(response.access_token);
     if (response.refresh_token) api.setRefreshToken(response.refresh_token);
     return refreshUser();
