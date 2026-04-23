@@ -1,6 +1,7 @@
 import logging
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Optional
+import time as time_module
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -8,7 +9,7 @@ import h3
 from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.cache import CacheKeys, cache_get, cache_set
+from app.core.cache import CacheKeys, cache_get, cache_set, get_redis
 from app.core.database import get_db
 from app.core.dependencies import RoleChecker, get_current_user
 from app.modules.analytics.schemas import DemandPoint, DoctorStats, RegionDetail
@@ -19,6 +20,36 @@ from app.modules.auth.models import User
 router = APIRouter(dependencies=[Depends(RoleChecker(["ADMIN"]))])
 
 logger = logging.getLogger("clinic.analytics")
+ANALYTICS_VIEW_LOG_DEDUP_WINDOW_SECONDS = 20
+_analytics_view_log_fallback: dict[int, float] = {}
+
+
+async def _log_view_analytics_once(db: AsyncSession, user_id: int) -> None:
+    redis = await get_redis()
+    if redis is None:
+        now = time_module.monotonic()
+        last_logged = _analytics_view_log_fallback.get(user_id, 0.0)
+        if now - last_logged >= ANALYTICS_VIEW_LOG_DEDUP_WINDOW_SECONDS:
+            _analytics_view_log_fallback[user_id] = now
+            await log(db=db, user_id=user_id, action=Actions.VIEW_ANALYTICS)
+        return
+
+    key = f"audit:view_analytics:{user_id}"
+    try:
+        claimed = await redis.set(key, "1", ex=ANALYTICS_VIEW_LOG_DEDUP_WINDOW_SECONDS, nx=True)
+    except Exception:
+        claimed = None
+
+    if claimed:
+        await log(db=db, user_id=user_id, action=Actions.VIEW_ANALYTICS)
+        return
+
+    if claimed is None:
+        now = time_module.monotonic()
+        last_logged = _analytics_view_log_fallback.get(user_id, 0.0)
+        if now - last_logged >= ANALYTICS_VIEW_LOG_DEDUP_WINDOW_SECONDS:
+            _analytics_view_log_fallback[user_id] = now
+            await log(db=db, user_id=user_id, action=Actions.VIEW_ANALYTICS)
 
 
 def _resolve_utc_window(
@@ -110,7 +141,7 @@ async def get_demand(
         )
         logger.debug("[CACHE SET] analytics:demand (300s)")
 
-    await log(db=db, user_id=current_user.id, action=Actions.VIEW_ANALYTICS)
+    await _log_view_analytics_once(db=db, user_id=current_user.id)
     return response
 
 
@@ -160,7 +191,7 @@ async def get_region_detail(
     await cache_set(cache_key, detail.model_dump(), ttl_seconds=300)
     logger.debug(f"[CACHE SET] {cache_key} (300s)")
 
-    await log(db=db, user_id=current_user.id, action=Actions.VIEW_ANALYTICS)
+    await _log_view_analytics_once(db=db, user_id=current_user.id)
     return detail
 
 
@@ -236,5 +267,5 @@ async def get_doctors_stats(
         )
         logger.debug("[CACHE SET] analytics:doctors (300s)")
 
-    await log(db=db, user_id=current_user.id, action=Actions.VIEW_ANALYTICS)
+    await _log_view_analytics_once(db=db, user_id=current_user.id)
     return response
