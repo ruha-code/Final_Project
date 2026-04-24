@@ -1,25 +1,41 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hospital_app/features/data/repositories/auth_repository.dart';
 import 'package:hospital_app/features/presentation/bloc/register/register_bloc.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/app_constant.dart';
 import 'package:hospital_app/features/presentation/screens/register_part/widgets/build_text_field.dart';
 
-class RegisterScreen extends StatefulWidget {
+class RegisterScreen extends StatelessWidget {
   const RegisterScreen({super.key});
 
   @override
-  State<RegisterScreen> createState() => _RegisterScreenState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (ctx) => RegisterBloc(
+        authRepository: ctx.read<AuthRepository>(),
+      ),
+      child: const _RegisterView(),
+    );
+  }
 }
 
-class _RegisterScreenState extends State<RegisterScreen> {
-  final _usernameController = TextEditingController();
+class _RegisterView extends StatefulWidget {
+  const _RegisterView();
+
+  @override
+  State<_RegisterView> createState() => _RegisterViewState();
+}
+
+class _RegisterViewState extends State<_RegisterView> {
+  // Значение этого поля идёт в FirebaseAuth как displayName.
+  final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
   @override
   void dispose() {
-    _usernameController.dispose();
+    _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
@@ -28,27 +44,46 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => RegisterBloc(),
-      child: Scaffold(
-        backgroundColor: AppColors.accent,
-        body: SafeArea(
+    return Scaffold(
+      backgroundColor: AppColors.accent,
+      body: SafeArea(
+        child: BlocListener<RegisterBloc, RegisterState>(
+          listenWhen: (prev, curr) =>
+              prev.status != curr.status &&
+              curr.status == RegisterStatus.failure,
+          listener: (context, state) {
+            if (state.errorMessage != null) {
+              ScaffoldMessenger.of(context)
+                ..hideCurrentSnackBar()
+                ..showSnackBar(SnackBar(
+                  content: Text(state.errorMessage!),
+                  backgroundColor: Colors.red.shade600,
+                ));
+            }
+          },
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 28),
             child: BlocBuilder<RegisterBloc, RegisterState>(
               builder: (context, state) {
+                final isLoading = state.status == RegisterStatus.loading;
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 48),
                     const Text(
                       'Stay on Top of Every Detail',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.primary),
+                      style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primary),
                     ),
                     const SizedBox(height: 48),
                     const Text(
                       'Create Your Medlink Account',
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: Color(0xFF1A1A2E)),
+                      style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1A1A2E)),
                     ),
                     const SizedBox(height: 6),
                     const Text(
@@ -56,7 +91,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       style: TextStyle(fontSize: 13, color: Colors.black45),
                     ),
                     const SizedBox(height: 24),
-                    BuildTextField(controller: _usernameController, hint: 'Username'),
+                    BuildTextField(
+                        controller: _nameController, hint: 'Full name'),
                     const SizedBox(height: 12),
                     BuildTextField(
                       controller: _emailController,
@@ -76,7 +112,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           size: 18,
                           color: Colors.black38,
                         ),
-                        onPressed: () => context.read<RegisterBloc>().add(RegisterPasswordVisibilityToggled()),
+                        onPressed: () => context
+                            .read<RegisterBloc>()
+                            .add(const RegisterPasswordVisibilityToggled()),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -92,7 +130,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           size: 18,
                           color: Colors.black38,
                         ),
-                        onPressed: () => context.read<RegisterBloc>().add(RegisterConfirmVisibilityToggled()),
+                        onPressed: () => context
+                            .read<RegisterBloc>()
+                            .add(const RegisterConfirmVisibilityToggled()),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -103,18 +143,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           height: 20,
                           child: Checkbox(
                             value: state.agreeTerms,
-                            onChanged: (v) => context.read<RegisterBloc>().add(RegisterTermsChanged(v ?? false)),
+                            onChanged: (v) => context
+                                .read<RegisterBloc>()
+                                .add(RegisterTermsChanged(v ?? false)),
                             activeColor: AppColors.primary,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4)),
                           ),
                         ),
                         const SizedBox(width: 8),
-                        const Text('I agree to the ', style: TextStyle(fontSize: 13, color: Colors.black54)),
+                        const Text('I agree to the ',
+                            style: TextStyle(
+                                fontSize: 13, color: Colors.black54)),
                         GestureDetector(
                           onTap: () {},
                           child: const Text(
                             'Terms & Conditions',
-                            style: TextStyle(fontSize: 13, color: AppColors.primary, fontWeight: FontWeight.w500),
+                            style: TextStyle(
+                                fontSize: 13,
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.w500),
                           ),
                         ),
                       ],
@@ -124,17 +172,70 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       width: double.infinity,
                       height: 48,
                       child: ElevatedButton(
-                        onPressed: state.agreeTerms
-                            ? () => Navigator.pushReplacementNamed(context, '/dashboard')
+                        onPressed: (state.agreeTerms && !isLoading)
+                            ? () => context.read<RegisterBloc>().add(
+                                  RegisterSubmitted(
+                                    displayName: _nameController.text,
+                                    email: _emailController.text,
+                                    password: _passwordController.text,
+                                    confirmPassword:
+                                        _confirmPasswordController.text,
+                                  ),
+                                )
                             : null,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
-                          disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.5),
+                          disabledBackgroundColor:
+                              AppColors.primary.withValues(alpha: 0.5),
                           foregroundColor: Colors.white,
                           elevation: 0,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
                         ),
-                        child: const Text('Create Account', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                        child: isLoading
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Text('Create Account',
+                                style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600)),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _divider(),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: OutlinedButton.icon(
+                        onPressed: isLoading
+                            ? null
+                            : () => context
+                                .read<RegisterBloc>()
+                                .add(const RegisterWithGoogleRequested()),
+                        icon: const Icon(Icons.g_mobiledata,
+                            size: 28, color: Colors.black87),
+                        label: const Text(
+                          'Continue with Google',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          side: const BorderSide(color: Colors.black12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -142,12 +243,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Text('Already have an account? ', style: TextStyle(fontSize: 13, color: Colors.black45)),
+                          const Text('Already have an account? ',
+                              style: TextStyle(
+                                  fontSize: 13, color: Colors.black45)),
                           GestureDetector(
-                            onTap: () => Navigator.pop(context),
+                            onTap: isLoading
+                                ? null
+                                : () => Navigator.pop(context),
                             child: const Text(
                               'Login',
-                              style: TextStyle(fontSize: 13, color: AppColors.primary, fontWeight: FontWeight.w600),
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w600),
                             ),
                           ),
                         ],
@@ -161,6 +269,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _divider() {
+    return Row(
+      children: [
+        const Expanded(child: Divider(color: Colors.black12)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Text('or',
+              style: TextStyle(fontSize: 12, color: Colors.black45)),
+        ),
+        const Expanded(child: Divider(color: Colors.black12)),
+      ],
     );
   }
 }
