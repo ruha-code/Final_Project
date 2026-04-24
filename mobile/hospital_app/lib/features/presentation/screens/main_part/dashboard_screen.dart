@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hospital_app/features/presentation/bloc/auth/auth_bloc.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/app_constant.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/section_header.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/stat_card.dart';
@@ -9,6 +11,14 @@ class DashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Берём displayName текущего юзера — для первой половины приветствия
+    // достаточно только имени (до пробела), иначе получается длинно.
+    final user = context.select((AuthBloc b) => b.state.user);
+    final fullName = user?.displayName?.trim() ?? '';
+    final firstName = fullName.isNotEmpty
+        ? fullName.split(RegExp(r'\s+')).first
+        : (user?.email?.split('@').first ?? 'there');
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -20,9 +30,9 @@ class DashboardScreen extends StatelessWidget {
               const SizedBox(height: 16),
               const TopNavBar(),
               const SizedBox(height: 24),
-              const SectionHeader(
+              SectionHeader(
                 title: 'Dashboard',
-                subtitle: 'Hello Ruslan, welcome back!',
+                subtitle: 'Hello $firstName, welcome back!',
               ),
               const SizedBox(height: 20),
               _buildStatsRow(),

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hospital_app/features/presentation/bloc/auth/auth_bloc.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/app_constant.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/top_nav_bar.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/departments_screen.dart';
@@ -100,6 +102,15 @@ class MoreScreen extends StatelessWidget {
   }
 
   Widget _buildProfileCard(BuildContext context) {
+    final user = context.select((AuthBloc b) => b.state.user);
+    final name = (user?.displayName?.trim().isNotEmpty ?? false)
+        ? user!.displayName!
+        : (user?.email ?? 'User');
+    final initial =
+        name.isNotEmpty ? name.characters.first.toUpperCase() : '?';
+    final subtitle = user?.email ?? '—';
+    final photoUrl = user?.photoURL;
+
     return GestureDetector(
       onTap: () => Navigator.pushNamed(context, '/profile'),
       child: Container(
@@ -107,46 +118,50 @@ class MoreScreen extends StatelessWidget {
         decoration: AppDecorations.card,
         child: Row(
           children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(26),
-              ),
-              child: const Center(
-                child: Text(
-                  'R',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 18,
-                  ),
-                ),
-              ),
+            CircleAvatar(
+              radius: 26,
+              backgroundColor: AppColors.primary,
+              backgroundImage:
+                  photoUrl != null ? NetworkImage(photoUrl) : null,
+              child: photoUrl == null
+                  ? Text(
+                      initial,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 18,
+                      ),
+                    )
+                  : null,
             ),
             const SizedBox(width: 14),
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Ruslan',
-                    style: TextStyle(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 16,
                       color: AppColors.textPrimary,
                     ),
                   ),
-                  SizedBox(height: 2),
+                  const SizedBox(height: 2),
                   Text(
-                    'Admin',
-                    style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 12, color: AppColors.textTertiary),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, size: 20, color: AppColors.textTertiary),
+            const Icon(Icons.chevron_right,
+                size: 20, color: AppColors.textTertiary),
           ],
         ),
       ),
@@ -209,7 +224,8 @@ class MoreScreen extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, size: 18, color: AppColors.textTertiary),
+            const Icon(Icons.chevron_right,
+                size: 18, color: AppColors.textTertiary),
           ],
         ),
       ),
@@ -244,9 +260,11 @@ class MoreScreen extends StatelessWidget {
             children: [
               Text(
                 item.label,
-                style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
+                style: const TextStyle(
+                    fontSize: 14, color: AppColors.textPrimary),
               ),
-              const Icon(Icons.chevron_right, size: 16, color: AppColors.textTertiary),
+              const Icon(Icons.chevron_right,
+                  size: 16, color: AppColors.textTertiary),
             ],
           ),
         ),
