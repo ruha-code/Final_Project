@@ -316,14 +316,14 @@ function EditUserModal({ user, onClose, onSaved, canChangeRole }) {
 
     setLoading(true);
     try {
-      await api.put(`/auth/admin/users/${user.id}`, {
+      const updatedUser = await api.put(`/auth/admin/users/${user.id}`, {
         full_name: normalizeName(form.full_name),
         username: form.username.trim(),
         email: form.email.trim().toLowerCase(),
         phone: form.phone.trim() || null,
         role: form.role,
       });
-      onSaved("User updated successfully.");
+      await onSaved(updatedUser, "User updated successfully.");
       onClose();
     } catch (err) {
       setError(err.message || "Failed to update user");
@@ -440,7 +440,7 @@ function EditUserModal({ user, onClose, onSaved, canChangeRole }) {
 }
 
 export default function AdminUsers() {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, refreshUser } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -540,6 +540,11 @@ export default function AdminUsers() {
   };
 
   const openToggleConfirmation = (user) => {
+    if (currentUser?.id === user.id) {
+      showToast("error", "You cannot deactivate your own account.");
+      return;
+    }
+
     if (user.is_active) {
       setConfirmAction({
         title: "Deactivate user",
@@ -564,6 +569,11 @@ export default function AdminUsers() {
   };
 
   const openDeleteConfirmation = (user) => {
+    if (currentUser?.id === user.id) {
+      showToast("error", "You cannot delete your own account.");
+      return;
+    }
+
     setConfirmAction({
       title: "Delete user",
       message:
@@ -590,7 +600,10 @@ export default function AdminUsers() {
     showToast("success", message || "User created successfully.");
   };
 
-  const handleSaved = (message) => {
+  const handleSaved = async (updatedUser, message) => {
+    if (currentUser?.id === updatedUser?.id) {
+      await refreshUser();
+    }
     triggerReload();
     showToast("success", message || "User updated successfully.");
   };
@@ -666,99 +679,112 @@ export default function AdminUsers() {
             {users.length === 0 ? (
               <div className="py-10 text-center text-sm text-gray-400">No users found</div>
             ) : (
-              users.map((u) => (
-                <div
-                  key={u.id}
-                  className="grid grid-cols-6 items-center border-b px-6 py-4 last:border-none hover:bg-gray-50"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-teal-100 text-sm font-semibold text-teal-600">
-                      {u.full_name
-                        ?.split(" ")
-                        .map((n) => n[0])
-                        .join("")
-                        .slice(0, 2)}
-                    </div>
-                    <p className="text-sm font-medium">{u.full_name}</p>
-                  </div>
+              users.map((u) => {
+                const isCurrentUser = currentUser?.id === u.id;
 
-                  <span className="text-sm text-gray-500">@{u.username}</span>
-                  <span className="truncate text-sm text-gray-500">{u.email}</span>
-
-                  <span
-                    className={`w-fit rounded-md px-2.5 py-1 text-xs font-medium ${
-                      ROLE_STYLES[u.role] || "bg-gray-100 text-gray-500"
-                    }`}
+                return (
+                  <div
+                    key={u.id}
+                    className="grid grid-cols-6 items-center border-b px-6 py-4 last:border-none hover:bg-gray-50"
                   >
-                    {u.role}
-                  </span>
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-teal-100 text-sm font-semibold text-teal-600">
+                        {u.full_name
+                          ?.split(" ")
+                          .map((n) => n[0])
+                          .join("")
+                          .slice(0, 2)}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">{u.full_name}</p>
+                        {isCurrentUser && (
+                          <p className="text-xs text-gray-400">Current account</p>
+                        )}
+                      </div>
+                    </div>
 
-                  <div className="flex flex-wrap gap-1">
+                    <span className="text-sm text-gray-500">@{u.username}</span>
+                    <span className="truncate text-sm text-gray-500">{u.email}</span>
+
                     <span
                       className={`w-fit rounded-md px-2.5 py-1 text-xs font-medium ${
-                        u.is_active
-                          ? "bg-green-50 text-green-600"
-                          : "bg-red-50 text-red-500"
+                        ROLE_STYLES[u.role] || "bg-gray-100 text-gray-500"
                       }`}
                     >
-                      {u.is_active ? "Active" : "Inactive"}
+                      {u.role}
                     </span>
-                    <span
-                      className={`w-fit rounded-md px-2.5 py-1 text-xs font-medium ${
-                        u.is_verified
-                          ? "bg-blue-50 text-blue-600"
-                          : "bg-amber-50 text-amber-700"
-                      }`}
-                    >
-                      {u.is_verified ? "Verified" : "Unverified"}
-                    </span>
-                  </div>
 
-                  <div className="flex gap-1">
-                    <button
-                      type="button"
-                      onClick={() => setEditUser(u)}
-                      disabled={actionLoading === u.id}
-                      className="flex w-fit items-center gap-1 rounded-lg bg-blue-50 px-3 py-1.5 text-xs text-blue-500 transition hover:bg-blue-100 disabled:opacity-50"
-                      aria-label="Edit user"
-                    >
-                      <Pencil size={12} />
-                    </button>
+                    <div className="flex flex-wrap gap-1">
+                      <span
+                        className={`w-fit rounded-md px-2.5 py-1 text-xs font-medium ${
+                          u.is_active
+                            ? "bg-green-50 text-green-600"
+                            : "bg-red-50 text-red-500"
+                        }`}
+                      >
+                        {u.is_active ? "Active" : "Inactive"}
+                      </span>
+                      <span
+                        className={`w-fit rounded-md px-2.5 py-1 text-xs font-medium ${
+                          u.is_verified
+                            ? "bg-blue-50 text-blue-600"
+                            : "bg-amber-50 text-amber-700"
+                        }`}
+                      >
+                        {u.is_verified ? "Verified" : "Unverified"}
+                      </span>
+                    </div>
 
-                    <button
-                      type="button"
-                      onClick={() => openToggleConfirmation(u)}
-                      disabled={actionLoading === u.id}
-                      className={`flex w-fit items-center gap-1 rounded-lg px-3 py-1.5 text-xs transition disabled:opacity-50 ${
-                        u.is_active
-                          ? "bg-red-50 text-red-500 hover:bg-red-100"
-                          : "bg-green-50 text-green-600 hover:bg-green-100"
-                      }`}
-                      aria-label={u.is_active ? "Deactivate user" : "Activate user"}
-                    >
-                      {u.is_active ? (
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setEditUser(u)}
+                        disabled={actionLoading === u.id}
+                        className="flex w-fit items-center gap-1 rounded-lg bg-blue-50 px-3 py-1.5 text-xs text-blue-500 transition hover:bg-blue-100 disabled:opacity-50"
+                        aria-label="Edit user"
+                      >
+                        <Pencil size={12} />
+                      </button>
+
+                      {!isCurrentUser && (
                         <>
-                          <UserX size={12} /> Deactivate
-                        </>
-                      ) : (
-                        <>
-                          <UserCheck size={12} /> Activate
+                          <button
+                            type="button"
+                            onClick={() => openToggleConfirmation(u)}
+                            disabled={actionLoading === u.id}
+                            className={`flex w-fit items-center gap-1 rounded-lg px-3 py-1.5 text-xs transition disabled:opacity-50 ${
+                              u.is_active
+                                ? "bg-red-50 text-red-500 hover:bg-red-100"
+                                : "bg-green-50 text-green-600 hover:bg-green-100"
+                            }`}
+                            aria-label={u.is_active ? "Deactivate user" : "Activate user"}
+                          >
+                            {u.is_active ? (
+                              <>
+                                <UserX size={12} /> Deactivate
+                              </>
+                            ) : (
+                              <>
+                                <UserCheck size={12} /> Activate
+                              </>
+                            )}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => openDeleteConfirmation(u)}
+                            disabled={actionLoading === u.id}
+                            className="flex w-fit items-center gap-1 rounded-lg bg-gray-100 px-3 py-1.5 text-xs text-gray-500 transition hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
+                            aria-label="Delete user"
+                          >
+                            <Trash2 size={12} />
+                          </button>
                         </>
                       )}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => openDeleteConfirmation(u)}
-                      disabled={actionLoading === u.id}
-                      className="flex w-fit items-center gap-1 rounded-lg bg-gray-100 px-3 py-1.5 text-xs text-gray-500 transition hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
-                      aria-label="Delete user"
-                    >
-                      <Trash2 size={12} />
-                    </button>
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         )}

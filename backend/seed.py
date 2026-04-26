@@ -469,7 +469,7 @@ async def seed_admin(session) -> User:
         full_name="Admin User",
         username="admin",
         email="admin@clinic.com",
-        password_hash=hash_password("admin123"),
+        password_hash=hash_password("Admin123"),
         role=UserRole.ADMIN,
         phone="+1 555-0000",
         is_verified=True,
@@ -477,7 +477,7 @@ async def seed_admin(session) -> User:
     session.add(admin)
     await session.flush()
     await session.commit()
-    print("  Admin: admin@clinic.com / admin123")
+    print("  Admin: admin@clinic.com / Admin123")
     return admin
 
 
@@ -489,7 +489,7 @@ async def seed_doctors(session, dept_map: dict) -> list[Doctor]:
             full_name=d["full_name"],
             username=d["username"],
             email=d["email"],
-            password_hash=hash_password("doctor123"),
+            password_hash=hash_password("Doctor123"),
             role=UserRole.DOCTOR,
             phone=f"+1 555-02{i:02d}",
             is_verified=True,
@@ -776,8 +776,8 @@ async def main():
     print("Seed complete!")
     print("=" * 50)
     print("\nLogin credentials:")
-    print("  Admin:   admin@clinic.com   / admin123")
-    print("  Doctor:  jwilson@clinic.com / doctor123")
+    print("  Admin:   admin@clinic.com   / Admin123")
+    print("  Doctor:  jwilson@clinic.com / Doctor123")
     print("  Patient: sjohnson@email.com / patient123")
     print("=" * 50)
 

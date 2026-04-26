@@ -10,12 +10,21 @@ FULL_NAME_PATTERN = re.compile(
 )
 USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9._-]{3,30}$")
 PHONE_PATTERN = re.compile(r"^\+?[0-9()\-\s]{7,20}$")
+STRONG_PASSWORD_PATTERN = re.compile(r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,128}$")
 
 
 class UserRole(str, Enum):
     ADMIN = "ADMIN"
     DOCTOR = "DOCTOR"
     PATIENT = "PATIENT"
+
+
+def validate_privileged_password(password: str) -> str:
+    if not STRONG_PASSWORD_PATTERN.fullmatch(password):
+        raise ValueError(
+            "Password must be at least 8 characters and include uppercase, lowercase, and a digit"
+        )
+    return password
 
 
 class RegisterSchema(BaseModel):

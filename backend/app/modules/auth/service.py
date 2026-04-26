@@ -5,7 +5,7 @@ import uuid
 import secrets
  
 from app.modules.auth.models import User
-from app.modules.auth.schemas import RegisterSchema, UserRole
+from app.modules.auth.schemas import RegisterSchema, UserRole, validate_privileged_password
 from app.core.security import hash_password, verify_password, create_access_token, create_refresh_token
 from app.core.exceptions import ConflictException, UnauthorizedException, ValidationException
 from app.core.email import send_verification_code, send_password_reset
@@ -149,6 +149,12 @@ class AuthService:
  
         if not user.reset_token_expires or datetime.now(timezone.utc) > user.reset_token_expires:
             raise ValidationException("Reset link has expired. Please request a new one.")
+
+        if user.role in {UserRole.ADMIN, UserRole.DOCTOR}:
+            try:
+                validate_privileged_password(new_password)
+            except ValueError as exc:
+                raise ValidationException(str(exc)) from exc
  
         user.password_hash = hash_password(new_password)
         user.reset_token = None

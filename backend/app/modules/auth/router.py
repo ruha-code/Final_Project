@@ -36,6 +36,7 @@ from app.modules.auth.schemas import (
     VerifyCodeSchema,
     ForgotPasswordSchema,
     ResetPasswordSchema,
+    validate_privileged_password,
 )
 from app.modules.auth.service import AuthService
 from app.modules.auth.models import User, UserRole
@@ -48,7 +49,6 @@ FULL_NAME_PATTERN = re.compile(
     re.UNICODE,
 )
 USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9._-]{3,30}$")
-PASSWORD_PATTERN = re.compile(r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,128}$")
 
 
 class RefreshRequest(BaseModel):
@@ -71,10 +71,10 @@ def _validate_admin_managed_user_payload(
             "Username must be 3-30 characters and use only letters, numbers, dots, underscores, or hyphens"
         )
 
-    if not PASSWORD_PATTERN.fullmatch(password):
-        raise ValidationException(
-            "Password must be at least 8 characters and include uppercase, lowercase, and a digit"
-        )
+    try:
+        validate_privileged_password(password)
+    except ValueError as exc:
+        raise ValidationException(str(exc)) from exc
 
     return normalized_name, normalized_username
 
