@@ -256,9 +256,16 @@ export default function Patients() {
     return sorted;
   }, [patients, search, statusFilter, typeFilter, sortBy]);
 
-  const visibleIds = visiblePatients.map((patient) => patient.id);
+  const visibleIds = useMemo(() => visiblePatients.map((patient) => patient.id), [visiblePatients]);
   const selectedVisibleCount = visibleIds.filter((id) => selected.includes(id)).length;
   const allVisibleSelected = visibleIds.length > 0 && selectedVisibleCount === visibleIds.length;
+
+  useEffect(() => {
+    setSelected((current) => {
+      const next = current.filter((id) => visibleIds.includes(id));
+      return next.length === current.length ? current : next;
+    });
+  }, [visibleIds]);
 
   const toggleSelectVisible = () => {
     setSelected((current) => {
@@ -271,7 +278,7 @@ export default function Patients() {
   };
 
   const dischargeSelected = async () => {
-    const selectedPatients = patients.filter((patient) => selected.includes(patient.id));
+    const selectedPatients = visiblePatients.filter((patient) => selected.includes(patient.id));
     const targets = selectedPatients.filter((patient) => patient.patient_status !== "DISCHARGED");
     if (targets.length === 0) return;
 
@@ -298,14 +305,14 @@ export default function Patients() {
           <h2 className="text-2xl font-semibold">Patients</h2>
           <p className="text-sm text-gray-400">{isDoctorView ? "Open a patient and continue the visit workflow." : "Manage patient records with safe controls."}</p>
         </div>
-        {isAdmin() && selected.length > 0 && (
+        {isAdmin() && selectedVisibleCount > 0 && (
           <div className="flex gap-2">
             <button
               onClick={dischargeSelected}
               disabled={bulkSaving}
               className="rounded-xl bg-teal-500 px-4 py-2 text-sm text-white hover:bg-teal-600 disabled:opacity-60"
             >
-              {bulkSaving ? "Updating..." : `Discharge Selected (${selected.length})`}
+              {bulkSaving ? "Updating..." : `Discharge Selected (${selectedVisibleCount})`}
             </button>
             <button onClick={() => setSelected([])} className="rounded-xl bg-gray-100 px-4 py-2 text-sm text-gray-700 hover:bg-gray-200">
               Clear

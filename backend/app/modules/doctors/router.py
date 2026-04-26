@@ -315,6 +315,12 @@ async def get_available_slots(
     doctor = result.scalar_one_or_none()
     if not doctor or not doctor.user or not doctor.user.is_active:
         raise NotFoundException("Doctor not found")
+    if not doctor.is_available:
+        return AvailableSlotsResponse(
+            doctor_id=doctor_id,
+            date=str(date),
+            available_slots=[],
+        )
 
     day_of_week = date.weekday()
     result = await db.execute(

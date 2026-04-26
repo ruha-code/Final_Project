@@ -45,18 +45,8 @@ function sanitizeAppointments(records) {
 }
 
 async function fetchAllAdminAppointments() {
-  const pageSize = 100;
-  const allItems = [];
-  let page = 1;
-
-  while (true) {
-    const data = await api.get(`/appointments/admin/all?page=${page}&page_size=${pageSize}`);
-    allItems.push(...(Array.isArray(data?.items) ? data.items : []));
-    if (!data?.has_next) break;
-    page += 1;
-  }
-
-  return sanitizeAppointments(allItems);
+  const data = await api.get("/appointments/admin/all?all=true");
+  return sanitizeAppointments(Array.isArray(data?.items) ? data.items : []);
 }
 
 function StatusBadge({ status, className = "" }) {
@@ -484,6 +474,19 @@ function getDoctorPrimaryAction(status) {
   }
 }
 
+function getEmptyStateCopy({ isPatientView, isDoctorView, filter, searchValue }) {
+  if (isPatientView) {
+    return "Adjust your filters or book a new appointment to get started.";
+  }
+  if (searchValue || filter !== "ALL") {
+    return "Adjust your search or filters to see more appointments.";
+  }
+  if (isDoctorView) {
+    return "Appointments assigned to you will appear here when they are scheduled.";
+  }
+  return "Appointments across the clinic will appear here once they are created.";
+}
+
 export default function Appointments() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -643,6 +646,12 @@ export default function Appointments() {
   const completedCount = countSource.filter((appointment) => appointment.status === "COMPLETED").length;
   const scheduledCount = countSource.filter((appointment) => appointment.status === "SCHEDULED").length;
   const ongoingCount = countSource.filter((appointment) => appointment.status === "ONGOING").length;
+  const emptyStateCopy = getEmptyStateCopy({
+    isPatientView: isPatient(),
+    isDoctorView: isDoctor(),
+    filter,
+    searchValue,
+  });
 
   if (loading) {
     return (
@@ -731,7 +740,7 @@ export default function Appointments() {
             <div className="px-6 py-12 text-center">
               <Calendar className="mx-auto mb-3 text-gray-300" size={28} />
               <p className="text-base font-medium text-gray-600">No appointments found</p>
-              <p className="mt-1 text-sm text-gray-400">Adjust your filters or book a new appointment to get started.</p>
+              <p className="mt-1 text-sm text-gray-400">{emptyStateCopy}</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -747,6 +756,9 @@ export default function Appointments() {
                     const startHint = getRelativeStartLabel(appointment.appointment_time);
                     const doctorPrimaryAction = isDoctor() ? getDoctorPrimaryAction(appointment.status) : null;
                     const hasDoctorMenu = isDoctor() && (canCancel || canComplete);
+                    const canAdminCancel = isAdmin() && canCancel;
+                    const canAdminDelete = isAdmin() && appointment.status === "CANCELLED";
+                    const showNoAdminActions = isAdmin() && !canAdminCancel && !canAdminDelete;
                     return (
                       <div key={appointment.id} className={`grid items-center gap-4 px-6 py-4 text-sm ${isPatient() ? PATIENT_APPOINTMENT_GRID : DOCTOR_APPOINTMENT_GRID}`}>
                         {isPatient() ? (
@@ -839,7 +851,26 @@ export default function Appointments() {
                                   )}
                                 </div>
                               )}
-                              {isAdmin() && appointment.status === "CANCELLED" && <button onClick={() => setDeleteModal(appointment)} disabled={actionLoading === appointment.id} className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs text-gray-600 hover:bg-red-50 hover:text-red-600 disabled:opacity-60"><Trash2 size={12} /></button>}
+                              {canAdminCancel && (
+                                <button
+                                  onClick={() => void handleCancel(appointment.id)}
+                                  disabled={actionLoading === appointment.id}
+                                  className="min-w-[92px] rounded-lg bg-red-50 px-3 py-1.5 text-center text-xs font-medium text-red-600 hover:bg-red-100 disabled:opacity-60"
+                                >
+                                  {actionLoading === appointment.id ? "Updating..." : "Cancel"}
+                                </button>
+                              )}
+                              {canAdminDelete && (
+                                <button
+                                  onClick={() => setDeleteModal(appointment)}
+                                  disabled={actionLoading === appointment.id}
+                                  className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs text-gray-600 hover:bg-red-50 hover:text-red-600 disabled:opacity-60"
+                                  aria-label="Delete appointment"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              )}
+                              {showNoAdminActions && <span className="text-xs text-gray-300">No actions</span>}
                               {!doctorPrimaryAction && !canCancel && !canComplete && !isAdmin() && <span className="text-xs text-gray-300">No actions</span>}
                             </div>
                           </>

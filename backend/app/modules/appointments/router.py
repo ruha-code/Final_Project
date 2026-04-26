@@ -152,6 +152,8 @@ async def book_appointment(
     doctor = result.scalar_one_or_none()
     if not doctor or not doctor.user or not doctor.user.is_active:
         raise NotFoundException("Doctor not found")
+    if not doctor.is_available:
+        raise ValidationException("Doctor is currently unavailable for appointments")
 
     local_appt_time = dto.appointment_time
     appt_time = _normalize_utc(local_appt_time)
@@ -483,6 +485,7 @@ async def complete_appointment(
 async def get_all_appointments(
     page: int = Query(1, ge=1),
     page_size: int = Query(10, le=100),
+    all_records: bool = Query(False, alias="all"),
     status: Optional[str] = None,
     doctor_id: Optional[int] = None,
     db: AsyncSession = Depends(get_db),
@@ -493,6 +496,19 @@ async def get_all_appointments(
     if doctor_id:
         query = query.where(Appointment.doctor_id == doctor_id)
     query = query.order_by(Appointment.appointment_time.desc(), Appointment.id.desc())
+    if all_records:
+        result = await db.execute(query)
+        items = result.scalars().all()
+        detailed_items = [_build_detail(appointment) for appointment in items]
+        total = len(detailed_items)
+        return {
+            "items": detailed_items,
+            "total": total,
+            "page": 1,
+            "page_size": total or 1,
+            "pages": 1,
+            "has_next": False,
+        }
     result = await paginate(query, page, page_size, db)
     result.items = [_build_detail(appointment) for appointment in result.items]
     return result

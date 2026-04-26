@@ -62,6 +62,13 @@ function MetricCard({ label, value, helper }) {
   );
 }
 
+function toErrorMessage(error, fallback) {
+  if (error && typeof error === "object" && "message" in error && error.message) {
+    return error.message;
+  }
+  return fallback;
+}
+
 export default function PatientDetails() {
   const { id } = useParams();
   const location = useLocation();
@@ -73,6 +80,8 @@ export default function PatientDetails() {
   const [showVitalsForm, setShowVitalsForm] = useState(false);
   const [savingVitals, setSavingVitals] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const [loadWarning, setLoadWarning] = useState("");
   const [notesError, setNotesError] = useState("");
   const [appointmentActionLoading, setAppointmentActionLoading] = useState(false);
   const [appointmentActionError, setAppointmentActionError] = useState("");
@@ -91,12 +100,36 @@ export default function PatientDetails() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [patientData, vitalsData, myAppointments] = await Promise.all([
+        setLoading(true);
+        setLoadError("");
+        setLoadWarning("");
+        setPatient(null);
+        setVitals([]);
+        setAppointments([]);
+
+        const [patientResult, vitalsResult, appointmentsResult] = await Promise.allSettled([
           api.get(`/patients/${id}`),
           api.get(`/patients/${id}/vitals`),
           api.get("/appointments/my"),
         ]);
-        const patientAppointments = (myAppointments || []).filter((item) => Number(item.patient_id) === Number(id));
+
+        if (patientResult.status !== "fulfilled") {
+          throw new Error(toErrorMessage(patientResult.reason, "Failed to load patient details."));
+        }
+
+        const patientData = patientResult.value;
+        const warningSources = [];
+        const vitalsData = vitalsResult.status === "fulfilled" ? (vitalsResult.value || []) : [];
+        if (vitalsResult.status !== "fulfilled") {
+          warningSources.push("vitals history");
+        }
+
+        const myAppointments = appointmentsResult.status === "fulfilled" ? (appointmentsResult.value || []) : [];
+        if (appointmentsResult.status !== "fulfilled") {
+          warningSources.push("appointments");
+        }
+
+        const patientAppointments = myAppointments.filter((item) => Number(item.patient_id) === Number(id));
         setPatient(patientData);
         setVitals(vitalsData || []);
         setAppointments(patientAppointments);
@@ -104,8 +137,11 @@ export default function PatientDetails() {
           notes: patientData.notes || "",
           patient_status: patientData.patient_status || "IN_TREATMENT",
         });
+        if (warningSources.length > 0) {
+          setLoadWarning(`Some patient data could not be loaded: ${warningSources.join(" and ")}.`);
+        }
       } catch (err) {
-        console.error("Failed to load patient details:", err);
+        setLoadError(toErrorMessage(err, "Failed to load patient details."));
       } finally {
         setLoading(false);
       }
@@ -133,12 +169,17 @@ export default function PatientDetails() {
     return <div className="flex h-64 items-center justify-center"><div className="h-12 w-12 animate-spin rounded-full border-b-2 border-teal-500" /></div>;
   }
 
+  if (loadError && !patient) {
+    return <div className="rounded-xl bg-red-50 p-6 text-sm text-red-700">{loadError}</div>;
+  }
+
   if (!patient) {
     return <div className="rounded-xl bg-white p-6 text-sm text-gray-400">Patient not found.</div>;
   }
 
   return (
     <div className="space-y-6">
+      {loadWarning && <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">{loadWarning}</div>}
       <div className="rounded-3xl border bg-white p-6 shadow-sm">
         <div className="grid gap-6 lg:grid-cols-[1.3fr_0.9fr]">
           <div className="space-y-5">

@@ -222,7 +222,7 @@ async def update_my_patient_profile(
     if not patient:
         raise NotFoundException("Patient profile not found. Please set it up first.")
 
-    updates = dto.model_dump(exclude_none=True)
+    updates = dto.model_dump(exclude_unset=True)
 
     timeline_fields = {"patient_type", "patient_status", "admission_date", "room_location"}
     if timeline_fields.intersection(updates):
@@ -424,7 +424,7 @@ async def update_patient(
     if not patient:
         raise NotFoundException("Patient not found")
 
-    updates = dto.model_dump(exclude_none=True)
+    updates = dto.model_dump(exclude_unset=True)
 
     if current_user.role == "DOCTOR":
         disallowed = [field for field in updates if field not in {"notes", "patient_status"}]

@@ -408,18 +408,8 @@ function sortAppointmentsByRecent(appointments) {
 }
 
 async function fetchAllAdminAppointments() {
-  const pageSize = 100;
-  const allItems = [];
-  let page = 1;
-
-  while (true) {
-    const data = await api.get(`/appointments/admin/all?page=${page}&page_size=${pageSize}`);
-    allItems.push(...(Array.isArray(data?.items) ? data.items : []));
-    if (data?.has_next !== true) break;
-    page += 1;
-  }
-
-  return allItems;
+  const data = await api.get("/appointments/admin/all?all=true");
+  return Array.isArray(data?.items) ? data.items : [];
 }
 
 export default function Dashboard() {
@@ -443,6 +433,7 @@ export default function Dashboard() {
     const fetchAll = async () => {
       try {
         setLoading(true);
+        setError(null);
         setSnapshotTime(Date.now());
         if (role === ROLES.ADMIN) {
           const [patients, doctors, appointments] = await Promise.allSettled([
@@ -450,6 +441,14 @@ export default function Dashboard() {
             api.get("/doctors"),
             fetchAllAdminAppointments(),
           ]);
+          const failedSources = [
+            patients.status === "rejected" ? "patients" : null,
+            doctors.status === "rejected" ? "doctors" : null,
+            appointments.status === "rejected" ? "appointments" : null,
+          ].filter(Boolean);
+          if (failedSources.length > 0) {
+            throw new Error(`Failed to load admin dashboard data: ${failedSources.join(", ")}`);
+          }
           const patientList = patients.status === "fulfilled" ? patients.value : [];
           const doctorList = doctors.status === "fulfilled" ? doctors.value : [];
           const appointmentList = appointments.status === "fulfilled" && Array.isArray(appointments.value)
@@ -465,6 +464,13 @@ export default function Dashboard() {
           setDoctorPatients([]);
         } else if (role === ROLES.DOCTOR) {
           const [patients, appointments] = await Promise.allSettled([api.get("/patients"), api.get("/appointments/my")]);
+          const failedSources = [
+            patients.status === "rejected" ? "patients" : null,
+            appointments.status === "rejected" ? "appointments" : null,
+          ].filter(Boolean);
+          if (failedSources.length > 0) {
+            throw new Error(`Failed to load dashboard data: ${failedSources.join(", ")}`);
+          }
           const appointmentList = appointments.status === "fulfilled" && Array.isArray(appointments.value) ? appointments.value : [];
           const patientIdSet = new Set(appointmentList.map((appointment) => appointment.patient_id));
           const patientList = (patients.status === "fulfilled" ? patients.value : []).filter((patient) => patientIdSet.has(patient.id));
@@ -486,8 +492,8 @@ export default function Dashboard() {
           setAgendaItems([]);
           setDoctorPatients([]);
         }
-      } catch {
-        setError("Failed to load dashboard data");
+      } catch (err) {
+        setError(err.message || "Failed to load dashboard data");
       } finally {
         setLoading(false);
       }

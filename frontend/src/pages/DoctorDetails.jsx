@@ -17,6 +17,13 @@ function initials(name) {
   return name.split(" ").map((value) => value[0]).join("").slice(0, 2).toUpperCase();
 }
 
+function toErrorMessage(error, fallback) {
+  if (error && typeof error === "object" && "message" in error && error.message) {
+    return error.message;
+  }
+  return fallback;
+}
+
 export default function DoctorDetails() {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -28,14 +35,26 @@ export default function DoctorDetails() {
   const [selectedSlot, setSelectedSlot] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [slotWarning, setSlotWarning] = useState("");
 
   useEffect(() => {
     const fetchDoctor = async () => {
       try {
         setLoading(true);
         setError("");
+        setSlotWarning("");
+        setDoctor(null);
+        setSchedule([]);
+        setSelectedDate("");
+        setSelectedSlot("");
+
         const doctorData = await api.get(`/doctors/${id}`);
         setDoctor(doctorData);
+
+        if (!doctorData.is_available) {
+          setSlotWarning("This doctor is currently marked unavailable for new bookings.");
+          return;
+        }
 
         const today = getTodayLocalDate();
         const nextDaysResults = await Promise.allSettled(
@@ -53,14 +72,20 @@ export default function DoctorDetails() {
         const nextDays = nextDaysResults
           .filter((r) => r.status === "fulfilled")
           .map((r) => r.value);
+        const failedDays = nextDaysResults.length - nextDays.length;
 
         const availableDays = nextDays.filter((item) => item.slots.length > 0);
         setSchedule(availableDays);
         if (availableDays[0]) {
           setSelectedDate(availableDays[0].date);
         }
+        if (failedDays === nextDaysResults.length) {
+          setSlotWarning("Doctor availability could not be loaded right now. Try again.");
+        } else if (failedDays > 0) {
+          setSlotWarning("Some availability could not be loaded. Showing the slots we could confirm.");
+        }
       } catch (err) {
-        setError(err.message || "Failed to load doctor");
+        setError(toErrorMessage(err, "Failed to load doctor"));
       } finally {
         setLoading(false);
       }
@@ -86,6 +111,7 @@ export default function DoctorDetails() {
   }
 
   const selectedDay = schedule.find((item) => item.date === selectedDate);
+  const bookingDisabled = !doctor.is_available || !selectedDate || !selectedSlot;
 
   return (
     <div className="space-y-6">
@@ -142,7 +168,7 @@ export default function DoctorDetails() {
           {isPatient() && (
             <button
               onClick={() => navigate("/appointments", { state: { bookDoctorId: doctor.id, bookDate: selectedDate, bookTime: selectedSlot } })}
-              disabled={!selectedDate || !selectedSlot}
+              disabled={bookingDisabled}
               className="inline-flex items-center justify-center gap-2 rounded-2xl bg-teal-500 px-5 py-3 text-sm font-medium text-white hover:bg-teal-600 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Calendar size={16} /> Book Appointment
@@ -150,8 +176,18 @@ export default function DoctorDetails() {
           )}
         </div>
 
-        {schedule.length === 0 ? (
-          <p className="mt-4 text-sm text-gray-400">No available slots in the next 7 days.</p>
+        {slotWarning && (
+          <div className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+            {slotWarning}
+          </div>
+        )}
+
+        {!doctor.is_available ? (
+          <p className="mt-4 text-sm text-gray-400">This doctor is unavailable for new bookings right now.</p>
+        ) : schedule.length === 0 ? (
+          <p className="mt-4 text-sm text-gray-400">
+            {slotWarning ? "No confirmed slots to show right now." : "No available slots in the next 7 days."}
+          </p>
         ) : (
           <div className="mt-6 grid gap-6 lg:grid-cols-[220px_1fr]">
             <div className="space-y-2">

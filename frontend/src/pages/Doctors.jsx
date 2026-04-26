@@ -114,7 +114,7 @@ function AddDoctorModal({ onClose, onCreated }) {
               name="full_name"
               value={form.full_name}
               onChange={handleChange}
-              placeholder="Dr. John Smith"
+              placeholder="John Smith"
               className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-teal-400"
             />
           </div>
