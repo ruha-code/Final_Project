@@ -93,7 +93,12 @@ async def _ensure_legacy_schema(conn) -> None:
 
 
 async def init_db():
-    """Create missing tables and patch known legacy schema gaps."""
+    """Create missing tables and patch known legacy schema gaps.
+
+    Multiple API workers can start concurrently, so serialize schema
+    initialization to avoid races while PostgreSQL enum types are created.
+    """
     async with engine.begin() as conn:
+        await conn.execute(text("SELECT pg_advisory_xact_lock(2147483001)"))
         await conn.run_sync(Base.metadata.create_all)
         await _ensure_legacy_schema(conn)

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { createElement, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Activity, CalendarClock, HeartPulse, ShieldAlert, Stethoscope } from "lucide-react";
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -15,7 +15,7 @@ function formatDateTime(value) {
   };
 }
 
-function SummaryCard({ title, value, subtitle, icon: Icon }) {
+function SummaryCard({ title, value, subtitle, icon: ICON }) {
   return (
     <div className="rounded-2xl border bg-white p-5 shadow-sm">
       <div className="flex items-start justify-between gap-4">
@@ -25,7 +25,7 @@ function SummaryCard({ title, value, subtitle, icon: Icon }) {
           <p className="mt-2 text-sm text-gray-500">{subtitle}</p>
         </div>
         <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-teal-50 text-teal-600">
-          <Icon size={18} />
+          {createElement(ICON, { size: 18 })}
         </div>
       </div>
     </div>
@@ -41,13 +41,6 @@ function VitalCard({ label, value }) {
   );
 }
 
-function statusTone(status) {
-  if (status === "IN_TREATMENT") return "bg-teal-50 text-teal-700";
-  if (status === "ADMITTED") return "bg-blue-50 text-blue-700";
-  if (status === "DISCHARGED") return "bg-gray-100 text-gray-600";
-  return "bg-gray-100 text-gray-500";
-}
-
 function appointmentTone(status) {
   if (status === "SCHEDULED") return "bg-purple-50 text-purple-700";
   if (status === "ONGOING") return "bg-blue-50 text-blue-700";
@@ -61,6 +54,7 @@ export default function MyHealth() {
   const [profile, setProfile] = useState(null);
   const [vitals, setVitals] = useState([]);
   const [appointments, setAppointments] = useState([]);
+  const [snapshotTime, setSnapshotTime] = useState(() => Date.now());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -90,6 +84,7 @@ export default function MyHealth() {
         setError("Failed to load health records");
       }
 
+      setSnapshotTime(Date.now());
       setLoading(false);
     };
 
@@ -99,9 +94,9 @@ export default function MyHealth() {
   const latestVitals = vitals[0] || {};
   const upcomingAppointment = useMemo(
     () => [...appointments]
-      .filter((item) => item.status !== "CANCELLED" && new Date(item.appointment_time).getTime() >= Date.now())
+      .filter((item) => item.status !== "CANCELLED" && new Date(item.appointment_time).getTime() >= snapshotTime)
       .sort((first, second) => new Date(first.appointment_time).getTime() - new Date(second.appointment_time).getTime())[0],
-    [appointments],
+    [appointments, snapshotTime],
   );
   const visitHistory = useMemo(
     () => [...appointments].sort((first, second) => new Date(second.appointment_time).getTime() - new Date(first.appointment_time).getTime()),

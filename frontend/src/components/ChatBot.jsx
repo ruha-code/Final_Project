@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { MessageSquare, X, Send, Bot } from "lucide-react";
 
+const BOT_REPLY_DELAY_MS = 900;
+
 const FAQ_DATA = [
   {
     keywords: ["appointment", "book", "schedule", "записаться", "запись"],
@@ -125,12 +127,11 @@ function ChatBot() {
     setInput("");
     setIsTyping(true);
 
-    const delay = 500 + Math.random() * 1000;
     setTimeout(() => {
       const answer = findBestAnswer(trimmed);
       setMessages((prev) => [...prev, { from: "bot", text: answer }]);
       setIsTyping(false);
-    }, delay);
+    }, BOT_REPLY_DELAY_MS);
   };
 
   const handleKeyDown = (e) => {
@@ -150,12 +151,11 @@ function ChatBot() {
   const handleQuickQuestion = (q) => {
     setMessages((prev) => [...prev, { from: "user", text: q }]);
     setIsTyping(true);
-    const delay = 500 + Math.random() * 1000;
     setTimeout(() => {
       const answer = findBestAnswer(q);
       setMessages((prev) => [...prev, { from: "bot", text: answer }]);
       setIsTyping(false);
-    }, delay);
+    }, BOT_REPLY_DELAY_MS);
   };
 
   return (

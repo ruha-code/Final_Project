@@ -14,7 +14,7 @@ import {
 
 import Badge from "../components/Badge";
 import { api } from "../services/api";
-import { useAuth } from "../context/AuthContext";
+import { ROLES, useAuth } from "../context/AuthContext";
 
 function formatDateTime(value) {
   if (!value) return { date: "-", time: "-" };
@@ -55,12 +55,12 @@ function SummaryCard({ title, value, subtitle }) {
   );
 }
 
-function PatientDashboard({ appointments, user }) {
+function PatientDashboard({ appointments, user, nowTimestamp }) {
   const navigate = useNavigate();
   const sorted = [...appointments].sort(
     (a, b) => new Date(a.appointment_time) - new Date(b.appointment_time),
   );
-  const now = Date.now();
+  const now = nowTimestamp;
   const upcoming = sorted.find(
     (item) => item.status !== "CANCELLED" && new Date(item.appointment_time).getTime() >= now,
   );
@@ -98,9 +98,9 @@ function PatientDashboard({ appointments, user }) {
   );
 }
 
-function DoctorDashboard({ appointments, patients }) {
+function DoctorDashboard({ appointments, patients, nowTimestamp }) {
   const navigate = useNavigate();
-  const now = new Date();
+  const now = new Date(nowTimestamp);
   const todayKey = now.toDateString();
   const todayAppointments = [...appointments]
     .filter((item) => item.status !== "CANCELLED" && item.status !== "COMPLETED")
@@ -423,7 +423,7 @@ async function fetchAllAdminAppointments() {
 }
 
 export default function Dashboard() {
-  const { isAdmin, isDoctor, user } = useAuth();
+  const { user } = useAuth();
   const [stats, setStats] = useState({ totalPatients: 0, doctors: 0, appointments: 0 });
   const [recentAppointments, setRecentAppointments] = useState([]);
   const [agendaItems, setAgendaItems] = useState([]);
@@ -431,16 +431,20 @@ export default function Dashboard() {
   const [barData, setBarData] = useState([]);
   const [lineData, setLineData] = useState([]);
   const [doctorPatients, setDoctorPatients] = useState([]);
+  const [snapshotTime, setSnapshotTime] = useState(() => Date.now());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const role = user?.role;
+  const isAdminRole = role === ROLES.ADMIN;
+  const isDoctorRole = role === ROLES.DOCTOR;
 
   useEffect(() => {
     const fetchAll = async () => {
       try {
         setLoading(true);
-        if (isAdmin()) {
+        setSnapshotTime(Date.now());
+        if (role === ROLES.ADMIN) {
           const [patients, doctors, appointments] = await Promise.allSettled([
             api.get("/patients"),
             api.get("/doctors"),
@@ -459,7 +463,7 @@ export default function Dashboard() {
           setLineData(groupAppointmentsByMonth(sortedAppointments));
           setAgendaItems(buildActionQueue(sortedAppointments));
           setDoctorPatients([]);
-        } else if (isDoctor()) {
+        } else if (role === ROLES.DOCTOR) {
           const [patients, appointments] = await Promise.allSettled([api.get("/patients"), api.get("/appointments/my")]);
           const appointmentList = appointments.status === "fulfilled" && Array.isArray(appointments.value) ? appointments.value : [];
           const patientIdSet = new Set(appointmentList.map((appointment) => appointment.patient_id));
@@ -482,7 +486,7 @@ export default function Dashboard() {
           setAgendaItems([]);
           setDoctorPatients([]);
         }
-      } catch (err) {
+      } catch {
         setError("Failed to load dashboard data");
       } finally {
         setLoading(false);
@@ -493,7 +497,7 @@ export default function Dashboard() {
 
   if (loading) return <div className="flex h-64 items-center justify-center"><div className="h-12 w-12 animate-spin rounded-full border-b-2 border-teal-500"></div></div>;
   if (error) return <div className="rounded-lg bg-red-100 p-4 text-red-700">{error}</div>;
-  if (!isAdmin() && !isDoctor()) return <PatientDashboard appointments={recentAppointments} user={user} />;
-  if (isDoctor()) return <DoctorDashboard appointments={recentAppointments} patients={doctorPatients} />;
+  if (!isAdminRole && !isDoctorRole) return <PatientDashboard appointments={recentAppointments} user={user} nowTimestamp={snapshotTime} />;
+  if (isDoctorRole) return <DoctorDashboard appointments={recentAppointments} patients={doctorPatients} nowTimestamp={snapshotTime} />;
   return <AdminDashboard stats={stats} barData={barData} lineData={lineData} recentAppointments={recentAppointments} topDoctors={topDoctors} agendaItems={agendaItems} />;
 }

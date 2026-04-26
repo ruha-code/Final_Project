@@ -1,9 +1,7 @@
 fastapi
 uvicorn[standard]
-uvloop
-httptools
 sqlalchemy[asyncio]
-asyncpg  
+asyncpg
 python-jose[cryptography]
 passlib[bcrypt]
 python-dotenv
