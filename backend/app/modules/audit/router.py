@@ -1,10 +1,12 @@
 from datetime import date, datetime, time, timedelta, timezone
+import time as time_module
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query, Request
-from sqlalchemy import desc, or_, select
+from sqlalchemy import String, cast, desc, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.cache import get_redis
 from app.core.database import get_db
 from app.core.dependencies import RoleChecker
 from app.core.pagination import paginate
@@ -85,6 +87,8 @@ ACTION_FILTER_GROUPS = {
         Actions.DELETE_PATIENT,
     },
 }
+AUDIT_LOG_VIEW_DEDUP_WINDOW_SECONDS = 20
+_audit_log_view_fallback: dict[int, float] = {}
 
 
 def _humanize_action(action: str) -> str:
@@ -111,6 +115,55 @@ def _format_entity_label(entity_type: Optional[str], entity_id: Optional[int]) -
     return "-"
 
 
+def _role_value(role) -> Optional[str]:
+    if role is None:
+        return None
+    return role.value if hasattr(role, "value") else str(role)
+
+
+async def _log_view_audit_logs_once(db: AsyncSession, current_user: User) -> None:
+    redis = await get_redis()
+    if redis is None:
+        now = time_module.monotonic()
+        last_logged = _audit_log_view_fallback.get(current_user.id, 0.0)
+        if now - last_logged >= AUDIT_LOG_VIEW_DEDUP_WINDOW_SECONDS:
+            _audit_log_view_fallback[current_user.id] = now
+            await log(
+                db=db,
+                user_id=current_user.id,
+                action=Actions.VIEW_AUDIT_LOGS,
+                actor=current_user,
+            )
+        return
+
+    key = f"audit:view_audit_logs:{current_user.id}"
+    try:
+        claimed = await redis.set(key, "1", ex=AUDIT_LOG_VIEW_DEDUP_WINDOW_SECONDS, nx=True)
+    except Exception:
+        claimed = None
+
+    if claimed:
+        await log(
+            db=db,
+            user_id=current_user.id,
+            action=Actions.VIEW_AUDIT_LOGS,
+            actor=current_user,
+        )
+        return
+
+    if claimed is None:
+        now = time_module.monotonic()
+        last_logged = _audit_log_view_fallback.get(current_user.id, 0.0)
+        if now - last_logged >= AUDIT_LOG_VIEW_DEDUP_WINDOW_SECONDS:
+            _audit_log_view_fallback[current_user.id] = now
+            await log(
+                db=db,
+                user_id=current_user.id,
+                action=Actions.VIEW_AUDIT_LOGS,
+                actor=current_user,
+            )
+
+
 async def log(
     db: AsyncSession,
     user_id: int,
@@ -119,6 +172,7 @@ async def log(
     entity_id: Optional[int] = None,
     extra_data: Optional[dict] = None,
     request: Optional[Request] = None,
+    actor: Optional[User] = None,
 ) -> None:
     ip = None
     user_agent = None
@@ -126,8 +180,14 @@ async def log(
         ip = request.client.host if request.client else None
         user_agent = request.headers.get("user-agent")
 
+    if actor is None:
+        actor = await db.get(User, user_id)
+
     entry = AuditLog(
         user_id=user_id,
+        actor_name=actor.full_name if actor else None,
+        actor_username=actor.username if actor else None,
+        actor_role=_role_value(actor.role) if actor else None,
         action=action,
         entity_type=entity_type,
         entity_id=entity_id,
@@ -156,7 +216,7 @@ async def get_audit_logs(
     ),
     include_view_events: bool = Query(default=False),
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(RoleChecker(["ADMIN"])),
+    current_user: User = Depends(RoleChecker(["ADMIN"])),
 ):
     query = select(AuditLog).outerjoin(User, User.id == AuditLog.user_id)
 
@@ -188,9 +248,13 @@ async def get_audit_logs(
                 or_(
                     AuditLog.action.ilike(pattern),
                     AuditLog.ip_address.ilike(pattern),
+                    AuditLog.actor_name.ilike(pattern),
+                    AuditLog.actor_username.ilike(pattern),
+                    AuditLog.actor_role.ilike(pattern),
                     User.full_name.ilike(pattern),
                     User.username.ilike(pattern),
                     User.email.ilike(pattern),
+                    cast(User.role, String).ilike(pattern),
                 )
             )
 
@@ -211,7 +275,7 @@ async def get_audit_logs(
             actors_by_id[actor_id] = {
                 "full_name": full_name,
                 "username": username,
-                "role": role.value if hasattr(role, "value") else str(role),
+                "role": _role_value(role),
             }
 
     result.items = [
@@ -224,9 +288,10 @@ async def get_audit_logs(
             entity_type=entry.entity_type,
             entity_id=entry.entity_id,
             target_label=_format_entity_label(entry.entity_type, entry.entity_id),
-            actor_name=actors_by_id.get(entry.user_id, {}).get("full_name"),
-            actor_username=actors_by_id.get(entry.user_id, {}).get("username"),
-            actor_role=actors_by_id.get(entry.user_id, {}).get("role"),
+            actor_name=entry.actor_name or actors_by_id.get(entry.user_id, {}).get("full_name"),
+            actor_username=entry.actor_username
+            or actors_by_id.get(entry.user_id, {}).get("username"),
+            actor_role=entry.actor_role or actors_by_id.get(entry.user_id, {}).get("role"),
             extra_data=entry.extra_data,
             ip_address=entry.ip_address,
             user_agent=entry.user_agent,
@@ -235,4 +300,5 @@ async def get_audit_logs(
         for entry in result.items
     ]
 
+    await _log_view_audit_logs_once(db=db, current_user=current_user)
     return result

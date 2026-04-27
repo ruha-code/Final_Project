@@ -9,6 +9,9 @@ class AuditLog(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    actor_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    actor_username: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    actor_role: Mapped[str | None] = mapped_column(String(20), nullable=True)
     action: Mapped[str] = mapped_column(
         String(50), nullable=False, index=True
     )

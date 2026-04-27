@@ -136,16 +136,10 @@ export default function Analytics() {
         const queryString = params.toString();
         const suffix = queryString ? `?${queryString}` : "";
 
-        const [stats, demandData, doctors] = await Promise.all([
+        const [stats, demandData] = await Promise.all([
           api.get(`/analytics/doctors${suffix}`),
           api.get(`/analytics/demand${suffix}`),
-          api.get("/doctors"),
         ]);
-
-        const nameMap = new Map();
-        doctors.forEach((doctor) => {
-          nameMap.set(doctor.id, doctor.full_name);
-        });
 
         const enriched = stats.map((item) => {
           const total = Number(item.total) || 0;
@@ -162,9 +156,7 @@ export default function Analytics() {
             cancelled,
             pending,
             completion_rate: Number(item.completion_rate) || 0,
-            doctor_name: normalizeDoctorName(
-              nameMap.get(item.doctor_id) || `Doctor #${item.doctor_id}`,
-            ),
+            doctor_name: normalizeDoctorName(item.doctor_name || `Doctor #${item.doctor_id}`),
           };
         });
 

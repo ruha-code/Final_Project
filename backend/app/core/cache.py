@@ -71,6 +71,23 @@ async def cache_delete(key: str) -> None:
         pass
 
 
+async def cache_delete_prefix(prefix: str) -> None:
+    r = await get_redis()
+    if r is None:
+        return
+    try:
+        batch: list[str] = []
+        async for key in r.scan_iter(match=f"{prefix}*"):
+            batch.append(key)
+            if len(batch) >= 100:
+                await r.delete(*batch)
+                batch.clear()
+        if batch:
+            await r.delete(*batch)
+    except Exception:
+        pass
+
+
 async def blacklist_token(jti: str, ttl_seconds: int) -> None:
     r = await get_redis()
     if r is None:

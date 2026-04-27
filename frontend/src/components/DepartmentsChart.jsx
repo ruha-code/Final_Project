@@ -1,5 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
-import { api } from "../services/api";
+import { useMemo } from "react";
 
 function getBarColor(index) {
   const palette = [
@@ -13,17 +12,7 @@ function getBarColor(index) {
   return palette[index % palette.length];
 }
 
-export default function DepartmentsChart() {
-  const [departments, setDepartments] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    api.get("/departments")
-      .then(setDepartments)
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
-
+export default function DepartmentsChart({ departments = [], loading = false, error = "" }) {
   const chartData = useMemo(
     () =>
       [...departments]
@@ -59,7 +48,11 @@ export default function DepartmentsChart() {
         </div>
       </div>
 
-      {chartData.length === 0 ? (
+      {error ? (
+        <p className="py-12 text-center text-sm text-red-500">
+          Unable to load department chart data right now.
+        </p>
+      ) : chartData.length === 0 ? (
         <p className="py-12 text-center text-sm text-gray-400">No departments available yet.</p>
       ) : allZero ? (
         <p className="py-12 text-center text-sm text-gray-400">

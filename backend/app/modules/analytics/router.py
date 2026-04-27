@@ -6,7 +6,7 @@ import time as time_module
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 import h3
-from sqlalchemy import case, func, select
+from sqlalchemy import and_, case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.cache import CacheKeys, cache_get, cache_set, get_redis
@@ -16,6 +16,7 @@ from app.modules.analytics.schemas import DemandPoint, DoctorStats, RegionDetail
 from app.modules.appointments.models import Appointment, AppointmentStatus
 from app.modules.audit.router import Actions, log
 from app.modules.auth.models import User
+from app.modules.doctors.models import Doctor
 
 router = APIRouter(dependencies=[Depends(RoleChecker(["ADMIN"]))])
 
@@ -216,9 +217,18 @@ async def get_doctors_stats(
             logger.debug("[CACHE HIT] analytics:doctors")
             return [DoctorStats(**item) for item in cached]
 
+    appointment_join_conditions = [Appointment.doctor_id == Doctor.id]
+    if start_utc:
+        appointment_join_conditions.append(Appointment.appointment_time >= start_utc)
+    if end_utc_exclusive:
+        appointment_join_conditions.append(
+            Appointment.appointment_time < end_utc_exclusive
+        )
+
     query = select(
-        Appointment.doctor_id,
-        func.count().label("total"),
+        Doctor.id.label("doctor_id"),
+        User.full_name.label("doctor_name"),
+        func.count(Appointment.id).label("total"),
         func.sum(
             case((Appointment.status == AppointmentStatus.COMPLETED, 1), else_=0)
         ).label("completed"),
@@ -232,12 +242,16 @@ async def get_doctors_stats(
             case((Appointment.status == AppointmentStatus.ONGOING, 1), else_=0)
         ).label("ongoing"),
     )
-    query = _apply_window(query, start_utc, end_utc_exclusive).group_by(Appointment.doctor_id)
+    query = (
+        query.join(User, User.id == Doctor.user_id)
+        .outerjoin(Appointment, and_(*appointment_join_conditions))
+        .group_by(Doctor.id, User.full_name)
+    )
 
     result = await db.execute(query)
 
     response: list[DoctorStats] = []
-    for doctor_id, total, completed, cancelled, scheduled, ongoing in result.all():
+    for doctor_id, doctor_name, total, completed, cancelled, scheduled, ongoing in result.all():
         total = int(total or 0)
         completed = int(completed or 0)
         cancelled = int(cancelled or 0)
@@ -249,6 +263,7 @@ async def get_doctors_stats(
         response.append(
             DoctorStats(
                 doctor_id=doctor_id,
+                doctor_name=doctor_name,
                 total=total,
                 completed=completed,
                 cancelled=cancelled,

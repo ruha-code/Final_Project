@@ -23,28 +23,63 @@ export default function DepartmentDetails() {
   const [selectedDoctorId, setSelectedDoctorId] = useState("");
   const [savingAction, setSavingAction] = useState(false);
   const [actionError, setActionError] = useState("");
+  const [pageError, setPageError] = useState("");
+  const [loadWarning, setLoadWarning] = useState("");
 
   const departmentId = Number(id);
   const doctors = allDoctors.filter((doctor) => Number(doctor.department_id) === departmentId);
   const unassignedDoctors = allDoctors.filter((doctor) => doctor.department_id === null || doctor.department_id === undefined);
+  const doctorRosterUnavailable = Boolean(loadWarning) && allDoctors.length === 0;
 
   const fetchData = useCallback(async (showLoader = true) => {
-    try {
-      if (showLoader) setLoading(true);
-      setActionError("");
-      const [dep, doctorsData] = await Promise.all([
-        api.get(`/departments/${id}`),
-        api.get("/doctors"),
-      ]);
-      setDepartment(dep);
-      setAllDoctors(Array.isArray(doctorsData) ? doctorsData : []);
-    } catch (err) {
-      console.error("Failed to load department:", err);
-      if (!showLoader) {
-        setActionError(err.message || "Failed to refresh department data");
+    if (showLoader) {
+      setLoading(true);
+      setPageError("");
+      setLoadWarning("");
+    }
+
+    setActionError("");
+
+    const [departmentResult, doctorsResult] = await Promise.allSettled([
+      api.get(`/departments/${id}`),
+      api.get("/doctors"),
+    ]);
+
+    if (departmentResult.status === "rejected") {
+      const message = departmentResult.reason?.message || "Failed to load department";
+      console.error("Failed to load department:", departmentResult.reason);
+
+      if (showLoader) {
+        setDepartment(null);
+        setAllDoctors([]);
+        setPageError(message);
+        setLoading(false);
+      } else {
+        setActionError(message);
       }
-    } finally {
-      if (showLoader) setLoading(false);
+      return;
+    }
+
+    setDepartment(departmentResult.value);
+    setPageError("");
+
+    if (doctorsResult.status === "fulfilled") {
+      setAllDoctors(Array.isArray(doctorsResult.value) ? doctorsResult.value : []);
+      setLoadWarning("");
+    } else {
+      const message = doctorsResult.reason?.message || "Doctor roster could not be loaded right now.";
+      console.error("Failed to load department doctors:", doctorsResult.reason);
+
+      if (showLoader) {
+        setAllDoctors([]);
+        setLoadWarning(message);
+      } else {
+        setActionError(message);
+      }
+    }
+
+    if (showLoader) {
+      setLoading(false);
     }
   }, [id]);
 
@@ -88,16 +123,27 @@ export default function DepartmentDetails() {
     );
   }
 
-  if (!department) return <div className="text-gray-400 p-6">Department not found</div>;
+  if (!department) {
+    return <div className="text-gray-400 p-6">{pageError || "Department not found"}</div>;
+  }
 
   return (
     <div className="space-y-6">
-      {/* HEADER */}
+      {loadWarning && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          {loadWarning}
+        </div>
+      )}
+
+      {actionError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+          {actionError}
+        </div>
+      )}
+
       <h1 className="text-2xl font-semibold">{department.name}</h1>
 
-      {/* TOP BLOCK */}
       <div className="grid grid-cols-3 gap-6">
-        {/* IMAGE */}
         <div className="col-span-2">
           <img
             src={department.image_url ? `${department.image_url}?auto=format&fit=crop&w=1200` : `${FALLBACK_IMG}?auto=format&fit=crop&w=1200`}
@@ -106,7 +152,6 @@ export default function DepartmentDetails() {
           />
         </div>
 
-        {/* INFO */}
         <div className="bg-white rounded-2xl border p-5 space-y-4">
           <h3 className="font-semibold text-lg">About</h3>
           <p className="text-sm text-gray-500">{department.description || "No description available."}</p>
@@ -116,12 +161,11 @@ export default function DepartmentDetails() {
               <MapPin size={14} /> {department.location || "No location set"}
             </p>
             <p className="flex items-center gap-2">
-              <Users size={14} /> {doctors.length} Team Members
+              <Users size={14} /> {doctorRosterUnavailable ? "Team data unavailable" : `${doctors.length} Team Members`}
             </p>
           </div>
 
-          {/* Head doctor (first in list or department head) */}
-          {doctors.length > 0 && (
+          {!doctorRosterUnavailable && doctors.length > 0 && (
             <div className="flex items-center gap-3 pt-3 border-t">
               {doctors[0].avatar_url ? (
                 <img src={doctors[0].avatar_url} className="w-10 h-10 rounded-full object-cover" alt="" />
@@ -139,11 +183,9 @@ export default function DepartmentDetails() {
         </div>
       </div>
 
-      {/* LOWER GRID */}
       <div className="grid grid-cols-3 gap-6">
-        {/* TEAM */}
         <div className="bg-white rounded-2xl border p-5">
-          <h3 className="font-semibold mb-4">Team ({doctors.length})</h3>
+          <h3 className="font-semibold mb-4">Team ({doctorRosterUnavailable ? "--" : doctors.length})</h3>
 
           {isAdmin() && (
             <div className="mb-4 space-y-2 overflow-hidden rounded-xl border bg-gray-50 p-3">
@@ -160,26 +202,29 @@ export default function DepartmentDetails() {
                   <option value="">Select doctor</option>
                   {unassignedDoctors.map((doctor) => (
                     <option key={doctor.id} value={doctor.id}>
-                      {doctor.full_name} — {doctor.specialty || "General"}
+                      {doctor.full_name} - {doctor.specialty || "General"}
                     </option>
                   ))}
                 </select>
                 <button
                   onClick={assignDoctor}
-                  disabled={!selectedDoctorId || savingAction}
+                  disabled={!selectedDoctorId || savingAction || doctorRosterUnavailable}
                   className="shrink-0 whitespace-nowrap rounded-lg bg-teal-500 px-3 py-2 text-sm text-white hover:bg-teal-600 disabled:opacity-50"
                 >
                   Assign
                 </button>
               </div>
-              {unassignedDoctors.length === 0 && (
+              {doctorRosterUnavailable ? (
+                <p className="text-xs text-amber-600">Doctor data is unavailable right now, so assignments are temporarily disabled.</p>
+              ) : unassignedDoctors.length === 0 ? (
                 <p className="text-xs text-amber-600">No unassigned doctors available.</p>
-              )}
-              {actionError && <p className="text-xs text-red-500">{actionError}</p>}
+              ) : null}
             </div>
           )}
 
-          {doctors.length === 0 ? (
+          {doctorRosterUnavailable ? (
+            <p className="text-sm text-amber-700">The department loaded, but the doctor roster could not be loaded right now.</p>
+          ) : doctors.length === 0 ? (
             <p className="text-sm text-gray-400">No doctors assigned to this department</p>
           ) : (
             <div className="space-y-4">
@@ -227,7 +272,6 @@ export default function DepartmentDetails() {
           )}
         </div>
 
-        {/* PERFORMANCE */}
         <div className="bg-white rounded-2xl border p-5">
           <h3 className="font-semibold mb-4">Performance</h3>
 
@@ -264,33 +308,36 @@ export default function DepartmentDetails() {
           </div>
         </div>
 
-        {/* QUICK STATS */}
         <div className="bg-white rounded-2xl border p-5">
           <h3 className="font-semibold mb-4">Department Stats</h3>
 
           <div className="space-y-4">
             <div className="flex justify-between items-center p-3 bg-gray-50 rounded-xl">
               <span className="text-sm text-gray-500">Total Doctors</span>
-              <span className="font-semibold text-teal-600">{doctors.length}</span>
+              <span className="font-semibold text-teal-600">{doctorRosterUnavailable ? "--" : doctors.length}</span>
             </div>
             <div className="flex justify-between items-center p-3 bg-gray-50 rounded-xl">
               <span className="text-sm text-gray-500">Available Now</span>
-              <span className="font-semibold text-green-600">{doctors.filter((d) => d.is_available).length}</span>
+              <span className="font-semibold text-green-600">{doctorRosterUnavailable ? "--" : doctors.filter((d) => d.is_available).length}</span>
             </div>
             <div className="flex justify-between items-center p-3 bg-gray-50 rounded-xl">
               <span className="text-sm text-gray-500">Avg Experience</span>
               <span className="font-semibold text-gray-700">
-                {doctors.length
-                  ? Math.round(doctors.reduce((s, d) => s + (d.years_of_experience || 0), 0) / doctors.length)
-                  : 0} yrs
+                {doctorRosterUnavailable
+                  ? "--"
+                  : `${doctors.length
+                    ? Math.round(doctors.reduce((s, d) => s + (d.years_of_experience || 0), 0) / doctors.length)
+                    : 0} yrs`}
               </span>
             </div>
             <div className="flex justify-between items-center p-3 bg-gray-50 rounded-xl">
               <span className="text-sm text-gray-500">Avg Rating</span>
               <span className="font-semibold text-yellow-600">
-                {doctors.length
-                  ? (doctors.reduce((s, d) => s + (d.rating || 0), 0) / doctors.length).toFixed(1)
-                  : "0.0"}
+                {doctorRosterUnavailable
+                  ? "--"
+                  : doctors.length
+                    ? (doctors.reduce((s, d) => s + (d.rating || 0), 0) / doctors.length).toFixed(1)
+                    : "0.0"}
               </span>
             </div>
           </div>

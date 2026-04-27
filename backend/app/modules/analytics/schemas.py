@@ -18,6 +18,7 @@ class RegionDetail(BaseModel):
 
 class DoctorStats(BaseModel):
     doctor_id: int
+    doctor_name: str
     total: int
     completed: int
     cancelled: int

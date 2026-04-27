@@ -455,6 +455,7 @@ export default function AdminUsers() {
   const [toast, setToast] = useState(null);
   const [confirmAction, setConfirmAction] = useState(null);
   const [confirmLoading, setConfirmLoading] = useState(false);
+  const [loadError, setLoadError] = useState("");
 
   const triggerReload = () => setReloadKey((current) => current + 1);
 
@@ -479,6 +480,7 @@ export default function AdminUsers() {
     const fetchUsers = async () => {
       try {
         setLoading(true);
+        setLoadError("");
         const params = new URLSearchParams();
         params.set("page", String(page));
         params.set("page_size", "10");
@@ -486,9 +488,17 @@ export default function AdminUsers() {
         if (search) params.set("search", search);
 
         const data = await api.get(`/auth/admin/users?${params.toString()}`);
+        const nextTotalPages = data.pages || 1;
+        if (page > nextTotalPages) {
+          setTotalPages(nextTotalPages);
+          setPage(nextTotalPages);
+          return;
+        }
+
         setUsers(data.items || []);
-        setTotalPages(data.pages || 1);
+        setTotalPages(nextTotalPages);
       } catch (err) {
+        setLoadError(err.message || "Failed to load users.");
         setToast({
           id: Date.now(),
           type: "error",
@@ -608,6 +618,8 @@ export default function AdminUsers() {
     showToast("success", message || "User updated successfully.");
   };
 
+  const displayPage = Math.min(page, totalPages);
+
   return (
     <>
       <div className="space-y-6">
@@ -661,9 +673,19 @@ export default function AdminUsers() {
           </select>
         </div>
 
+        {!loading && loadError && (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+            {loadError}
+          </div>
+        )}
+
         {loading ? (
           <div className="flex h-32 items-center justify-center">
             <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-teal-500" />
+          </div>
+        ) : loadError && users.length === 0 ? (
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-6 py-10 text-center text-sm text-red-600">
+            {loadError}
           </div>
         ) : (
           <div className="overflow-hidden rounded-2xl border bg-white shadow-sm">
@@ -794,18 +816,18 @@ export default function AdminUsers() {
             <button
               type="button"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
+              disabled={displayPage === 1}
               className="rounded-lg border bg-white px-3 py-1 text-sm disabled:opacity-50"
             >
               Prev
             </button>
             <span className="px-3 py-1 text-sm text-gray-500">
-              Page {page} of {totalPages}
+              Page {displayPage} of {totalPages}
             </span>
             <button
               type="button"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
+              disabled={displayPage === totalPages}
               className="rounded-lg border bg-white px-3 py-1 text-sm disabled:opacity-50"
             >
               Next

@@ -78,20 +78,20 @@ function getEventColor(category, doctorMode) {
   return ADMIN_CATEGORY_META[category]?.color || "bg-gray-500";
 }
 
-function EventModal({ onClose, onSaved, editData, currentYear, currentMonth, daysInMonth, defaultDate }) {
-  const monthStart = `${currentYear}-${pad2(currentMonth)}-01`;
-  const monthEnd = `${currentYear}-${pad2(currentMonth)}-${pad2(daysInMonth)}`;
+function EventModal({ onClose, onSaved, editData, defaultDate }) {
   const [form, setForm] = useState({
     title: editData?.title || "",
-    date: editData?.dateValue || defaultDate || monthStart,
+    date: editData?.dateValue || defaultDate,
     time: formatEventTime(editData?.time) || "",
     category: editData?.category || "ADMIN",
   });
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSubmit = async () => {
     if (!form.title || !form.date) return;
     setSaving(true);
+    setError("");
 
     try {
       const payload = {
@@ -100,12 +100,14 @@ function EventModal({ onClose, onSaved, editData, currentYear, currentMonth, day
         event_time: form.time || null,
         category: form.category,
       };
-      if (editData) await api.put(`/calendar/${editData.id}`, payload);
-      else await api.post("/calendar", payload);
-      onSaved();
+      const savedEvent = editData
+        ? await api.put(`/calendar/${editData.id}`, payload)
+        : await api.post("/calendar", payload);
+      onSaved(savedEvent);
       onClose();
     } catch (err) {
       console.error("Failed to save event:", err);
+      setError(err.message || "Failed to save event");
     } finally {
       setSaving(false);
     }
@@ -121,9 +123,10 @@ function EventModal({ onClose, onSaved, editData, currentYear, currentMonth, day
         <p className="text-xs text-gray-500">
           {editData ? "Editing for" : "Creating for"} {formatFullDate(form.date)}
         </p>
+        {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-500">{error}</p>}
         <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Event title" className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400" />
         <div className="grid grid-cols-2 gap-3">
-          <input type="date" min={monthStart} max={monthEnd} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className="rounded-xl bg-gray-100 px-4 py-2 text-sm" />
+          <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className="rounded-xl bg-gray-100 px-4 py-2 text-sm" />
           <input type="time" step="60" value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} className="rounded-xl bg-gray-100 px-4 py-2 text-sm" />
         </div>
         <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm">
@@ -244,6 +247,12 @@ export default function Calendar() {
     [events, filter],
   );
 
+  useEffect(() => {
+    if (selectedEvent && !events.some((item) => item.id === selectedEvent.id)) {
+      setSelectedEvent(null);
+    }
+  }, [events, selectedEvent]);
+
   const activeFilters = isDoctor()
     ? [
       { value: "all", label: "All Appointments" },
@@ -267,8 +276,34 @@ export default function Calendar() {
       return leftTime.localeCompare(rightTime);
     });
   const triggerReload = () => setReloadKey((current) => current + 1);
+  const clearSelection = () => {
+    setSelectedDay(null);
+    setSelectedEvent(null);
+  };
+  const handleFilterChange = (value) => {
+    setFilter(value);
+
+    if (selectedEvent && value !== "all" && selectedEvent.category !== value.toUpperCase()) {
+      setSelectedEvent(null);
+    }
+  };
+  const handleEventSaved = (savedEvent) => {
+    const parsed = parseIsoDate(savedEvent?.event_date);
+
+    if (parsed) {
+      setSelectedDay(parsed.day);
+      setSelectedEvent(null);
+      setCurrentYear(parsed.year);
+      setCurrentMonth(parsed.month);
+    } else {
+      clearSelection();
+    }
+
+    triggerReload();
+  };
 
   const prevMonth = () => {
+    clearSelection();
     if (currentMonth === 1) {
       setCurrentMonth(12);
       setCurrentYear((year) => year - 1);
@@ -278,6 +313,7 @@ export default function Calendar() {
   };
 
   const nextMonth = () => {
+    clearSelection();
     if (currentMonth === 12) {
       setCurrentMonth(1);
       setCurrentYear((year) => year + 1);
@@ -305,7 +341,7 @@ export default function Calendar() {
 
           <div className="space-y-2 text-sm">
             {activeFilters.map((option) => (
-              <div key={option.value} onClick={() => setFilter(option.value)} className={`cursor-pointer rounded-lg px-3 py-2 transition ${filter === option.value ? "bg-teal-50 text-teal-600" : "text-gray-600 hover:bg-gray-50"}`}>
+              <div key={option.value} onClick={() => handleFilterChange(option.value)} className={`cursor-pointer rounded-lg px-3 py-2 transition ${filter === option.value ? "bg-teal-50 text-teal-600" : "text-gray-600 hover:bg-gray-50"}`}>
                 {option.label}
               </div>
             ))}
@@ -445,11 +481,8 @@ export default function Calendar() {
       {modal && !isDoctor() && (
         <EventModal
           onClose={() => { setModal(null); setEditingEvent(null); }}
-          onSaved={() => { triggerReload(); setSelectedEvent(null); }}
+          onSaved={handleEventSaved}
           editData={modal === "edit" ? editingEvent : null}
-          currentYear={currentYear}
-          currentMonth={currentMonth}
-          daysInMonth={daysInMonth}
           defaultDate={selectedDay ? `${currentYear}-${pad2(currentMonth)}-${pad2(selectedDay)}` : `${currentYear}-${pad2(currentMonth)}-01`}
         />
       )}
@@ -470,6 +503,7 @@ export default function Calendar() {
               triggerReload();
             } catch (err) {
               console.error("Failed to delete event:", err);
+              setError(err.message || "Failed to delete event");
             } finally {
               setDeleting(false);
             }

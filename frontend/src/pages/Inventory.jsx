@@ -93,11 +93,14 @@ export default function Inventory() {
     OTHER: 0,
   });
   const [activities, setActivities] = useState([]);
+  const [statsError, setStatsError] = useState("");
+  const [activitiesError, setActivitiesError] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
   const [resultCount, setResultCount] = useState(0);
 
   useEffect(() => {
     const fetchStats = async () => {
+      setStatsError("");
       try {
         const data = await api.get("/inventory");
         const now = new Date();
@@ -139,56 +142,68 @@ export default function Inventory() {
         });
       } catch (err) {
         console.error("Failed to fetch inventory stats:", err);
+        setStatsError(err.message || "Failed to load inventory summary.");
       }
     };
 
     const fetchActivities = async () => {
+      setActivitiesError("");
       try {
-        const data = await api.get("/audit/audit-logs?page=1&page_size=50");
+        const data = await api.get("/audit/audit-logs?page=1&page_size=10&q=INVENTORY_");
         const inventoryActivities = (data.items || [])
           .filter((item) => item.action?.startsWith("INVENTORY_"))
           .slice(0, 10);
         setActivities(inventoryActivities);
       } catch (err) {
         console.error("Failed to fetch activities:", err);
+        setActivities([]);
+        setActivitiesError(err.message || "Failed to load recent inventory activity.");
       }
     };
 
-    fetchStats();
-    fetchActivities();
+    void fetchStats();
+    void fetchActivities();
   }, [refreshKey]);
+
+  const hasInventoryItems = stats.total > 0;
 
   return (
     <div className="space-y-6">
+      {statsError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+          {statsError}
+        </div>
+      )}
+
       {/* STATS */}
       <div className="grid grid-cols-5 gap-6">
         <StatCard
           title="Total Items"
-          value={stats.total.toLocaleString()}
+          value={statsError ? "—" : stats.total.toLocaleString()}
           icon={Package}
           color="bg-teal-100 text-teal-600"
         />
         <StatCard
           title="Low Stock"
-          value={stats.low}
+          value={statsError ? "—" : stats.low}
           icon={AlertTriangle}
           color="bg-yellow-100 text-yellow-600"
         />
         <StatCard
           title="Out of Stock"
-          value={stats.out}
+          value={statsError ? "—" : stats.out}
           icon={XCircle}
           color="bg-red-100 text-red-500"
         />
         <StatCard
           title="Expiring Soon"
-          value={stats.expiringSoon}
+          value={statsError ? "—" : stats.expiringSoon}
           icon={Clock}
           color="bg-blue-100 text-blue-600"
         />
         <StatCard
           title="Expired"
-          value={stats.expired}
+          value={statsError ? "—" : stats.expired}
           icon={CalendarX2}
           color="bg-red-100 text-red-600"
         />
@@ -203,31 +218,43 @@ export default function Inventory() {
         <div className="bg-white rounded-2xl border p-5">
           <h3 className="font-semibold mb-4">Category Breakdown</h3>
 
-          <div className="flex gap-2 h-24">
-            <div
-              className="bg-teal-500 rounded-xl"
-              style={{ width: `${categoryBreakdown.MEDICATIONS || 40}%` }}
-            />
-            <div
-              className="bg-teal-300 rounded-xl"
-              style={{ width: `${categoryBreakdown.CONSUMABLES || 30}%` }}
-            />
-            <div
-              className="bg-teal-200 rounded-xl"
-              style={{ width: `${categoryBreakdown.LABORATORY || 20}%` }}
-            />
-            <div
-              className="bg-gray-200 rounded-xl"
-              style={{ width: `${categoryBreakdown.OTHER || 10}%` }}
-            />
-          </div>
+          {statsError ? (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+              Category breakdown is unavailable right now.
+            </div>
+          ) : !hasInventoryItems ? (
+            <div className="flex h-24 items-center justify-center rounded-xl border border-dashed bg-gray-50 px-4 text-sm text-gray-400">
+              No inventory items to break down yet.
+            </div>
+          ) : (
+            <>
+              <div className="flex gap-2 h-24">
+                <div
+                  className="bg-teal-500 rounded-xl"
+                  style={{ width: `${categoryBreakdown.MEDICATIONS}%` }}
+                />
+                <div
+                  className="bg-teal-300 rounded-xl"
+                  style={{ width: `${categoryBreakdown.CONSUMABLES}%` }}
+                />
+                <div
+                  className="bg-teal-200 rounded-xl"
+                  style={{ width: `${categoryBreakdown.LABORATORY}%` }}
+                />
+                <div
+                  className="bg-gray-200 rounded-xl"
+                  style={{ width: `${categoryBreakdown.OTHER}%` }}
+                />
+              </div>
 
-          <div className="mt-4 text-xs text-gray-500 space-y-1">
-            <p>Medications {categoryBreakdown.MEDICATIONS}%</p>
-            <p>Consumables {categoryBreakdown.CONSUMABLES}%</p>
-            <p>Laboratory {categoryBreakdown.LABORATORY}%</p>
-            <p>Other {categoryBreakdown.OTHER}%</p>
-          </div>
+              <div className="mt-4 text-xs text-gray-500 space-y-1">
+                <p>Medications {categoryBreakdown.MEDICATIONS}%</p>
+                <p>Consumables {categoryBreakdown.CONSUMABLES}%</p>
+                <p>Laboratory {categoryBreakdown.LABORATORY}%</p>
+                <p>Other {categoryBreakdown.OTHER}%</p>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -255,7 +282,11 @@ export default function Inventory() {
           <h3 className="font-semibold mb-6">Recent Activities</h3>
 
           <div className="space-y-2 text-sm">
-            {activities.length === 0 ? (
+            {activitiesError ? (
+              <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
+                {activitiesError}
+              </p>
+            ) : activities.length === 0 ? (
               <p className="text-gray-400 text-xs">No recent activities</p>
             ) : (
               activities.map((a, i) => {

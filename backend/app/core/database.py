@@ -91,6 +91,54 @@ async def _ensure_legacy_schema(conn) -> None:
             text("UPDATE users SET is_verified = true WHERE is_verified IS NULL")
         )
 
+    if not await _column_exists("audit_logs", "actor_name", conn):
+        await conn.execute(
+            text(
+                """
+                ALTER TABLE audit_logs
+                ADD COLUMN actor_name VARCHAR(100)
+                """
+            )
+        )
+
+    if not await _column_exists("audit_logs", "actor_username", conn):
+        await conn.execute(
+            text(
+                """
+                ALTER TABLE audit_logs
+                ADD COLUMN actor_username VARCHAR(50)
+                """
+            )
+        )
+
+    if not await _column_exists("audit_logs", "actor_role", conn):
+        await conn.execute(
+            text(
+                """
+                ALTER TABLE audit_logs
+                ADD COLUMN actor_role VARCHAR(20)
+                """
+            )
+        )
+
+    await conn.execute(
+        text(
+            """
+            UPDATE audit_logs AS audit
+            SET actor_name = COALESCE(audit.actor_name, users.full_name),
+                actor_username = COALESCE(audit.actor_username, users.username),
+                actor_role = COALESCE(audit.actor_role, users.role::text)
+            FROM users
+            WHERE audit.user_id = users.id
+              AND (
+                audit.actor_name IS NULL
+                OR audit.actor_username IS NULL
+                OR audit.actor_role IS NULL
+              )
+            """
+        )
+    )
+
 
 async def init_db():
     """Create missing tables and patch known legacy schema gaps.

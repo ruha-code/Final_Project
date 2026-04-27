@@ -5,10 +5,12 @@ import { api } from "../../services/api";
 export default function InventoryChart({ reloadKey = 0 }) {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
+      setError("");
       try {
         const items = await api.get("/inventory");
         const byCategory = {};
@@ -23,11 +25,8 @@ export default function InventoryChart({ reloadKey = 0 }) {
         setData(chartData);
       } catch (err) {
         console.error("Failed to fetch inventory chart:", err);
-        setData([
-          { name: "MEDICATIONS", usage: 0 },
-          { name: "CONSUMABLES", usage: 0 },
-          { name: "LABORATORY", usage: 0 },
-        ]);
+        setData([]);
+        setError(err.message || "Failed to load inventory chart.");
       } finally {
         setLoading(false);
       }
@@ -39,6 +38,28 @@ export default function InventoryChart({ reloadKey = 0 }) {
     return (
       <div className="bg-white rounded-2xl border p-5 flex items-center justify-center h-56">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-500" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-white rounded-2xl border p-5">
+        <h3 className="font-semibold mb-4">Stock by Category</h3>
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+          {error}
+        </div>
+      </div>
+    );
+  }
+
+  if (data.length === 0) {
+    return (
+      <div className="bg-white rounded-2xl border p-5">
+        <h3 className="font-semibold mb-4">Stock by Category</h3>
+        <div className="flex h-[200px] items-center justify-center rounded-xl border border-dashed bg-gray-50 px-4 text-sm text-gray-400">
+          No inventory data to chart yet.
+        </div>
       </div>
     );
   }

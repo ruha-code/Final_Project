@@ -100,8 +100,18 @@ async def update_department(department_id: int, dto: DepartmentUpdate, db: Async
     dept = result.scalar_one_or_none()
     if not dept:
         raise NotFoundException("Department not found")
- 
-    for field, value in dto.model_dump(exclude_none=True).items():
+
+    if dto.name is not None:
+        duplicate = await db.execute(
+            select(Department).where(
+                Department.name == dto.name,
+                Department.id != department_id,
+            )
+        )
+        if duplicate.scalar_one_or_none():
+            raise ConflictException(f"Department '{dto.name}' already exists")
+
+    for field, value in dto.model_dump(exclude_unset=True).items():
         setattr(dept, field, value)
  
     await db.commit()
@@ -117,5 +127,15 @@ async def delete_department(department_id: int, db: AsyncSession = Depends(get_d
     dept = result.scalar_one_or_none()
     if not dept:
         raise NotFoundException("Department not found")
+
+    staff_result = await db.execute(
+        select(func.count()).where(Doctor.department_id == department_id)
+    )
+    assigned_doctors = staff_result.scalar() or 0
+    if assigned_doctors:
+        raise ConflictException(
+            "Cannot delete a department with assigned doctors. Reassign or remove them first."
+        )
+
     await db.delete(dept)
     await db.commit()

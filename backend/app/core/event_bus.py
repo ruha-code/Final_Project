@@ -2,7 +2,7 @@ import asyncio
 import logging
 from typing import Any, Callable, Dict, List
 
-from app.core.cache import cache_delete, CacheKeys
+from app.core.cache import CacheKeys, cache_delete, cache_delete_prefix
 
 logger = logging.getLogger("clinic.events")
 
@@ -96,6 +96,7 @@ async def _on_message_sent(payload: dict) -> None:
 async def _invalidate_analytics_cache(payload: dict) -> None:
     await cache_delete(CacheKeys.ANALYTICS_DEMAND)
     await cache_delete(CacheKeys.ANALYTICS_DOCTORS)
+    await cache_delete_prefix("analytics:region:")
     logger.debug("[CACHE] Analytics cache cleared")
 
 

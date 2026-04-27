@@ -333,6 +333,7 @@ export default function InventoryTable({
   const [adjustItem, setAdjustItem] = useState(null);
   const [adjustOperation, setAdjustOperation] = useState("INCREASE");
   const [reloadKey, setReloadKey] = useState(0);
+  const [error, setError] = useState("");
 
   const triggerReload = () => setReloadKey((current) => current + 1);
   const handleMutation = () => {
@@ -345,6 +346,7 @@ export default function InventoryTable({
       const fetchInventory = async () => {
         try {
           setLoading(true);
+          setError("");
           const params = new URLSearchParams();
           if (search) params.set("search", search);
           if (status !== "All") params.set("status", status.toUpperCase());
@@ -355,6 +357,7 @@ export default function InventoryTable({
         } catch (err) {
           console.error("Failed to fetch inventory:", err);
           setItems([]);
+          setError(err.message || "Failed to load inventory items.");
           if (onCountChange) onCountChange(0);
         } finally {
           setLoading(false);
@@ -377,6 +380,12 @@ export default function InventoryTable({
 
   return (
     <div className="overflow-hidden rounded-2xl border bg-white">
+      {error && (
+        <div className="border-b border-red-200 bg-red-50 px-6 py-3 text-sm text-red-600">
+          {error}
+        </div>
+      )}
+
       <div className="grid grid-cols-5 bg-gray-50 px-6 py-3 text-xs text-gray-400">
         <span>Item</span>
         <span>Stock</span>
@@ -515,6 +524,7 @@ export default function InventoryTable({
                       handleMutation();
                     } catch (err) {
                       console.error(err);
+                      setError(err.message || "Failed to delete inventory item.");
                     } finally {
                       setActiveMenu(null);
                     }
@@ -529,7 +539,7 @@ export default function InventoryTable({
         </div>
       ))}
 
-      {items.length === 0 && (
+      {!error && items.length === 0 && (
         <div className="py-10 text-center text-sm text-gray-400">
           No items found
         </div>

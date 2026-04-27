@@ -78,6 +78,7 @@ function MiniStats({ departments }) {
 function DepartmentCard({ dep, onEdit, onDelete }) {
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
+  const canDelete = (dep.staff_count || 0) === 0;
 
   return (
     <div className="bg-white rounded-2xl border overflow-hidden hover:shadow-xl transition">
@@ -88,9 +89,9 @@ function DepartmentCard({ dep, onEdit, onDelete }) {
       <div className="p-4 space-y-2">
         <h3 className="font-semibold">{dep.name}</h3>
         <p className="text-xs text-gray-400 flex items-center gap-1">
-          <MapPin size={12} /> {dep.location || "—"}
+          <MapPin size={12} /> {dep.location || "No location set"}
         </p>
-        <p className="text-sm text-gray-500">{dep.description || "—"}</p>
+        <p className="text-sm text-gray-500">{dep.description || "No description available."}</p>
         <div className="flex justify-between items-center pt-3">
           <span className="text-xs bg-teal-100 text-teal-600 px-2 py-1 rounded-lg">
             {dep.staff_count} Team Members
@@ -102,7 +103,14 @@ function DepartmentCard({ dep, onEdit, onDelete }) {
         {isAdmin() && (
           <div className="flex gap-2 pt-2 border-t mt-2">
             <button onClick={(e) => { e.stopPropagation(); onEdit(dep); }} className="flex-1 py-1 text-xs bg-gray-100 rounded-lg hover:bg-teal-50 text-teal-600">Edit</button>
-            <button onClick={(e) => { e.stopPropagation(); onDelete(dep.id); }} className="flex-1 py-1 text-xs bg-gray-100 rounded-lg hover:bg-red-50 text-red-500">Delete</button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onDelete(dep.id); }}
+              disabled={!canDelete}
+              title={canDelete ? "Delete department" : "Remove or reassign doctors before deleting this department"}
+              className="flex-1 py-1 text-xs bg-gray-100 rounded-lg hover:bg-red-50 text-red-500 disabled:cursor-not-allowed disabled:text-gray-400 disabled:hover:bg-gray-100"
+            >
+              Delete
+            </button>
           </div>
         )}
       </div>
@@ -153,7 +161,7 @@ function DepartmentModal({ onClose, onSaved, editData }) {
             <label className="text-sm text-gray-500 mb-1 block">Name *</label>
             <input
               value={form.name}
-              onChange={(e) => setForm({...form, name: e.target.value})}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
               className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
             />
           </div>
@@ -161,7 +169,7 @@ function DepartmentModal({ onClose, onSaved, editData }) {
             <label className="text-sm text-gray-500 mb-1 block">Location</label>
             <input
               value={form.location}
-              onChange={(e) => setForm({...form, location: e.target.value})}
+              onChange={(e) => setForm({ ...form, location: e.target.value })}
               className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
             />
           </div>
@@ -169,7 +177,7 @@ function DepartmentModal({ onClose, onSaved, editData }) {
             <label className="text-sm text-gray-500 mb-1 block">Description</label>
             <textarea
               value={form.description}
-              onChange={(e) => setForm({...form, description: e.target.value})}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
               rows={2}
               className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400 resize-none"
             />
@@ -202,31 +210,39 @@ export default function Departments() {
   const [departments, setDepartments] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [modal, setModal] = useState(null);
   const [editData, setEditData] = useState(null);
 
-  const fetchDepartments = async () => {
+  const fetchDepartments = async ({ showLoader = false } = {}) => {
+    if (showLoader) setLoading(true);
+    setError("");
+
     try {
       const data = await api.get("/departments");
       setDepartments(data);
     } catch (err) {
       console.error("Failed to fetch:", err);
+      setError(err.message || "Failed to load departments");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchDepartments();
+    void fetchDepartments({ showLoader: true });
   }, []);
 
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this department?")) return;
+    setError("");
+
     try {
       await api.delete(`/departments/${id}`);
-      fetchDepartments();
+      void fetchDepartments();
     } catch (err) {
       console.error("Failed to delete:", err);
+      setError(err.message || "Failed to delete department");
     }
   };
 
@@ -246,6 +262,7 @@ export default function Departments() {
   const avgTeam = departments.length
     ? Math.round(totalTeamMembers / departments.length)
     : 0;
+  const summaryUnavailable = Boolean(error) && departments.length === 0;
 
   if (loading) {
     return (
@@ -262,15 +279,30 @@ export default function Departments() {
         <p className="text-sm text-gray-400">Manage hospital departments</p>
       </div>
 
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+          {error}
+        </div>
+      )}
+
       <div className="grid grid-cols-4 gap-6">
         <div className="col-span-1 space-y-4">
-          <StatCard title="Total Departments" value={departments.length} icon={Building2} />
-          <StatCard title="Total Team Members" value={totalTeamMembers} icon={Layers} />
-          <StatCard title="Avg Team Size" value={avgTeam} icon={Users} />
-          <MiniStats departments={departments} />
+          <StatCard title="Total Departments" value={summaryUnavailable ? "—" : departments.length} icon={Building2} />
+          <StatCard title="Total Team Members" value={summaryUnavailable ? "—" : totalTeamMembers} icon={Layers} />
+          <StatCard title="Avg Team Size" value={summaryUnavailable ? "—" : avgTeam} icon={Users} />
+          {summaryUnavailable ? (
+            <div className="bg-white rounded-2xl border p-5">
+              <h3 className="font-semibold text-sm">Department Insights</h3>
+              <p className="mt-3 text-xs text-red-500">
+                Department insights are unavailable until the data loads successfully.
+              </p>
+            </div>
+          ) : (
+            <MiniStats departments={departments} />
+          )}
         </div>
         <div className="col-span-3">
-          <DepartmentsChart />
+          <DepartmentsChart departments={departments} error={error} />
         </div>
       </div>
 
@@ -285,16 +317,28 @@ export default function Departments() {
           />
         </div>
         {isAdmin() && (
-          <button
-            onClick={() => { setEditData(null); setModal(true); }}
-            className="text-sm bg-teal-100 text-teal-600 px-4 py-2 rounded-xl flex items-center gap-1"
-          >
-            <Plus size={14} /> Add Department
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { void fetchDepartments({ showLoader: true }); }}
+              className="text-sm bg-gray-100 text-gray-700 px-4 py-2 rounded-xl"
+            >
+              Retry
+            </button>
+            <button
+              onClick={() => { setEditData(null); setModal(true); }}
+              className="text-sm bg-teal-100 text-teal-600 px-4 py-2 rounded-xl flex items-center gap-1"
+            >
+              <Plus size={14} /> Add Department
+            </button>
+          </div>
         )}
       </div>
 
-      {filtered.length === 0 ? (
+      {summaryUnavailable ? (
+        <div className="rounded-2xl border border-dashed bg-white px-6 py-10 text-center">
+          <p className="text-sm text-red-500">Departments could not be loaded right now.</p>
+        </div>
+      ) : filtered.length === 0 ? (
         <p className="text-center text-gray-400 text-sm py-10">No departments found</p>
       ) : (
         <div className="grid grid-cols-4 gap-6">
