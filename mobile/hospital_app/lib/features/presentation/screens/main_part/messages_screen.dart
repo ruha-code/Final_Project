@@ -41,7 +41,7 @@ class MessagesScreen extends StatelessWidget {
       builder: (context, state) {
         return PopScope(
           canPop: !state.isInChat,
-          onPopInvoked: (didPop) {
+          onPopInvokedWithResult: (didPop, result)  {
             if (!didPop && state.isInChat) {
               context.read<MessagesBloc>().add(MessagesChatClosed());
             }
