@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hospital_app/features/data/models/doctor.dart';
 import 'package:hospital_app/features/presentation/bloc/doctor/doctor_bloc.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/doctor_detail_screen.dart';
+import 'package:hospital_app/features/presentation/screens/main_part/doctor_edit_screen.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/app_constant.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/doctor_card.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/filter_tabs.dart';
@@ -11,58 +13,13 @@ import 'package:hospital_app/features/presentation/screens/main_part/widgets/top
 class DoctorsScreen extends StatelessWidget {
   const DoctorsScreen({super.key});
 
-  static const _filters = [
-    'All',
-    'General',
-    'Pediatrics',
-    'Cardiology',
-    'Dermatology',
-    'Orthopedics',
-  ];
+  // Первый элемент — "All". Остальные совпадают с doctorSpecialties.
+  static const _filters = ['All', ...doctorSpecialties];
 
-  static const _doctors = [
-    _DoctorData(
-      name: 'Dr. Amelia Hart',
-      initials: 'A',
-      avatarColor: AppColors.accent,
-      specialty: 'Cardiology',
-      schedule: 'Mon-Fri 08:00-16:00',
-      availability: 'Available',
-      availabilityColor: AppColors.primary,
-    ),
-    _DoctorData(
-      name: 'Dr. Nina Alvarez',
-      initials: 'N',
-      avatarColor: AppColors.primary,
-      specialty: 'Dermatology',
-      schedule: 'Tue-Sat 09:00-17:00',
-      availability: 'Available',
-      availabilityColor: AppColors.primary,
-    ),
-    _DoctorData(
-      name: 'Dr. Daniel Dneng',
-      initials: 'D',
-      avatarColor: AppColors.pink,
-      specialty: 'Orthopedics',
-      schedule: 'Mon-Thu 10:00-18:00',
-      availability: 'Busy',
-      availabilityColor: AppColors.orange,
-    ),
-    _DoctorData(
-      name: 'Dr. Kim Young',
-      initials: 'K',
-      avatarColor: AppColors.dark,
-      specialty: 'General',
-      schedule: 'Mon-Fri 08:00-16:00',
-      availability: 'Available',
-      availabilityColor: AppColors.primary,
-    ),
-  ];
-
-  List<_DoctorData> _filtered(int selectedFilter) {
-    if (selectedFilter == 0) return _doctors;
+  List<Doctor> _filtered(List<Doctor> all, int selectedFilter) {
+    if (selectedFilter == 0) return all;
     final label = _filters[selectedFilter];
-    return _doctors.where((d) => d.specialty == label).toList();
+    return all.where((d) => d.specialty == label).toList();
   }
 
   @override
@@ -72,7 +29,8 @@ class DoctorsScreen extends StatelessWidget {
       body: SafeArea(
         child: BlocBuilder<DoctorBloc, DoctorState>(
           builder: (context, state) {
-            final filtered = _filtered(state.selectedFilter);
+            final filtered = _filtered(state.doctors, state.selectedFilter);
+
             return SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
@@ -102,40 +60,7 @@ class DoctorsScreen extends StatelessWidget {
                     scrollable: true,
                   ),
                   const SizedBox(height: 16),
-                  ...filtered.map((d) => DoctorCard(
-                        name: d.name,
-                        initials: d.initials,
-                        avatarColor: d.avatarColor,
-                        specialty: d.specialty,
-                        schedule: d.schedule,
-                        availability: d.availability,
-                        availabilityColor: d.availabilityColor,
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => DoctorDetailScreen(
-                                doctor: DoctorDetailData(
-                                  name: d.name,
-                                  initials: d.initials,
-                                  avatarColor: d.avatarColor,
-                                  specialty: d.specialty,
-                                  experience: '15 years exp.',
-                                  availability: d.availability,
-                                  availabilityColor: d.availabilityColor,
-                                  description: 'Specializes in ${d.specialty.toLowerCase()}, diagnosis, treatment and patient care.',
-                                  phone: '+7 7XX XXX XXXX',
-                                  email: '${d.name.split(' ').last.toLowerCase()}@medlink.com',
-                                  location: 'Almaty, Kazakhstan',
-                                  patients: 410,
-                                  appointments: 820,
-                                  rating: 4.8,
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      )),
+                  _body(context, state, filtered),
                   const SizedBox(height: 24),
                 ],
               ),
@@ -144,30 +69,97 @@ class DoctorsScreen extends StatelessWidget {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {},
+        onPressed: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const DoctorEditScreen()),
+        ),
         backgroundColor: AppColors.primary,
         child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }
+
+  /// Решаем, что показать на месте списка: лоадер / ошибку / пустой стейт /
+  /// собственно карточки. Вынесено сюда, чтобы build() не разрастался.
+  Widget _body(
+      BuildContext context, DoctorState state, List<Doctor> filtered) {
+    if (state.status == DoctorStatus.initial) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 60),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (state.status == DoctorStatus.error) {
+      return _ErrorBox(message: state.errorMessage ?? 'Failed to load');
+    }
+    if (filtered.isEmpty) {
+      return _EmptyBox(
+        message: state.doctors.isEmpty
+            ? 'No doctors yet. Tap + to add the first one.'
+            : 'No doctors match this filter.',
+      );
+    }
+    return Column(
+      children: filtered
+          .map((d) => DoctorCard(
+                name: d.name,
+                initials: d.initials,
+                avatarColor: d.avatarColor,
+                specialty: d.specialty,
+                schedule: d.schedule,
+                availability: d.availability,
+                availabilityColor: d.availabilityColor,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => DoctorDetailScreen(doctor: d)),
+                ),
+              ))
+          .toList(),
+    );
+  }
 }
 
-class _DoctorData {
-  final String name;
-  final String initials;
-  final Color avatarColor;
-  final String specialty;
-  final String schedule;
-  final String availability;
-  final Color availabilityColor;
+class _EmptyBox extends StatelessWidget {
+  final String message;
+  const _EmptyBox({required this.message});
 
-  const _DoctorData({
-    required this.name,
-    required this.initials,
-    required this.avatarColor,
-    required this.specialty,
-    required this.schedule,
-    required this.availability,
-    required this.availabilityColor,
-  });
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 60),
+      child: Center(
+        child: Text(
+          message,
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: AppColors.textTertiary, fontSize: 13),
+        ),
+      ),
+    );
+  }
+}
+
+class _ErrorBox extends StatelessWidget {
+  final String message;
+  const _ErrorBox({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 40),
+      child: Center(
+        child: Column(
+          children: [
+            const Icon(Icons.error_outline,
+                size: 36, color: AppColors.textTertiary),
+            const SizedBox(height: 8),
+            Text(message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                    color: AppColors.textSecondary, fontSize: 13)),
+          ],
+        ),
+      ),
+    );
+  }
 }

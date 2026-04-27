@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hospital_app/features/data/models/patient.dart';
 import 'package:hospital_app/features/presentation/bloc/patient/patient_bloc.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/patient_detail_screen.dart';
+import 'package:hospital_app/features/presentation/screens/main_part/patient_edit_screen.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/app_constant.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/filter_tabs.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/patient_card.dart';
@@ -13,67 +15,10 @@ class PatientsScreen extends StatelessWidget {
 
   static const _filters = ['All', 'Inpatient', 'Outpatient'];
 
-  static const _patients = [
-    _PatientData(
-      name: 'Alicia Perth',
-      initials: 'AP',
-      avatarColor: AppColors.pink,
-      gender: 'Female',
-      age: 34,
-      heightCm: 167,
-      diagnosis: 'Hypertension',
-      status: 'Discharged',
-      statusColor: AppColors.primary,
-      doctor: 'Dr. Amelia Hart',
-      ward: 'Outpatient',
-    ),
-    _PatientData(
-      name: 'Daniel Wong',
-      initials: 'DW',
-      avatarColor: AppColors.accent,
-      gender: 'Male',
-      age: 47,
-      heightCm: 181,
-      diagnosis: 'Bone Fracture',
-      status: 'Admitted',
-      statusColor: AppColors.primary,
-      doctor: 'Dr. Daniel Obeng',
-      ward: 'Inpatient',
-      room: 'Room 402B-4th Floor',
-    ),
-    _PatientData(
-      name: 'Sara Malik',
-      initials: 'SM',
-      avatarColor: AppColors.primary,
-      gender: 'Female',
-      age: 28,
-      heightCm: 163,
-      diagnosis: 'Migraine',
-      status: 'Discharged',
-      statusColor: AppColors.primary,
-      doctor: 'Dr. Alex',
-      ward: 'Outpatient',
-    ),
-    _PatientData(
-      name: 'Oleg Petrov',
-      initials: 'OP',
-      avatarColor: AppColors.orange,
-      gender: 'Male',
-      age: 55,
-      heightCm: 175,
-      diagnosis: 'Diabetes',
-      status: 'Admitted',
-      statusColor: AppColors.primary,
-      doctor: 'Dr. Ning',
-      ward: 'Inpatient',
-      room: 'Room 301A-3rd Floor',
-    ),
-  ];
-
-  List<_PatientData> _filtered(int selectedFilter) {
-    if (selectedFilter == 0) return _patients;
-    final filterLabel = _filters[selectedFilter];
-    return _patients.where((p) => p.ward == filterLabel).toList();
+  List<Patient> _filtered(List<Patient> all, int selectedFilter) {
+    if (selectedFilter == 0) return all;
+    final label = _filters[selectedFilter];
+    return all.where((p) => p.ward == label).toList();
   }
 
   @override
@@ -83,14 +28,22 @@ class PatientsScreen extends StatelessWidget {
       body: SafeArea(
         child: BlocBuilder<PatientBloc, PatientState>(
           builder: (context, state) {
-            final filtered = _filtered(state.selectedFilter);
+            final filtered = _filtered(state.patients, state.selectedFilter);
+
             return SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 16),
-                  const TopNavBar(),
+                  TopNavBar(
+                    actions: const [
+                      MedlinkNotificationButton(),
+                      SizedBox(width: 10),
+                      MedlinkGridButton(),
+                      SizedBox(width: 10),
+                    ],
+                  ),
                   const SizedBox(height: 24),
                   const SectionHeader(
                     title: 'Patients',
@@ -105,45 +58,7 @@ class PatientsScreen extends StatelessWidget {
                         .add(PatientFilterChanged(i)),
                   ),
                   const SizedBox(height: 16),
-                  ...filtered.map((p) => PatientCard(
-                        name: p.name,
-                        initials: p.initials,
-                        avatarColor: p.avatarColor,
-                        gender: p.gender,
-                        age: p.age,
-                        heightCm: p.heightCm,
-                        diagnosis: p.diagnosis,
-                        status: p.status,
-                        statusColor: p.statusColor,
-                        doctor: p.doctor,
-                        ward: p.ward,
-                        room: p.room,
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => PatientDetailScreen(
-                                patient: PatientDetailData(
-                                  name: p.name,
-                                  initials: p.initials,
-                                  avatarColor: p.avatarColor,
-                                  patientId: 'P1-${p.age}${p.heightCm}-${p.name.hashCode.abs() % 1000}',
-                                  condition: p.diagnosis,
-                                  doctor: p.doctor,
-                                  department: p.ward,
-                                  phone: '+7 7XX XXX XXXX',
-                                  email: '${p.name.split(' ').first.toLowerCase()}@hospital.com',
-                                  location: 'Almaty, Kazakhstan',
-                                  age: p.age,
-                                  bloodType: 'O+',
-                                  weight: '${p.heightCm - 110}kg',
-                                  rating: 4.8,
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      )),
+                  _body(context, state, filtered),
                   const SizedBox(height: 24),
                 ],
               ),
@@ -151,36 +66,83 @@ class PatientsScreen extends StatelessWidget {
           },
         ),
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const PatientEditScreen()),
+        ),
+        backgroundColor: AppColors.primary,
+        child: const Icon(Icons.add, color: Colors.white),
+      ),
     );
   }
-}
 
-class _PatientData {
-  final String name;
-  final String initials;
-  final Color avatarColor;
-  final String gender;
-  final int age;
-  final int heightCm;
-  final String diagnosis;
-  final String status;
-  final Color statusColor;
-  final String doctor;
-  final String ward;
-  final String? room;
+  Widget _body(
+      BuildContext context, PatientState state, List<Patient> filtered) {
+    if (state.status == PatientStatus.initial) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 60),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (state.status == PatientStatus.error) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 40),
+        child: Center(
+          child: Column(
+            children: [
+              const Icon(Icons.error_outline,
+                  size: 36, color: AppColors.textTertiary),
+              const SizedBox(height: 8),
+              Text(state.errorMessage ?? 'Failed to load',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                      color: AppColors.textSecondary, fontSize: 13)),
+            ],
+          ),
+        ),
+      );
+    }
+    if (filtered.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 60),
+        child: Center(
+          child: Text(
+            state.patients.isEmpty
+                ? 'No patients yet. Tap + to add the first one.'
+                : 'No patients match this filter.',
+            textAlign: TextAlign.center,
+            style:
+                const TextStyle(color: AppColors.textTertiary, fontSize: 13),
+          ),
+        ),
+      );
+    }
 
-  const _PatientData({
-    required this.name,
-    required this.initials,
-    required this.avatarColor,
-    required this.gender,
-    required this.age,
-    required this.heightCm,
-    required this.diagnosis,
-    required this.status,
-    required this.statusColor,
-    required this.doctor,
-    required this.ward,
-    this.room,
-  });
+    // Использую данные пациента напрямую — без расчёта высоты в см и т.п.,
+    // это поле теперь не хранится. Карточка показывает то, что реально есть.
+    return Column(
+      children: filtered
+          .map((p) => PatientCard(
+                name: p.name,
+                initials: p.initials,
+                avatarColor: p.avatarColor,
+                gender: p.gender,
+                age: p.age,
+                heightCm: 0, // не используется, см. patient_card
+                diagnosis: p.diagnosis,
+                status: p.status,
+                statusColor: p.statusColor,
+                doctor: p.assignedDoctor.isEmpty ? '—' : p.assignedDoctor,
+                ward: p.ward,
+                room: p.room,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => PatientDetailScreen(patient: p)),
+                ),
+              ))
+          .toList(),
+    );
+  }
 }
