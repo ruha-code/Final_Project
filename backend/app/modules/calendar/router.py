@@ -6,13 +6,18 @@ from typing import Optional
  
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, RoleChecker
-from app.core.exceptions import NotFoundException
+from app.core.exceptions import NotFoundException, ValidationException
 from app.core import event_bus
 from app.modules.auth.models import User
 from app.modules.calendar.models import CalendarEvent
 from app.modules.calendar.schemas import CalendarEventCreate, CalendarEventUpdate, CalendarEventResponse
  
 router = APIRouter()
+
+
+def _validate_event_date_not_past(event_date: date, existing_date: date | None = None) -> None:
+    if event_date < date.today() and event_date != existing_date:
+        raise ValidationException("Events cannot be scheduled in the past")
  
  
 @router.get("", response_model=list[CalendarEventResponse], summary="Get calendar events")
@@ -48,6 +53,7 @@ async def create_event(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    _validate_event_date_not_past(dto.event_date)
     event = CalendarEvent(**dto.model_dump(), created_by=current_user.id)
     db.add(event)
     await db.commit()
@@ -64,6 +70,9 @@ async def update_event(event_id: int, dto: CalendarEventUpdate, db: AsyncSession
     event = result.scalar_one_or_none()
     if not event:
         raise NotFoundException("Event not found")
+
+    if dto.event_date is not None:
+        _validate_event_date_not_past(dto.event_date, existing_date=event.event_date)
  
     for field, value in dto.model_dump(exclude_unset=True).items():
         setattr(event, field, value)

@@ -46,6 +46,11 @@ function parseIsoDate(isoDate) {
   return { year, month, day, iso: `${year}-${pad2(month)}-${pad2(day)}` };
 }
 
+function getTodayIso() {
+  const today = new Date();
+  return `${today.getFullYear()}-${pad2(today.getMonth() + 1)}-${pad2(today.getDate())}`;
+}
+
 function formatFullDate(isoDate) {
   const parsed = parseIsoDate(isoDate);
   if (!parsed) return "";
@@ -79,6 +84,11 @@ function getEventColor(category, doctorMode) {
 }
 
 function EventModal({ onClose, onSaved, editData, defaultDate }) {
+  const todayIso = getTodayIso();
+  const originalDateValue = editData?.dateValue || null;
+  const allowExistingPastDate = Boolean(
+    originalDateValue && originalDateValue < todayIso,
+  );
   const [form, setForm] = useState({
     title: editData?.title || "",
     date: editData?.dateValue || defaultDate,
@@ -90,6 +100,13 @@ function EventModal({ onClose, onSaved, editData, defaultDate }) {
 
   const handleSubmit = async () => {
     if (!form.title || !form.date) return;
+    if (
+      form.date < todayIso &&
+      (!allowExistingPastDate || form.date !== originalDateValue)
+    ) {
+      setError("Events cannot be scheduled in the past.");
+      return;
+    }
     setSaving(true);
     setError("");
 
@@ -126,7 +143,13 @@ function EventModal({ onClose, onSaved, editData, defaultDate }) {
         {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-500">{error}</p>}
         <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Event title" className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400" />
         <div className="grid grid-cols-2 gap-3">
-          <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className="rounded-xl bg-gray-100 px-4 py-2 text-sm" />
+          <input
+            type="date"
+            min={allowExistingPastDate ? originalDateValue : todayIso}
+            value={form.date}
+            onChange={(e) => setForm({ ...form, date: e.target.value })}
+            className="rounded-xl bg-gray-100 px-4 py-2 text-sm"
+          />
           <input type="time" step="60" value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} className="rounded-xl bg-gray-100 px-4 py-2 text-sm" />
         </div>
         <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm">
@@ -168,6 +191,7 @@ export default function Calendar() {
   const navigate = useNavigate();
   const { isAdmin, isDoctor } = useAuth();
   const now = new Date();
+  const todayIso = getTodayIso();
   const [currentYear, setCurrentYear] = useState(now.getFullYear());
   const [currentMonth, setCurrentMonth] = useState(now.getMonth() + 1);
   const [events, setEvents] = useState([]);
@@ -276,6 +300,12 @@ export default function Calendar() {
       return leftTime.localeCompare(rightTime);
     });
   const triggerReload = () => setReloadKey((current) => current + 1);
+  const createDefaultDate = useMemo(() => {
+    if (!selectedDay) return todayIso;
+    const selectedDateValue = `${currentYear}-${pad2(currentMonth)}-${pad2(selectedDay)}`;
+    return selectedDateValue >= todayIso ? selectedDateValue : todayIso;
+  }, [currentMonth, currentYear, selectedDay, todayIso]);
+
   const clearSelection = () => {
     setSelectedDay(null);
     setSelectedEvent(null);
@@ -483,7 +513,7 @@ export default function Calendar() {
           onClose={() => { setModal(null); setEditingEvent(null); }}
           onSaved={handleEventSaved}
           editData={modal === "edit" ? editingEvent : null}
-          defaultDate={selectedDay ? `${currentYear}-${pad2(currentMonth)}-${pad2(selectedDay)}` : `${currentYear}-${pad2(currentMonth)}-01`}
+          defaultDate={createDefaultDate}
         />
       )}
 
