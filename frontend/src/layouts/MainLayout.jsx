@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { Search, Bell, CalendarClock, Package2, LogOut, MessageSquare, Settings, Users, X, LayoutDashboard, CalendarDays, Stethoscope, UserRound, Building2, CalendarRange, UserPlus, HeartPulse, UserCircle, Calendar, Package, MessageCircle, ShieldCheck, FileText, BarChart3 } from "lucide-react";
+import { Search, Bell, CalendarClock, Package2, LogOut, MessageSquare, Settings, Users, X, LayoutDashboard, CalendarDays, Stethoscope, UserRound, Building2, CalendarRange, UserPlus, HeartPulse, UserCircle, Calendar, Package, MessageCircle, ShieldCheck, FileText, BarChart3, Menu } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
@@ -39,6 +39,8 @@ function MainLayout({ children }) {
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(null);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [entitySearchResults, setEntitySearchResults] = useState([]);
   const [entitySearchLoading, setEntitySearchLoading] = useState(false);
   const [notifications, setNotifications] = useState([]);
@@ -153,10 +155,13 @@ function MainLayout({ children }) {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
+  // Close sidebar on route change
   useEffect(() => {
     currentPathRef.current = location.pathname;
     setSearch("");
     setSearchOpen(false);
+    setSidebarOpen(false);
+    setMobileSearchOpen(false);
   }, [location.pathname]);
 
   useEffect(() => () => {
@@ -164,6 +169,18 @@ function MainLayout({ children }) {
     Object.values(toastRemovalTimersRef.current).forEach((timerId) => clearTimeout(timerId));
     toastsTimerRef.current = {};
     toastRemovalTimersRef.current = {};
+  }, []);
+
+  // Close sidebar on Escape
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        setSidebarOpen(false);
+        setMobileSearchOpen(false);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
 
   const menuItem = (path, name, Icon) => {
@@ -500,74 +517,116 @@ function MainLayout({ children }) {
   const openSearchResult = (route) => {
     setSearch("");
     setSearchOpen(false);
+    setMobileSearchOpen(false);
     navigate(route);
   };
 
-  return (
-    <div className="flex h-screen bg-gradient-to-br from-[#f8fafc] to-[#eef2f7]">
-      {/* SIDEBAR */}
-      <div className="w-64 bg-white border-r flex flex-col justify-between px-6 py-7">
-        <div>
-          <div className="mb-10 flex items-center gap-2">
-            <div className="w-2 h-2 bg-teal-500 rounded-full"></div>
-            <h2 className="text-lg font-semibold text-teal-600">Medlink</h2>
-          </div>
-
-            <ul className="space-y-2">
-            {menuItem("/dashboard", "Dashboard", LayoutDashboard)}
-            {menuItem("/appointments", "Appointments", CalendarDays)}
-            {isAdmin() && menuItem("/patients", "Patients", UserRound)}
-            {(isAdmin() || isPatient()) && menuItem("/doctors", "Doctors", Stethoscope)}
-            {isAdmin() && menuItem("/departments", "Departments", Building2)}
-            {isDoctor() && menuItem("/schedule", "My Schedule", CalendarRange)}
-            {isDoctor() && menuItem("/my-patients", "My Patients", UserPlus)}
-            {isDoctor() && menuItem("/doctor/profile", "My Profile", UserCircle)}
-            {isPatient() && menuItem("/patient/health", "My Health", HeartPulse)}
-            {isPatient() && menuItem("/patient/profile", "My Profile", UserCircle)}
-            {(isAdmin() || isDoctor()) && menuItem("/calendar", "Calendar", Calendar)}
-            {isAdmin() && menuItem("/inventory", "Inventory", Package)}
-            {(isDoctor() || isPatient()) && menuItem("/messages", "Messages", MessageCircle)}
-            {isAdmin() && (
-                <>
-                {menuItem("/admin/users", "Users", ShieldCheck)}
-                {menuItem("/admin/audit-logs", "Audit Logs", FileText)}
-                {menuItem("/admin/analytics", "Analytics", BarChart3)}
-                </>
-              )}
-            </ul>
+  // Sidebar content extracted for reuse
+  const SidebarContent = () => (
+    <>
+      <div>
+        <div className="mb-10 flex items-center gap-2">
+          <div className="w-2 h-2 bg-teal-500 rounded-full"></div>
+          <h2 className="text-lg font-semibold text-teal-600">Medlink</h2>
         </div>
 
-        {isAdmin() && (
-          <div className="bg-teal-50 p-4 rounded-xl">
-            <p className="text-sm text-gray-600 mb-3">System Admin</p>
-            <div className="flex items-center gap-2 text-xs text-teal-600">
-              <Users size={14} />
-              <span>Full access enabled</span>
-            </div>
+        <ul className="space-y-2">
+          {menuItem("/dashboard", "Dashboard", LayoutDashboard)}
+          {menuItem("/appointments", "Appointments", CalendarDays)}
+          {isAdmin() && menuItem("/patients", "Patients", UserRound)}
+          {(isAdmin() || isPatient()) && menuItem("/doctors", "Doctors", Stethoscope)}
+          {isAdmin() && menuItem("/departments", "Departments", Building2)}
+          {isDoctor() && menuItem("/schedule", "My Schedule", CalendarRange)}
+          {isDoctor() && menuItem("/my-patients", "My Patients", UserPlus)}
+          {isDoctor() && menuItem("/doctor/profile", "My Profile", UserCircle)}
+          {isPatient() && menuItem("/patient/health", "My Health", HeartPulse)}
+          {isPatient() && menuItem("/patient/profile", "My Profile", UserCircle)}
+          {(isAdmin() || isDoctor()) && menuItem("/calendar", "Calendar", Calendar)}
+          {isAdmin() && menuItem("/inventory", "Inventory", Package)}
+          {(isDoctor() || isPatient()) && menuItem("/messages", "Messages", MessageCircle)}
+          {isAdmin() && (
+            <>
+              {menuItem("/admin/users", "Users", ShieldCheck)}
+              {menuItem("/admin/audit-logs", "Audit Logs", FileText)}
+              {menuItem("/admin/analytics", "Analytics", BarChart3)}
+            </>
+          )}
+        </ul>
+      </div>
+
+      {isAdmin() && (
+        <div className="bg-teal-50 p-4 rounded-xl">
+          <p className="text-sm text-gray-600 mb-3">System Admin</p>
+          <div className="flex items-center gap-2 text-xs text-teal-600">
+            <Users size={14} />
+            <span>Full access enabled</span>
           </div>
-        )}
+        </div>
+      )}
+    </>
+  );
+
+  return (
+    <div className="flex h-screen bg-gradient-to-br from-[#f8fafc] to-[#eef2f7]">
+
+      {/* MOBILE SIDEBAR OVERLAY */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* MOBILE SIDEBAR DRAWER */}
+      <div
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white flex flex-col justify-between px-6 py-7 transform transition-transform duration-300 ease-in-out md:hidden ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <div className="flex justify-end mb-2">
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="p-1 rounded-lg text-gray-400 hover:bg-gray-100"
+          >
+            <X size={18} />
+          </button>
+        </div>
+        <SidebarContent />
+      </div>
+
+      {/* DESKTOP SIDEBAR */}
+      <div className="hidden md:flex w-64 bg-white border-r flex-col justify-between px-6 py-7 shrink-0">
+        <SidebarContent />
       </div>
 
       {/* MAIN */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+
         {/* NAVBAR */}
-        <div className="bg-white border-b px-8 py-4 flex justify-between items-center relative z-50">
-          {/* LEFT */}
-          <div>
-            <h1 className="text-base font-semibold text-gray-700">
-              {getTitle()}
-            </h1>
-            <p className="text-xs text-gray-400">{getSubtitle()}</p>
+        <div className="bg-white border-b px-4 md:px-8 py-4 flex justify-between items-center relative z-50">
+
+          {/* LEFT — hamburger on mobile + title */}
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="md:hidden w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 shrink-0"
+            >
+              <Menu size={18} />
+            </button>
+            <div className="min-w-0">
+              <h1 className="text-base font-semibold text-gray-700 truncate">
+                {getTitle()}
+              </h1>
+              <p className="text-xs text-gray-400 truncate hidden sm:block">{getSubtitle()}</p>
+            </div>
           </div>
 
           {/* RIGHT */}
-          <div className="flex items-center gap-4 relative" ref={dropdownRef}>
-            {/* SEARCH */}
-            <div className="relative">
-              <Search
-                size={16}
-                className="absolute left-3 top-2.5 text-gray-400"
-              />
+          <div className="flex items-center gap-2 md:gap-4 relative shrink-0" ref={dropdownRef}>
+
+            {/* DESKTOP SEARCH */}
+            <div className="relative hidden md:block">
+              <Search size={16} className="absolute left-3 top-2.5 text-gray-400" />
               <input
                 value={search}
                 onFocus={() => setSearchOpen(true)}
@@ -590,13 +649,9 @@ function MainLayout({ children }) {
               {searchOpen && search.trim() && (
                 <div className="absolute left-0 top-12 w-full rounded-xl border bg-white p-2 shadow-lg">
                   {entitySearchLoading && searchResults.length === 0 ? (
-                    <p className="px-3 py-2 text-xs text-gray-400">
-                      Searching...
-                    </p>
+                    <p className="px-3 py-2 text-xs text-gray-400">Searching...</p>
                   ) : searchResults.length === 0 ? (
-                    <p className="px-3 py-2 text-xs text-gray-400">
-                      No matches found.
-                    </p>
+                    <p className="px-3 py-2 text-xs text-gray-400">No matches found.</p>
                   ) : (
                     searchResults.map((result) => (
                       <button
@@ -605,22 +660,26 @@ function MainLayout({ children }) {
                         className="w-full rounded-lg px-3 py-2 text-left hover:bg-gray-50"
                       >
                         <div className="mb-1 flex items-center justify-between gap-2">
-                          <p className="text-sm font-medium text-gray-800">
-                            {result.title}
-                          </p>
+                          <p className="text-sm font-medium text-gray-800">{result.title}</p>
                           <span className="rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">
                             {result.resultType}
                           </span>
                         </div>
-                        <p className="text-xs text-gray-400">
-                          {result.subtitle}
-                        </p>
+                        <p className="text-xs text-gray-400">{result.subtitle}</p>
                       </button>
                     ))
                   )}
                 </div>
               )}
             </div>
+
+            {/* MOBILE SEARCH BUTTON */}
+            <button
+              onClick={() => setMobileSearchOpen(true)}
+              className="md:hidden w-9 h-9 flex items-center justify-center rounded-full bg-gray-100"
+            >
+              <Search size={16} />
+            </button>
 
             {/* NOTIFICATIONS */}
             <div className="relative">
@@ -643,7 +702,7 @@ function MainLayout({ children }) {
               </button>
 
               {open === "notifications" && (
-                <div className="absolute right-0 mt-2 w-80 rounded-xl bg-white p-3 shadow-lg z-50">
+                <div className="absolute right-0 mt-2 w-72 sm:w-80 rounded-xl bg-white p-3 shadow-lg z-50">
                   <div className="mb-2 flex items-center justify-between">
                     <p className="font-medium">Notifications</p>
                     {notificationUnreadCount > 0 && (
@@ -696,9 +755,9 @@ function MainLayout({ children }) {
               )}
             </div>
 
-            {/* SETTINGS */}
+            {/* SETTINGS — desktop only */}
             {isAdmin() && (
-              <div className="relative">
+              <div className="relative hidden sm:block">
                 <button
                   onClick={() => setOpen(open === "settings" ? null : "settings")}
                   className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100"
@@ -729,31 +788,28 @@ function MainLayout({ children }) {
             <div className="relative">
               <div
                 onClick={() => setOpen(open === "profile" ? null : "profile")}
-                className="flex items-center gap-3 pl-3 border-l cursor-pointer"
+                className="flex items-center gap-2 md:gap-3 pl-2 md:pl-3 border-l cursor-pointer"
               >
-                <div className="w-9 h-9 bg-teal-500 text-white flex items-center justify-center rounded-full text-sm font-medium">
+                <div className="w-9 h-9 bg-teal-500 text-white flex items-center justify-center rounded-full text-sm font-medium shrink-0">
                   {getInitials(user?.full_name)}
                 </div>
 
-                <div>
-                  <p className="text-sm font-medium text-gray-700">
-                    {user?.full_name || "User"}
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    {getRoleLabel(user?.role)}
-                  </p>
+                {/* Hide name/role on mobile */}
+                <div className="hidden sm:block">
+                  <p className="text-sm font-medium text-gray-700">{user?.full_name || "User"}</p>
+                  <p className="text-xs text-gray-400">{getRoleLabel(user?.role)}</p>
                 </div>
               </div>
 
               {open === "profile" && (
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg p-2 z-50">
                   <p
-                    onClick={() => { 
+                    onClick={() => {
                       if (isAdmin()) navigate("/admin/profile");
                       else if (isDoctor()) navigate("/doctor/profile");
                       else if (isPatient()) navigate("/patient/profile");
                       else navigate("/dashboard");
-                      setOpen(null); 
+                      setOpen(null);
                     }}
                     className="px-3 py-2 hover:bg-gray-100 rounded-lg cursor-pointer text-sm"
                   >
@@ -761,10 +817,7 @@ function MainLayout({ children }) {
                   </p>
                   {isPatient() && (
                     <p
-                      onClick={() => {
-                        navigate("/patient/health");
-                        setOpen(null);
-                      }}
+                      onClick={() => { navigate("/patient/health"); setOpen(null); }}
                       className="px-3 py-2 hover:bg-gray-100 rounded-lg cursor-pointer text-sm"
                     >
                       My Health
@@ -779,19 +832,13 @@ function MainLayout({ children }) {
                     </p>
                   )}
                   <p
-                    onClick={() => {
-                      navigate("/settings/notifications");
-                      setOpen(null);
-                    }}
+                    onClick={() => { navigate("/settings/notifications"); setOpen(null); }}
                     className="px-3 py-2 hover:bg-gray-100 rounded-lg cursor-pointer text-sm"
                   >
                     Notification Settings
                   </p>
                   <p
-                    onClick={() => {
-                      logout();
-                      navigate("/");
-                    }}
+                    onClick={() => { logout(); navigate("/"); }}
                     className="px-3 py-2 hover:bg-red-100 text-red-500 rounded-lg cursor-pointer flex items-center gap-2 text-sm"
                   >
                     <LogOut size={14} /> Logout
@@ -802,14 +849,70 @@ function MainLayout({ children }) {
           </div>
         </div>
 
+        {/* MOBILE SEARCH OVERLAY */}
+        {mobileSearchOpen && (
+          <div className="md:hidden fixed inset-0 z-50 bg-white p-4 flex flex-col">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="relative flex-1">
+                <Search size={16} className="absolute left-3 top-2.5 text-gray-400" />
+                <input
+                  autoFocus
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && searchResults[0]) {
+                      openSearchResult(searchResults[0].route);
+                    }
+                  }}
+                  placeholder="Search pages, doctors, patients..."
+                  className="w-full bg-gray-100 pl-9 pr-4 py-2 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
+                />
+              </div>
+              <button
+                onClick={() => { setMobileSearchOpen(false); setSearch(""); }}
+                className="text-gray-500 text-sm"
+              >
+                Cancel
+              </button>
+            </div>
+
+            {search.trim() && (
+              <div className="flex-1 overflow-y-auto rounded-xl border bg-white p-2 shadow-sm">
+                {entitySearchLoading && searchResults.length === 0 ? (
+                  <p className="px-3 py-2 text-xs text-gray-400">Searching...</p>
+                ) : searchResults.length === 0 ? (
+                  <p className="px-3 py-2 text-xs text-gray-400">No matches found.</p>
+                ) : (
+                  searchResults.map((result) => (
+                    <button
+                      key={result.key}
+                      onClick={() => openSearchResult(result.route)}
+                      className="w-full rounded-lg px-3 py-2 text-left hover:bg-gray-50"
+                    >
+                      <div className="mb-1 flex items-center justify-between gap-2">
+                        <p className="text-sm font-medium text-gray-800">{result.title}</p>
+                        <span className="rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">
+                          {result.resultType}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-400">{result.subtitle}</p>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* CONTENT */}
         <div className="flex-1 overflow-hidden">
-          <div className="h-full overflow-auto p-8">{children}</div>
+          <div className="h-full overflow-auto p-4 md:p-8">{children}</div>
         </div>
       </div>
 
+      {/* TOAST NOTIFICATIONS */}
       {toastNotifications.length > 0 && (
-        <div className="pointer-events-none fixed bottom-24 right-5 z-[70] flex w-full max-w-sm flex-col gap-3">
+        <div className="pointer-events-none fixed bottom-24 right-3 md:right-5 z-[70] flex w-full max-w-[calc(100vw-24px)] md:max-w-sm flex-col gap-3">
           {toastNotifications.map((notification) => (
             <div
               key={notification.key}
