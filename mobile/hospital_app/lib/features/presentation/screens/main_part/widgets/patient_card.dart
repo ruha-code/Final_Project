@@ -96,7 +96,9 @@ class PatientCard extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                '$gender, $age    ${heightCm}cm   $diagnosis',
+                heightCm > 0
+                    ? '$gender, $age    ${heightCm}cm   $diagnosis'
+                    : '$gender, $age   $diagnosis',
                 style: const TextStyle(
                   fontSize: 12,
                   color: AppColors.textTertiary,

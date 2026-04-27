@@ -1,50 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hospital_app/features/data/models/doctor.dart';
+import 'package:hospital_app/features/data/repositories/doctor_repository.dart';
 import 'package:hospital_app/features/presentation/bloc/doctor_detail/doctor_detail_bloc.dart';
+import 'package:hospital_app/features/presentation/screens/main_part/doctor_edit_screen.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/app_constant.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/top_nav_bar.dart';
 
-class DoctorDetailData {
-  final String name;
-  final String initials;
-  final Color avatarColor;
-  final String specialty;
-  final String experience;
-  final String availability;
-  final Color availabilityColor;
-  final String description;
-  final String phone;
-  final String email;
-  final String location;
-  final int patients;
-  final int appointments;
-  final double rating;
-
-  const DoctorDetailData({
-    required this.name,
-    required this.initials,
-    required this.avatarColor,
-    required this.specialty,
-    required this.experience,
-    required this.availability,
-    required this.availabilityColor,
-    required this.description,
-    required this.phone,
-    required this.email,
-    required this.location,
-    required this.patients,
-    required this.appointments,
-    required this.rating,
-  });
-}
-
 class DoctorDetailScreen extends StatelessWidget {
-  final DoctorDetailData doctor;
+  final Doctor doctor;
 
   const DoctorDetailScreen({super.key, required this.doctor});
 
   @override
   Widget build(BuildContext context) {
+    // DoctorDetailBloc нужен только для тоггла "Weekly/Monthly" внизу экрана —
+    // не для самих данных доктора.
     return BlocProvider(
       create: (_) => DoctorDetailBloc(),
       child: _DoctorDetailView(doctor: doctor),
@@ -53,9 +24,43 @@ class DoctorDetailScreen extends StatelessWidget {
 }
 
 class _DoctorDetailView extends StatelessWidget {
-  final DoctorDetailData doctor;
+  final Doctor doctor;
 
   const _DoctorDetailView({required this.doctor});
+
+  Future<void> _confirmDelete(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete doctor?'),
+        content: Text(
+            'This will permanently remove ${doctor.name} from the database.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+
+    try {
+      await context.read<DoctorRepository>().delete(doctor.id);
+      if (!context.mounted) return;
+      // Возвращаемся к списку — оттуда стрим уже подтянет обновлённый список.
+      Navigator.of(context).pop();
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Delete failed: $e'),
+        backgroundColor: Colors.red.shade600,
+      ));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -72,29 +77,46 @@ class _DoctorDetailView extends StatelessWidget {
               TopNavBar(
                 subtitle: 'Doctor detail',
                 onBack: () => Navigator.pop(context),
-                actions: const [
-                  MedlinkNotificationButton(),
-                  SizedBox(width: 10),
-                  MedlinkGridButton(),
-                  SizedBox(width: 10),
+                actions: [
+                  // Edit и Delete вместо общих "уведомления + grid".
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined,
+                        color: AppColors.textPrimary),
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => DoctorEditScreen(doctor: d),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon:
+                        const Icon(Icons.delete_outline, color: AppColors.red),
+                    onPressed: () => _confirmDelete(context),
+                  ),
                 ],
               ),
               const SizedBox(height: 24),
-              _buildDoctorHeader(d),
+              _buildHeader(d),
               const SizedBox(height: 16),
               Text(
-                d.description,
-                style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.5),
+                'Specializes in ${d.specialty.toLowerCase()}, working schedule: ${d.schedule}.',
+                style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                    height: 1.5),
               ),
               const SizedBox(height: 16),
-              _ContactRow(icon: Icons.phone_outlined, text: d.phone),
-              const SizedBox(height: 10),
-              _ContactRow(icon: Icons.email_outlined, text: d.email),
-              const SizedBox(height: 10),
-              _ContactRow(icon: Icons.location_on_outlined, text: d.location),
+              if (d.phone.isNotEmpty)
+                _ContactRow(icon: Icons.phone_outlined, text: d.phone),
+              if (d.phone.isNotEmpty) const SizedBox(height: 10),
+              if (d.email.isNotEmpty)
+                _ContactRow(icon: Icons.email_outlined, text: d.email),
+              if (d.email.isNotEmpty) const SizedBox(height: 10),
+              if (d.address.isNotEmpty)
+                _ContactRow(
+                    icon: Icons.location_on_outlined, text: d.address),
               const SizedBox(height: 24),
-              _buildStatsRow(d),
-              const SizedBox(height: 20),
               const _PerformanceCard(),
               const SizedBox(height: 24),
             ],
@@ -104,15 +126,20 @@ class _DoctorDetailView extends StatelessWidget {
     );
   }
 
-  Widget _buildDoctorHeader(DoctorDetailData d) {
+  Widget _buildHeader(Doctor d) {
     return Row(
       children: [
         Container(
           width: 56,
           height: 56,
-          decoration: BoxDecoration(color: d.avatarColor, borderRadius: BorderRadius.circular(16)),
+          decoration: BoxDecoration(
+              color: d.avatarColor, borderRadius: BorderRadius.circular(16)),
           child: Center(
-            child: Text(d.initials, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 20)),
+            child: Text(d.initials,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 20)),
           ),
         ),
         const SizedBox(width: 14),
@@ -120,25 +147,29 @@ class _DoctorDetailView extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(d.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+              Text(d.name,
+                  style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary)),
               const SizedBox(height: 4),
-              Row(
-                children: [
-                  Text(d.specialty, style: const TextStyle(fontSize: 12, color: AppColors.textTertiary)),
-                  const Text(' · ', style: TextStyle(fontSize: 12, color: AppColors.textTertiary)),
-                  Text(d.experience, style: const TextStyle(fontSize: 12, color: AppColors.textTertiary)),
-                ],
-              ),
+              Text(d.specialty,
+                  style: const TextStyle(
+                      fontSize: 12, color: AppColors.textTertiary)),
               const SizedBox(height: 6),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                 decoration: BoxDecoration(
                   color: d.availabilityColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
                   d.availability,
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: d.availabilityColor),
+                  style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: d.availabilityColor),
                 ),
               ),
             ],
@@ -147,33 +178,10 @@ class _DoctorDetailView extends StatelessWidget {
       ],
     );
   }
-
-  Widget _buildStatsRow(DoctorDetailData d) {
-    return Row(
-      children: [
-        _DoctorStatItem(value: '${d.patients}', label: 'Patients'),
-        _statDivider(),
-        _DoctorStatItem(value: '${d.appointments}', label: 'Appts'),
-        _statDivider(),
-        _DoctorStatItem(
-          value: d.rating.toString(),
-          label: 'Rating',
-          trailing: const Icon(Icons.star, size: 14, color: AppColors.orange),
-        ),
-      ],
-    );
-  }
-
-  Widget _statDivider() {
-    return Container(
-      width: 1,
-      height: 36,
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      color: AppColors.border,
-    );
-  }
 }
 
+/// Декоративный график "Performance". Данные заглушечные, поскольку
+/// мы не храним статистику по врачу.
 class _PerformanceCard extends StatelessWidget {
   const _PerformanceCard();
 
@@ -193,13 +201,21 @@ class _PerformanceCard extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Performance', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppColors.textPrimary)),
+                  const Text('Performance',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                          color: AppColors.textPrimary)),
                   Container(
-                    decoration: BoxDecoration(color: AppColors.bgGrey, borderRadius: BorderRadius.circular(20)),
+                    decoration: BoxDecoration(
+                        color: AppColors.bgGrey,
+                        borderRadius: BorderRadius.circular(20)),
                     child: Row(
                       children: [
-                        _toggleChip(context, 'Weekly', state.chartPeriod == 0, 0),
-                        _toggleChip(context, 'Monthly', state.chartPeriod == 1, 1),
+                        _toggleChip(
+                            context, 'Weekly', state.chartPeriod == 0, 0),
+                        _toggleChip(
+                            context, 'Monthly', state.chartPeriod == 1, 1),
                       ],
                     ),
                   ),
@@ -219,10 +235,15 @@ class _PerformanceCard extends StatelessWidget {
                         Container(
                           width: 30,
                           height: h,
-                          decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(5)),
+                          decoration: BoxDecoration(
+                              color: AppColors.primary,
+                              borderRadius: BorderRadius.circular(5)),
                         ),
                         const SizedBox(height: 6),
-                        Text(_months[i], style: const TextStyle(fontSize: 9, color: AppColors.textTertiary)),
+                        Text(_months[i],
+                            style: const TextStyle(
+                                fontSize: 9,
+                                color: AppColors.textTertiary)),
                       ],
                     );
                   }),
@@ -235,9 +256,12 @@ class _PerformanceCard extends StatelessWidget {
     );
   }
 
-  Widget _toggleChip(BuildContext context, String label, bool selected, int period) {
+  Widget _toggleChip(
+      BuildContext context, String label, bool selected, int period) {
     return GestureDetector(
-      onTap: () => context.read<DoctorDetailBloc>().add(DoctorDetailChartToggled(period)),
+      onTap: () => context
+          .read<DoctorDetailBloc>()
+          .add(DoctorDetailChartToggled(period)),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
@@ -268,35 +292,11 @@ class _ContactRow extends StatelessWidget {
       children: [
         Icon(icon, size: 16, color: AppColors.primary),
         const SizedBox(width: 10),
-        Text(text, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
-      ],
-    );
-  }
-}
-
-class _DoctorStatItem extends StatelessWidget {
-  final String value;
-  final String label;
-  final Widget? trailing;
-
-  const _DoctorStatItem({required this.value, required this.label, this.trailing});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-            if (trailing != null) ...[
-              const SizedBox(width: 2),
-              trailing!,
-            ],
-          ],
+        Expanded(
+          child: Text(text,
+              style: const TextStyle(
+                  fontSize: 13, color: AppColors.textSecondary)),
         ),
-        const SizedBox(height: 2),
-        Text(label, style: const TextStyle(fontSize: 11, color: AppColors.textTertiary)),
       ],
     );
   }
