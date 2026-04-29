@@ -9,12 +9,8 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     REDIS_URL: str = "redis://localhost:6379"
 
-    SMTP_HOST: str = "smtp.gmail.com"
-    SMTP_PORT: int = 587
-    SMTP_STARTTLS: bool = True
-    SMTP_USERNAME: str = ""
-    SMTP_PASSWORD: str = ""
-    EMAILS_FROM: str = ""
+    RESEND_API_KEY: str = ""
+    EMAILS_FROM: str = "noreply@medlinks.uk"
     EMAILS_ENABLED: bool = False
     FRONTEND_URL: str = "http://localhost:5173"
 

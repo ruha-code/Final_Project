@@ -1,37 +1,27 @@
 import logging
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-
-import aiosmtplib
-
+import resend
 from app.core.config import settings
 
 logger = logging.getLogger("clinic.email")
 
+if settings.RESEND_API_KEY:
+  resend.api_key = settings.RESEND_API_KEY
+
 
 async def _send(to: str, subject: str, html: str) -> None:
-    if not settings.EMAILS_ENABLED:
+    if not settings.EMAILS_ENABLED or not settings.RESEND_API_KEY:
         logger.info(f"[EMAIL DISABLED] Would send '{subject}' → {to}")
         return
 
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"] = settings.EMAILS_FROM
-    msg["To"] = to
-    msg.attach(MIMEText(html, "html"))
-
     try:
-        smtp_username = settings.SMTP_USERNAME or None
-        smtp_password = settings.SMTP_PASSWORD or None
-        await aiosmtplib.send(
-            msg,
-            hostname=settings.SMTP_HOST,
-            port=settings.SMTP_PORT,
-            username=smtp_username,
-            password=smtp_password,
-            start_tls=settings.SMTP_STARTTLS,
-        )
-        logger.info(f"[EMAIL] Sent '{subject}' → {to}")
+        params = {
+            "from": f"Medlink Clinic <{settings.EMAILS_FROM}>",
+            "to": [to],
+            "subject": subject,
+            "html": html,
+        }
+        email = resend.Emails.send(params)
+        logger.info(f"[EMAIL] Sent '{subject}' → {to} (ID: {email['id']})")
     except Exception as exc:
         logger.error(f"[EMAIL] Failed to send '{subject}' → {to}: {exc}")
 
