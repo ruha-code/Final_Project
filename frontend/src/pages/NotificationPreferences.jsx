@@ -28,12 +28,12 @@ const TYPE_CONFIG = {
   INVENTORY: {
     field: "mute_inventory_notifications",
     label: "Inventory",
-    description: "Mute low stock and out-of-stock alerts.",
+    description: "Mute low stock alerts.",
   },
   CALENDAR: {
     field: "mute_calendar_notifications",
     label: "Calendar",
-    description: "Mute upcoming calendar event alerts.",
+    description: "Mute calendar alerts.",
   },
 };
 
@@ -50,6 +50,7 @@ function toInteger(value) {
 
 export default function NotificationPreferences() {
   const { user } = useAuth();
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -61,6 +62,7 @@ export default function NotificationPreferences() {
     const fetchPreferences = async () => {
       try {
         const data = await api.get("/notifications/preferences");
+
         setForm({
           mute_message_notifications: Boolean(data?.mute_message_notifications),
           mute_appointment_notifications: Boolean(data?.mute_appointment_notifications),
@@ -68,36 +70,39 @@ export default function NotificationPreferences() {
           mute_calendar_notifications: Boolean(data?.mute_calendar_notifications),
           appointment_reminder_hours: data?.appointment_reminder_hours ?? 48,
         });
+
         const serverTypes = Array.isArray(data?.available_notification_types)
           ? data.available_notification_types
           : [];
+
         setAvailableTypes(
-          serverTypes.length > 0 ? serverTypes : getFallbackTypesByRole(user?.role),
+          serverTypes.length > 0
+            ? serverTypes
+            : getFallbackTypesByRole(user?.role),
         );
       } catch (err) {
-        setError(err.message || "Failed to load notification preferences");
+        setError(err.message || "Failed to load preferences");
         setAvailableTypes(getFallbackTypesByRole(user?.role));
       } finally {
         setLoading(false);
       }
     };
 
-    void fetchPreferences();
+    fetchPreferences();
   }, [user?.role]);
 
   const handleToggle = (field) => {
     setError("");
     setSaved(false);
-    setForm((current) => ({ ...current, [field]: !current[field] }));
+    setForm((c) => ({ ...c, [field]: !c[field] }));
   };
 
-  const handleReminderChange = (event) => {
-    const nextValue = event.target.value;
+  const handleReminderChange = (e) => {
     setError("");
     setSaved(false);
-    setForm((current) => ({
-      ...current,
-      appointment_reminder_hours: nextValue,
+    setForm((c) => ({
+      ...c,
+      appointment_reminder_hours: e.target.value,
     }));
   };
 
@@ -106,16 +111,19 @@ export default function NotificationPreferences() {
     setSaved(false);
 
     const reminderHours = toInteger(form.appointment_reminder_hours);
+
     if (reminderHours === null || reminderHours < 1 || reminderHours > 168) {
-      setError("Reminder timing must be a number from 1 to 168 hours.");
+      setError("Reminder must be 1–168 hours.");
       return;
     }
 
     try {
       setSaving(true);
+
       const payload = {
         appointment_reminder_hours: reminderHours,
       };
+
       if (availableTypes.includes("MESSAGE")) {
         payload.mute_message_notifications = form.mute_message_notifications;
       }
@@ -128,7 +136,9 @@ export default function NotificationPreferences() {
       if (availableTypes.includes("CALENDAR")) {
         payload.mute_calendar_notifications = form.mute_calendar_notifications;
       }
+
       const updated = await api.put("/notifications/preferences", payload);
+
       setForm({
         mute_message_notifications: Boolean(updated?.mute_message_notifications),
         mute_appointment_notifications: Boolean(updated?.mute_appointment_notifications),
@@ -136,16 +146,11 @@ export default function NotificationPreferences() {
         mute_calendar_notifications: Boolean(updated?.mute_calendar_notifications),
         appointment_reminder_hours: updated?.appointment_reminder_hours ?? reminderHours,
       });
-      const updatedTypes = Array.isArray(updated?.available_notification_types)
-        ? updated.available_notification_types
-        : [];
-      if (updatedTypes.length > 0) {
-        setAvailableTypes(updatedTypes);
-      }
+
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch (err) {
-      setError(err.message || "Failed to save notification preferences");
+      setError(err.message || "Failed to save");
     } finally {
       setSaving(false);
     }
@@ -160,18 +165,22 @@ export default function NotificationPreferences() {
   }
 
   const visibleTypeCards = TYPE_ORDER
-    .filter((type) => availableTypes.includes(type))
-    .map((type) => ({
-      type,
-      ...TYPE_CONFIG[type],
+    .filter((t) => availableTypes.includes(t))
+    .map((t) => ({
+      type: t,
+      ...TYPE_CONFIG[t],
     }));
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="mx-auto max-w-3xl space-y-6 px-3 sm:px-0">
+
+      {/* HEADER */}
       <div>
-        <h2 className="text-2xl font-semibold">Notification Preferences</h2>
-        <p className="text-sm text-gray-400">
-          Choose which notification types to mute and when appointment reminders appear.
+        <h2 className="text-xl sm:text-2xl font-semibold">
+          Notification Preferences
+        </h2>
+        <p className="text-sm text-gray-400 mt-1">
+          Control your alerts and reminders
         </p>
       </div>
 
@@ -181,28 +190,36 @@ export default function NotificationPreferences() {
         </div>
       )}
 
-      <div className="space-y-6 rounded-2xl border bg-white p-6">
+      <div className="space-y-6 rounded-2xl border bg-white p-4 sm:p-6">
+
+        {/* TOGGLES */}
         <div className="space-y-3">
           {visibleTypeCards.map((card) => (
-            <label key={card.type} className="flex items-center justify-between rounded-xl border p-3">
+            <label
+              key={card.type}
+              className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border p-3"
+            >
               <div>
-                <p className="text-sm font-medium text-gray-700">{card.label}</p>
+                <p className="text-sm font-medium">{card.label}</p>
                 <p className="text-xs text-gray-400">{card.description}</p>
               </div>
+
               <input
                 type="checkbox"
                 checked={Boolean(form[card.field])}
                 onChange={() => handleToggle(card.field)}
-                className="h-4 w-4 accent-teal-500"
+                className="h-5 w-5 accent-teal-500 self-start sm:self-auto"
               />
             </label>
           ))}
         </div>
 
+        {/* INPUT */}
         <div>
           <label className="mb-1 block text-sm text-gray-500">
-            Appointment reminder timing (hours)
+            Reminder (hours)
           </label>
+
           <input
             type="number"
             min="1"
@@ -211,29 +228,31 @@ export default function NotificationPreferences() {
             onChange={handleReminderChange}
             className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400"
           />
+
           <p className="mt-1 text-xs text-gray-400">
-            Range: 1 to 168 hours before the appointment.
+            1–168 hours before appointment
           </p>
         </div>
 
+        {/* BUTTON */}
         <button
           onClick={handleSave}
           disabled={saving}
-          className={`flex w-full items-center justify-center gap-2 rounded-xl py-3 transition ${
-            saved ? "bg-green-500 text-white" : "bg-teal-500 text-white hover:bg-teal-600"
+          className={`flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm transition ${
+            saved
+              ? "bg-green-500 text-white"
+              : "bg-teal-500 text-white hover:bg-teal-600"
           } disabled:opacity-50`}
         >
           {saved ? (
             <>
-              <Check size={18} />
-              Saved
+              <Check size={18} /> Saved
             </>
           ) : saving ? (
             "Saving..."
           ) : (
             <>
-              <Save size={18} />
-              Save Preferences
+              <Save size={18} /> Save Preferences
             </>
           )}
         </button>

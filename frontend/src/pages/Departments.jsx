@@ -1,268 +1,146 @@
-import { useState, useEffect } from "react";
-import { Building2, Layers, Users, MapPin, ArrowRight, Search, Plus, X } from "lucide-react";
+import { useCallback, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
+import { MapPin, Users } from "lucide-react";
+import Badge from "../components/Badge";
 import { api } from "../services/api";
 import { useAuth } from "../context/AuthContext";
-import DepartmentsChart from "../components/DepartmentsChart";
 
-const FALLBACK_IMG = "https://images.unsplash.com/photo-1584982751601-97dcc096659c";
+const FALLBACK_IMG =
+  "https://images.unsplash.com/photo-1584982751601-97dcc096659c";
 
-function StatCard({ title, value, icon: IconComponent }) {
-  return (
-    <div className="bg-white rounded-2xl p-5 border flex justify-between items-center">
-      <div>
-        <p className="text-sm text-gray-400">{title}</p>
-        <h2 className="text-2xl font-bold">{value}</h2>
-      </div>
-      <div className="w-10 h-10 bg-teal-100 text-teal-600 rounded-xl flex items-center justify-center">
-        {IconComponent && <IconComponent size={18} />}
-      </div>
-    </div>
-  );
+function getInitials(name) {
+  if (!name) return "?";
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase();
 }
 
-function MiniStats({ departments }) {
-  const avg = (key) => {
-    if (!departments.length) return 0;
-    const values = departments.map((d) => d[key] || 0);
-    return Math.round(values.reduce((s, v) => s + v, 0) / values.length);
-  };
-
-  const allZero =
-    avg("patient_satisfaction") === 0 &&
-    avg("efficiency") === 0 &&
-    avg("treatment_success") === 0;
-
-  return (
-    <div className="bg-white rounded-2xl border p-5 space-y-4">
-      <h3 className="font-semibold text-sm">Department Insights</h3>
-      {allZero ? (
-        <p className="text-xs text-gray-400">
-          Metrics are calculated automatically from appointment outcomes and update as live data changes.
-        </p>
-      ) : (
-        <div className="space-y-3 text-sm">
-          <div>
-            <div className="flex justify-between text-xs text-gray-500 mb-1">
-              <span>Patient Satisfaction</span>
-              <span>{avg("patient_satisfaction")}%</span>
-            </div>
-            <div className="h-2 bg-gray-200 rounded-full">
-              <div className="h-2 bg-teal-500 rounded-full" style={{ width: `${avg("patient_satisfaction")}%` }} />
-            </div>
-          </div>
-          <div>
-            <div className="flex justify-between text-xs text-gray-500 mb-1">
-              <span>Efficiency</span>
-              <span>{avg("efficiency")}%</span>
-            </div>
-            <div className="h-2 bg-gray-200 rounded-full">
-              <div className="h-2 bg-teal-400 rounded-full" style={{ width: `${avg("efficiency")}%` }} />
-            </div>
-          </div>
-          <div>
-            <div className="flex justify-between text-xs text-gray-500 mb-1">
-              <span>Treatment Success</span>
-              <span>{avg("treatment_success")}%</span>
-            </div>
-            <div className="h-2 bg-gray-200 rounded-full">
-              <div className="h-2 bg-teal-600 rounded-full" style={{ width: `${avg("treatment_success")}%` }} />
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function DepartmentCard({ dep, onEdit, onDelete }) {
+export default function DepartmentDetails() {
   const navigate = useNavigate();
-  const { isAdmin } = useAuth();
-  const canDelete = (dep.staff_count || 0) === 0;
+  const { id } = useParams();
+  const { isPatient, isAdmin } = useAuth();
 
-  return (
-    <div className="bg-white rounded-2xl border overflow-hidden hover:shadow-xl transition">
-      <img
-        src={dep.image_url ? `${dep.image_url}?auto=format&fit=crop&w=800` : `${FALLBACK_IMG}?auto=format&fit=crop&w=800`}
-        className="h-40 w-full object-cover"
-      />
-      <div className="p-4 space-y-2">
-        <h3 className="font-semibold">{dep.name}</h3>
-        <p className="text-xs text-gray-400 flex items-center gap-1">
-          <MapPin size={12} /> {dep.location || "No location set"}
-        </p>
-        <p className="text-sm text-gray-500">{dep.description || "No description available."}</p>
-        <div className="flex justify-between items-center pt-3">
-          <span className="text-xs bg-teal-100 text-teal-600 px-2 py-1 rounded-lg">
-            {dep.staff_count} Team Members
-          </span>
-          <span className="text-sm text-teal-600 flex items-center gap-1 cursor-pointer" onClick={(e) => { e.stopPropagation(); navigate(`/departments/${dep.id}`); }}>
-            View Doctors <ArrowRight size={14} />
-          </span>
-        </div>
-        {isAdmin() && (
-          <div className="flex gap-2 pt-2 border-t mt-2">
-            <button onClick={(e) => { e.stopPropagation(); onEdit(dep); }} className="flex-1 py-1 text-xs bg-gray-100 rounded-lg hover:bg-teal-50 text-teal-600">Edit</button>
-            <button
-              onClick={(e) => { e.stopPropagation(); onDelete(dep.id); }}
-              disabled={!canDelete}
-              title={canDelete ? "Delete department" : "Remove or reassign doctors before deleting this department"}
-              className="flex-1 py-1 text-xs bg-gray-100 rounded-lg hover:bg-red-50 text-red-500 disabled:cursor-not-allowed disabled:text-gray-400 disabled:hover:bg-gray-100"
-            >
-              Delete
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function DepartmentModal({ onClose, onSaved, editData }) {
-  const [form, setForm] = useState({
-    name: editData?.name || "",
-    location: editData?.location || "",
-    description: editData?.description || "",
-  });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-
-  const handleSubmit = async () => {
-    if (!form.name) return;
-    setSaving(true);
-    setError("");
-    try {
-      if (editData) {
-        await api.put(`/departments/${editData.id}`, form);
-      } else {
-        await api.post("/departments", form);
-      }
-      onSaved();
-      onClose();
-    } catch (err) {
-      setError(err.message || "Failed to save department");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-white w-[480px] rounded-2xl shadow-xl overflow-hidden">
-        <div className="flex justify-between items-center px-6 py-4 bg-teal-50 border-b">
-          <h2 className="font-semibold">{editData ? "Edit" : "Add"} Department</h2>
-          <button onClick={onClose} className="p-1 hover:bg-gray-200 rounded-lg">
-            <X size={18} />
-          </button>
-        </div>
-        <div className="p-6 space-y-4">
-          {error && <p className="text-sm text-red-500 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
-          <div>
-            <label className="text-sm text-gray-500 mb-1 block">Name *</label>
-            <input
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
-            />
-          </div>
-          <div>
-            <label className="text-sm text-gray-500 mb-1 block">Location</label>
-            <input
-              value={form.location}
-              onChange={(e) => setForm({ ...form, location: e.target.value })}
-              className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
-            />
-          </div>
-          <div>
-            <label className="text-sm text-gray-500 mb-1 block">Description</label>
-            <textarea
-              value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
-              rows={2}
-              className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400 resize-none"
-            />
-          </div>
-
-          <div className="rounded-xl border border-dashed bg-gray-50 p-3">
-            <p className="text-xs text-gray-500">
-              Performance metrics are calculated automatically from department activity and cannot be edited manually.
-            </p>
-          </div>
-
-          <div className="flex gap-3 pt-2">
-            <button onClick={onClose} className="flex-1 py-2 bg-gray-100 rounded-xl text-sm">Cancel</button>
-            <button
-              onClick={handleSubmit}
-              disabled={saving}
-              className="flex-1 py-2 bg-teal-500 text-white rounded-xl text-sm hover:bg-teal-600 disabled:opacity-50"
-            >
-              {saving ? "Saving..." : editData ? "Update" : "Create"}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export default function Departments() {
-  const { isAdmin } = useAuth();
-  const [departments, setDepartments] = useState([]);
-  const [search, setSearch] = useState("");
+  const [department, setDepartment] = useState(null);
+  const [allDoctors, setAllDoctors] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [modal, setModal] = useState(null);
-  const [editData, setEditData] = useState(null);
+  const [selectedDoctorId, setSelectedDoctorId] = useState("");
+  const [savingAction, setSavingAction] = useState(false);
+  const [actionError, setActionError] = useState("");
+  const [pageError, setPageError] = useState("");
+  const [loadWarning, setLoadWarning] = useState("");
 
-  const fetchDepartments = async ({ showLoader = false } = {}) => {
-    if (showLoader) setLoading(true);
-    setError("");
+  const departmentId = Number(id);
 
-    try {
-      const data = await api.get("/departments");
-      setDepartments(data);
-    } catch (err) {
-      console.error("Failed to fetch:", err);
-      setError(err.message || "Failed to load departments");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const doctors = allDoctors.filter(
+    (doctor) => Number(doctor.department_id) === departmentId
+  );
+
+  const unassignedDoctors = allDoctors.filter(
+    (doctor) =>
+      doctor.department_id === null || doctor.department_id === undefined
+  );
+
+  const doctorRosterUnavailable =
+    Boolean(loadWarning) && allDoctors.length === 0;
+
+  const fetchData = useCallback(
+    async (showLoader = true) => {
+      if (showLoader) {
+        setLoading(true);
+        setPageError("");
+        setLoadWarning("");
+      }
+
+      setActionError("");
+
+      const [departmentResult, doctorsResult] = await Promise.allSettled([
+        api.get(`/departments/${id}`),
+        api.get("/doctors"),
+      ]);
+
+      if (departmentResult.status === "rejected") {
+        const message =
+          departmentResult.reason?.message || "Failed to load department";
+
+        if (showLoader) {
+          setDepartment(null);
+          setAllDoctors([]);
+          setPageError(message);
+          setLoading(false);
+        } else {
+          setActionError(message);
+        }
+        return;
+      }
+
+      setDepartment(departmentResult.value);
+      setPageError("");
+
+      if (doctorsResult.status === "fulfilled") {
+        setAllDoctors(
+          Array.isArray(doctorsResult.value) ? doctorsResult.value : []
+        );
+        setLoadWarning("");
+      } else {
+        const message =
+          doctorsResult.reason?.message ||
+          "Doctor roster could not be loaded right now.";
+
+        if (showLoader) {
+          setAllDoctors([]);
+          setLoadWarning(message);
+        } else {
+          setActionError(message);
+        }
+      }
+
+      if (showLoader) setLoading(false);
+    },
+    [id]
+  );
 
   useEffect(() => {
-    void fetchDepartments({ showLoader: true });
-  }, []);
+    void fetchData(true);
+  }, [fetchData]);
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Delete this department?")) return;
-    setError("");
+  const assignDoctor = async () => {
+    if (!selectedDoctorId) return;
+
+    setSavingAction(true);
+    setActionError("");
 
     try {
-      await api.delete(`/departments/${id}`);
-      void fetchDepartments();
+      await api.put(`/doctors/${selectedDoctorId}`, {
+        department_id: departmentId,
+      });
+
+      setSelectedDoctorId("");
+      await fetchData(false);
     } catch (err) {
-      console.error("Failed to delete:", err);
-      setError(err.message || "Failed to delete department");
+      setActionError(err.message || "Failed to assign doctor");
+    } finally {
+      setSavingAction(false);
     }
   };
 
-  const openEdit = (dep) => {
-    setEditData(dep);
-    setModal(true);
+  const unassignDoctor = async (doctorId) => {
+    setSavingAction(true);
+    setActionError("");
+
+    try {
+      await api.put(`/doctors/${doctorId}`, { department_id: null });
+      await fetchData(false);
+    } catch (err) {
+      setActionError(
+        err.message || "Failed to remove doctor from department"
+      );
+    } finally {
+      setSavingAction(false);
+    }
   };
-
-  const filtered = departments.filter((d) =>
-    d.name.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const totalTeamMembers = departments.reduce(
-    (sum, department) => sum + (department.staff_count || 0),
-    0,
-  );
-  const avgTeam = departments.length
-    ? Math.round(totalTeamMembers / departments.length)
-    : 0;
-  const summaryUnavailable = Boolean(error) && departments.length === 0;
 
   if (loading) {
     return (
@@ -272,85 +150,117 @@ export default function Departments() {
     );
   }
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Departments</h1>
-        <p className="text-sm text-gray-400">Manage hospital departments</p>
+  if (!department) {
+    return (
+      <div className="text-gray-400 p-6">
+        {pageError || "Department not found"}
       </div>
+    );
+  }
 
-      {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-          {error}
+  return (
+    <div className="space-y-4 md:space-y-6 px-3 md:px-0">
+
+      {loadWarning && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          {loadWarning}
         </div>
       )}
 
-      <div className="grid grid-cols-4 gap-6">
-        <div className="col-span-1 space-y-4">
-          <StatCard title="Total Departments" value={summaryUnavailable ? "—" : departments.length} icon={Building2} />
-          <StatCard title="Total Team Members" value={summaryUnavailable ? "—" : totalTeamMembers} icon={Layers} />
-          <StatCard title="Avg Team Size" value={summaryUnavailable ? "—" : avgTeam} icon={Users} />
-          {summaryUnavailable ? (
-            <div className="bg-white rounded-2xl border p-5">
-              <h3 className="font-semibold text-sm">Department Insights</h3>
-              <p className="mt-3 text-xs text-red-500">
-                Department insights are unavailable until the data loads successfully.
-              </p>
-            </div>
-          ) : (
-            <MiniStats departments={departments} />
-          )}
+      {actionError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+          {actionError}
         </div>
-        <div className="col-span-3">
-          <DepartmentsChart departments={departments} error={error} />
+      )}
+
+      <h1 className="text-xl md:text-2xl font-semibold">
+        {department.name}
+      </h1>
+
+      {/* TOP */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+
+        <div className="lg:col-span-2">
+          <img
+            src={
+              department.image_url
+                ? `${department.image_url}?auto=format&fit=crop&w=1200`
+                : `${FALLBACK_IMG}?auto=format&fit=crop&w=1200`
+            }
+            className="w-full h-48 sm:h-64 md:h-[300px] object-cover rounded-2xl"
+            alt={department.name}
+          />
+        </div>
+
+        <div className="bg-white rounded-2xl border p-4 md:p-5 space-y-3 md:space-y-4">
+          <h3 className="font-semibold text-base md:text-lg">About</h3>
+
+          <p className="text-xs md:text-sm text-gray-500">
+            {department.description || "No description available."}
+          </p>
+
+          <div className="space-y-2 text-xs md:text-sm text-gray-600">
+            <p className="flex items-center gap-2">
+              <MapPin size={14} /> {department.location || "No location set"}
+            </p>
+
+            <p className="flex items-center gap-2">
+              <Users size={14} />{" "}
+              {doctorRosterUnavailable
+                ? "Team data unavailable"
+                : `${doctors.length} Team Members`}
+            </p>
+          </div>
         </div>
       </div>
 
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-2 bg-gray-100 px-3 py-2 rounded-xl w-72">
-          <Search size={16} className="text-gray-400" />
-          <input
-            placeholder="Search departments..."
-            className="bg-transparent outline-none text-sm w-full"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+      {/* TEAM */}
+      <div className="bg-white rounded-2xl border p-4 md:p-5">
+        <h3 className="font-semibold mb-3 md:mb-4 text-sm md:text-base">
+          Team
+        </h3>
+
         {isAdmin() && (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => { void fetchDepartments({ showLoader: true }); }}
-              className="text-sm bg-gray-100 text-gray-700 px-4 py-2 rounded-xl"
+          <div className="mb-4 space-y-2 rounded-xl border bg-gray-50 p-3">
+            <select
+              className="w-full text-sm border rounded-lg p-2"
+              value={selectedDoctorId}
+              onChange={(e) => setSelectedDoctorId(e.target.value)}
             >
-              Retry
-            </button>
+              <option value="">Select doctor</option>
+              {unassignedDoctors.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.full_name}
+                </option>
+              ))}
+            </select>
+
             <button
-              onClick={() => { setEditData(null); setModal(true); }}
-              className="text-sm bg-teal-100 text-teal-600 px-4 py-2 rounded-xl flex items-center gap-1"
+              onClick={assignDoctor}
+              className="w-full bg-teal-500 text-white text-sm py-2 rounded-lg"
             >
-              <Plus size={14} /> Add Department
+              Assign
             </button>
           </div>
         )}
-      </div>
 
-      {summaryUnavailable ? (
-        <div className="rounded-2xl border border-dashed bg-white px-6 py-10 text-center">
-          <p className="text-sm text-red-500">Departments could not be loaded right now.</p>
-        </div>
-      ) : filtered.length === 0 ? (
-        <p className="text-center text-gray-400 text-sm py-10">No departments found</p>
-      ) : (
-        <div className="grid grid-cols-4 gap-6">
-          {filtered.map((dep) => (
-            <DepartmentCard key={dep.id} dep={dep} onEdit={openEdit} onDelete={handleDelete} />
+        <div className="space-y-3">
+          {doctors.map((doc) => (
+            <div key={doc.id} className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center text-xs">
+                {getInitials(doc.full_name)}
+              </div>
+
+              <div className="flex-1">
+                <p className="text-sm font-medium">{doc.full_name}</p>
+                <p className="text-xs text-gray-400">
+                  {doc.specialty || "General"}
+                </p>
+              </div>
+            </div>
           ))}
         </div>
-      )}
-
-      {modal && (
-        <DepartmentModal onClose={() => setModal(false)} onSaved={fetchDepartments} editData={editData} />
-      )}
+      </div>
     </div>
   );
 }
