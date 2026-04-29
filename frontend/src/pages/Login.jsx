@@ -42,10 +42,8 @@ function Login() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col lg:flex-row lg:h-screen lg:overflow-hidden">
-
-      {/* Левая панель — скрыта на мобиле, видна на lg+ */}
-      <div className="hidden lg:flex lg:w-1/2 bg-[#e6f4f1] flex-col items-center px-10 py-8 text-center justify-between">
+    <div className="flex h-screen overflow-hidden">
+      <div className="w-1/2 bg-[#e6f4f1] flex flex-col items-center px-10 py-8 text-center justify-between">
         <div className="flex flex-col items-center">
           <div className="flex items-center gap-2 text-teal-700 mb-6">
             <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
@@ -58,6 +56,7 @@ function Login() {
             <h2 className="text-3xl font-bold mb-3 text-teal-900">
               Stay on Top of Every Detail
             </h2>
+
             <p className="text-gray-600 max-w-sm mx-auto">
               Manage patients, appointments, and hospital operations easily.
             </p>
@@ -73,52 +72,35 @@ function Login() {
         <p className="text-sm text-gray-500">Copyright 2026 Medlink</p>
       </div>
 
-      {/* Правая панель — форма */}
-      <div className="flex flex-1 flex-col items-center justify-center bg-gray-50 px-4 py-8 sm:px-8 lg:w-1/2">
+      <div className="w-1/2 flex items-center justify-center bg-gray-50 px-8">
+        <div className="w-[440px] bg-white p-10 rounded-2xl shadow-lg border border-gray-100">
+          <h2 className="text-2xl font-bold text-gray-900 mb-1">Welcome Back</h2>
 
-        {/* Логотип — только на мобиле */}
-        <div className="flex items-center gap-2 text-teal-700 mb-6 lg:hidden">
-          <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
-          </svg>
-          <span className="text-lg font-bold">Medlink</span>
-        </div>
-
-        <div className="w-full max-w-[440px] bg-white p-6 sm:p-10 rounded-2xl shadow-lg border border-gray-100">
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1">
-            Welcome Back
-          </h2>
-          <p className="text-sm text-gray-500 mb-6 sm:mb-8">
-            Sign in to your Medlink account
-          </p>
+          <p className="text-gray-500 mb-8">Sign in to your Medlink account</p>
 
           {error && (
-            <div className="bg-red-50 text-red-700 p-3 rounded-lg mb-5 text-xs sm:text-sm border border-red-100">
+            <div className="bg-red-50 text-red-700 p-3 rounded-lg mb-6 text-sm border border-red-100">
               {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">
-                Email
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
               <input
                 type="email"
                 name="email"
                 placeholder="you@example.com"
                 value={credentials.email}
                 onChange={handleChange}
-                className="w-full p-2.5 sm:p-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent transition text-sm"
+                className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent transition"
                 autoComplete="email"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">
-                Password
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
@@ -126,7 +108,7 @@ function Login() {
                   placeholder="Enter your password"
                   value={credentials.password}
                   onChange={handleChange}
-                  className="w-full p-2.5 sm:p-3 pr-12 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent transition text-sm"
+                  className="w-full p-3 pr-12 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent transition"
                   autoComplete="current-password"
                   required
                 />
@@ -158,11 +140,11 @@ function Login() {
                   onChange={handleChange}
                   className="w-4 h-4 text-teal-500 border-gray-300 rounded focus:ring-teal-400"
                 />
-                <span className="text-xs sm:text-sm text-gray-600">Remember me</span>
+                <span className="text-sm text-gray-600">Remember me</span>
               </label>
               <span
                 onClick={() => navigate("/forgot-password")}
-                className="text-xs sm:text-sm text-teal-600 hover:text-teal-700 cursor-pointer font-medium"
+                className="text-sm text-teal-600 hover:text-teal-700 cursor-pointer font-medium"
               >
                 Forgot password?
               </span>
@@ -171,13 +153,13 @@ function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-teal-500 hover:bg-teal-600 text-white p-2.5 sm:p-3 rounded-lg transition disabled:opacity-60 disabled:cursor-not-allowed font-medium shadow-md hover:shadow-lg text-sm"
+              className="w-full bg-teal-500 hover:bg-teal-600 text-white p-3 rounded-lg transition disabled:opacity-60 disabled:cursor-not-allowed font-medium shadow-md hover:shadow-lg"
             >
               {loading ? "Signing in..." : "Login"}
             </button>
           </form>
 
-          <p className="text-xs sm:text-sm mt-5 sm:mt-6 text-center text-gray-600">
+          <p className="text-sm mt-6 text-center text-gray-600">
             New to Medlink?{" "}
             <span
               onClick={() => !loading && navigate("/register")}
@@ -187,10 +169,6 @@ function Login() {
             </span>
           </p>
         </div>
-
-        <p className="mt-6 text-xs text-gray-400 lg:hidden">
-          Copyright 2026 Medlink
-        </p>
       </div>
     </div>
   );

@@ -1,61 +1,30 @@
 import { createElement, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Activity,
-  CalendarClock,
-  HeartPulse,
-  ShieldAlert,
-  Stethoscope,
-} from "lucide-react";
-import {
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Activity, CalendarClock, HeartPulse, ShieldAlert, Stethoscope } from "lucide-react";
+import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import Badge from "../components/Badge";
 import { api } from "../services/api";
 
-/* ================= FORMAT ================= */
-
 function formatDateTime(value) {
   if (!value) return { date: "-", time: "-" };
-
   const date = new Date(value);
-
   return {
-    date: date.toLocaleDateString("en-GB", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    }),
-    time: date.toLocaleTimeString("en-GB", {
-      hour: "2-digit",
-      minute: "2-digit",
-    }),
+    date: date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }),
+    time: date.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
   };
 }
 
-/* ================= UI ================= */
-
 function SummaryCard({ title, value, subtitle, icon: ICON }) {
   return (
-    <div className="rounded-2xl border bg-white p-4 sm:p-5 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
+    <div className="rounded-2xl border bg-white p-5 shadow-sm">
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs uppercase tracking-wide text-gray-400">
-            {title}
-          </p>
-          <p className="mt-2 text-xl sm:text-2xl font-semibold text-gray-900">
-            {value}
-          </p>
+          <p className="text-xs uppercase tracking-wide text-gray-400">{title}</p>
+          <p className="mt-2 text-2xl font-semibold text-gray-900">{value}</p>
           <p className="mt-2 text-sm text-gray-500">{subtitle}</p>
         </div>
-
-        <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-2xl bg-teal-50 text-teal-600">
+        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-teal-50 text-teal-600">
           {createElement(ICON, { size: 18 })}
         </div>
       </div>
@@ -65,11 +34,9 @@ function SummaryCard({ title, value, subtitle, icon: ICON }) {
 
 function VitalCard({ label, value }) {
   return (
-    <div className="rounded-xl border bg-white p-3 sm:p-4">
+    <div className="rounded-xl border bg-white p-4">
       <p className="text-xs text-gray-400">{label}</p>
-      <p className="mt-2 text-base sm:text-lg font-semibold text-gray-900">
-        {value}
-      </p>
+      <p className="mt-2 text-lg font-semibold text-gray-900">{value}</p>
     </div>
   );
 }
@@ -82,19 +49,14 @@ function appointmentTone(status) {
   return "bg-gray-100 text-gray-500";
 }
 
-/* ================= PAGE ================= */
-
 export default function MyHealth() {
   const navigate = useNavigate();
-
   const [profile, setProfile] = useState(null);
   const [vitals, setVitals] = useState([]);
   const [appointments, setAppointments] = useState([]);
-  const [snapshotTime, setSnapshotTime] = useState(Date.now());
+  const [snapshotTime, setSnapshotTime] = useState(() => Date.now());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
-  /* ================= FETCH ================= */
 
   useEffect(() => {
     const fetchData = async () => {
@@ -109,228 +71,201 @@ export default function MyHealth() {
 
       const [profileResult, vitalsResult, appointmentsResult] = results;
 
-      if (profileResult.status === "fulfilled") setProfile(profileResult.value);
+      if (profileResult.status === "fulfilled") {
+        setProfile(profileResult.value);
+      } else {
+        console.error("Failed to load profile:", profileResult.reason);
+      }
 
-      setVitals(
-        vitalsResult.status === "fulfilled" ? vitalsResult.value : []
-      );
+      setVitals(vitalsResult.status === "fulfilled" && Array.isArray(vitalsResult.value) ? vitalsResult.value : []);
+      setAppointments(appointmentsResult.status === "fulfilled" && Array.isArray(appointmentsResult.value) ? appointmentsResult.value : []);
 
-      setAppointments(
-        appointmentsResult.status === "fulfilled"
-          ? appointmentsResult.value
-          : []
-      );
+      if (profileResult.status === "rejected" && vitalsResult.status === "rejected" && appointmentsResult.status === "rejected") {
+        setError("Failed to load health records");
+      }
 
       setSnapshotTime(Date.now());
       setLoading(false);
     };
 
-    fetchData();
+    void fetchData();
   }, []);
 
-  /* ================= COMPUTED ================= */
-
   const latestVitals = vitals[0] || {};
-
-  const upcomingAppointment = useMemo(() => {
-    return [...appointments]
-      .filter(
-        (a) =>
-          a.status !== "CANCELLED" &&
-          new Date(a.appointment_time).getTime() >= snapshotTime
-      )
-      .sort(
-        (a, b) =>
-          new Date(a.appointment_time) - new Date(b.appointment_time)
-      )[0];
-  }, [appointments, snapshotTime]);
-
-  const visitHistory = useMemo(
-    () =>
-      [...appointments].sort(
-        (a, b) =>
-          new Date(b.appointment_time) - new Date(a.appointment_time)
-      ),
-    [appointments]
+  const upcomingAppointment = useMemo(
+    () => [...appointments]
+      .filter((item) => item.status !== "CANCELLED" && new Date(item.appointment_time).getTime() >= snapshotTime)
+      .sort((first, second) => new Date(first.appointment_time).getTime() - new Date(second.appointment_time).getTime())[0],
+    [appointments, snapshotTime],
   );
-
+  const visitHistory = useMemo(
+    () => [...appointments].sort((first, second) => new Date(second.appointment_time).getTime() - new Date(first.appointment_time).getTime()),
+    [appointments],
+  );
   const chartData = vitals.slice(0, 8).reverse().map((item) => ({
-    date: new Date(item.recorded_at).toLocaleDateString("en-GB", {
-      month: "short",
-      day: "numeric",
-    }),
+    date: new Date(item.recorded_at).toLocaleDateString("en-GB", { month: "short", day: "numeric" }),
     sugar: item.blood_sugar || 0,
     bp: item.systolic_bp || 0,
   }));
 
-  /* ================= LOADING ================= */
-
   if (loading) {
+    return <div className="flex h-64 items-center justify-center"><div className="h-12 w-12 animate-spin rounded-full border-b-2 border-teal-500" /></div>;
+  }
+
+  if (!profile && error) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-teal-500" />
+      <div className="space-y-4">
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-600">{error}</div>
+        <button onClick={() => navigate("/patient/profile")} className="rounded-xl bg-teal-500 px-4 py-2.5 text-sm text-white hover:bg-teal-600">
+          Open Profile Setup
+        </button>
       </div>
     );
   }
 
-  /* ================= UI ================= */
-
   const nextVisit = formatDateTime(upcomingAppointment?.appointment_time);
 
   return (
-    <div className="min-h-screen space-y-6 px-3 sm:px-6 pb-10">
-
-      {/* HEADER */}
-      <div className="rounded-2xl sm:rounded-3xl border bg-white p-5 sm:p-6 shadow-sm">
+    <div className="space-y-6">
+      <div className="rounded-3xl border bg-white p-6 shadow-sm">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-600">
-              My Health
-            </p>
-            <h1 className="mt-2 text-2xl sm:text-3xl font-semibold text-gray-900">
-              Your health record at a glance
-            </h1>
-            <p className="mt-2 text-sm text-gray-500">
-              Review your vitals, treatment status and visit history.
-            </p>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-600">My Health</p>
+            <h1 className="mt-2 text-3xl font-semibold text-gray-900">Your health record at a glance</h1>
+            <p className="mt-2 max-w-2xl text-sm text-gray-500">Review your vitals, treatment status and visit history. Medical records are read-only here.</p>
           </div>
-
-          <button
-            onClick={() => navigate("/patient/profile")}
-            className="rounded-xl bg-gray-100 px-4 py-2 text-sm hover:bg-gray-200"
-          >
-            Manage Profile
+          <button onClick={() => navigate("/patient/profile")} className="rounded-xl bg-gray-100 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-200">
+            Manage Contact Profile
           </button>
         </div>
       </div>
 
-      {/* CARDS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid gap-4 lg:grid-cols-3">
         <SummaryCard
           title="Treatment Status"
-          value={profile?.patient_status || "No status"}
-          subtitle={profile?.condition || "No condition"}
+          value={profile?.patient_status?.replaceAll("_", " ") || "No status"}
+          subtitle={profile?.condition || "Your doctor has not added a condition summary yet."}
           icon={Stethoscope}
         />
         <SummaryCard
           title="Next Visit"
-          value={upcomingAppointment ? `${nextVisit.date}` : "No visit"}
-          subtitle={upcomingAppointment?.doctor_name}
+          value={upcomingAppointment ? `${nextVisit.date}, ${nextVisit.time}` : "No appointment"}
+          subtitle={upcomingAppointment ? `With ${upcomingAppointment.doctor_name}` : "Book your next appointment from the appointments page."}
           icon={CalendarClock}
         />
         <SummaryCard
           title="Latest Vitals"
-          value={vitals.length ? "Updated" : "No data"}
-          subtitle="Latest medical records"
+          value={vitals.length > 0 ? `${new Date(vitals[0].recorded_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : "No vitals"}
+          subtitle={vitals.length > 0 ? "Most recent clinical measurements" : "Vitals will appear after your care team records them."}
           icon={HeartPulse}
         />
       </div>
 
-      {/* MAIN GRID */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-        {/* LEFT */}
-        <div className="lg:col-span-2 space-y-6">
-
-          {/* VITALS */}
-          <div className="rounded-2xl border bg-white p-5 sm:p-6">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <VitalCard label="Sugar" value={latestVitals.blood_sugar || "-"} />
-              <VitalCard label="Weight" value={latestVitals.weight || "-"} />
-              <VitalCard label="Temp" value={latestVitals.temperature || "-"} />
-              <VitalCard label="BP" value={latestVitals.systolic_bp || "-"} />
+      <div className="grid gap-6 lg:grid-cols-[1.45fr_0.95fr]">
+        <div className="space-y-6">
+          <div className="rounded-2xl border bg-white p-6 shadow-sm">
+            <div className="mb-5 flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-semibold text-gray-800">Vitals Trend</h2>
+                <p className="text-xs text-gray-400">Recent measurements recorded by your care team</p>
+              </div>
+              <Badge className="rounded-full bg-teal-50 px-3 py-1 text-xs text-teal-700">Read only</Badge>
             </div>
-
-            <div className="mt-6 h-56 sm:h-64">
-              {chartData.length ? (
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <VitalCard label="Blood Sugar" value={latestVitals.blood_sugar ? `${latestVitals.blood_sugar} mg/dL` : "-"} />
+              <VitalCard label="Weight" value={latestVitals.weight ? `${latestVitals.weight} kg` : "-"} />
+              <VitalCard label="Temperature" value={latestVitals.temperature ? `${latestVitals.temperature} C` : "-"} />
+              <VitalCard label="Blood Pressure" value={latestVitals.systolic_bp ? `${latestVitals.systolic_bp}/${latestVitals.diastolic_bp}` : "-"} />
+            </div>
+            <div className="mt-6 h-64">
+              {chartData.length === 0 ? (
+                <div className="flex h-full items-center justify-center rounded-2xl bg-gray-50 text-sm text-gray-400">No vitals recorded yet.</div>
+              ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={chartData}>
-                    <XAxis dataKey="date" />
-                    <YAxis width={30} />
+                    <XAxis dataKey="date" stroke="#9ca3af" fontSize={11} />
+                    <YAxis stroke="#9ca3af" fontSize={11} width={32} />
                     <Tooltip />
-                    <Line type="monotone" dataKey="bp" stroke="#0d9488" />
-                    <Line type="monotone" dataKey="sugar" stroke="#f59e0b" />
+                    <Line type="monotone" dataKey="bp" stroke="#0d9488" strokeWidth={2} name="BP" />
+                    <Line type="monotone" dataKey="sugar" stroke="#f59e0b" strokeWidth={2} name="Sugar" />
                   </LineChart>
                 </ResponsiveContainer>
-              ) : (
-                <div className="flex h-full items-center justify-center text-gray-400">
-                  No data
-                </div>
               )}
             </div>
           </div>
 
-          {/* HISTORY */}
-          <div className="rounded-2xl border bg-white p-5 sm:p-6">
-            <h2 className="mb-4 font-semibold">Visit History</h2>
-
-            <div className="space-y-3">
-              {visitHistory.map((a) => {
-                const info = formatDateTime(a.appointment_time);
-
-                return (
-                  <div
-                    key={a.id}
-                    className="rounded-xl bg-gray-50 p-3 sm:p-4 flex flex-col sm:flex-row sm:justify-between gap-2"
-                  >
-                    <div>
-                      <p className="font-semibold">{a.doctor_name}</p>
-                      <p className="text-xs text-gray-400">{a.doctor_specialty}</p>
+          <div className="rounded-2xl border bg-white p-6 shadow-sm">
+            <h2 className="mb-4 text-sm font-semibold text-gray-800">Visit History</h2>
+            {visitHistory.length === 0 ? (
+              <p className="text-sm text-gray-400">No appointments yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {visitHistory.map((appointment) => {
+                  const info = formatDateTime(appointment.appointment_time);
+                  return (
+                    <div key={appointment.id} className="grid gap-3 rounded-2xl bg-gray-50 px-4 py-4 md:grid-cols-[1fr_0.9fr_0.7fr]">
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">{appointment.doctor_name}</p>
+                        <p className="text-xs text-gray-400">{appointment.doctor_specialty || "Doctor"}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-700">{info.date}</p>
+                        <p className="text-xs text-gray-400">{info.time}</p>
+                      </div>
+                      <div className="flex items-center justify-start md:justify-end">
+                        <Badge className={`rounded-full px-3 py-1 text-xs ${appointmentTone(appointment.status)}`}>{appointment.status}</Badge>
+                      </div>
                     </div>
-
-                    <div className="text-sm">
-                      {info.date} {info.time}
-                    </div>
-
-                    <div>
-                      <span className={`px-3 py-1 rounded-full text-xs ${appointmentTone(a.status)}`}>
-                        {a.status}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-
         </div>
 
-        {/* RIGHT */}
         <div className="space-y-6">
-
-          <div className="rounded-2xl border bg-white p-5 sm:p-6">
-            <h2 className="font-semibold mb-4">Care Summary</h2>
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between bg-gray-50 p-3 rounded-xl">
+          <div className="rounded-2xl border bg-white p-6 shadow-sm">
+            <h2 className="mb-4 text-sm font-semibold text-gray-800">Care Summary</h2>
+            <div className="space-y-3 text-sm text-gray-600">
+              <div className="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3">
                 <span>Blood Type</span>
-                <span>{profile?.blood_type || "-"}</span>
+                <span className="font-medium text-gray-900">{profile?.blood_type || "-"}</span>
+              </div>
+              <div className="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3">
+                <span>Patient Type</span>
+                <span className="font-medium text-gray-900">{profile?.patient_type?.toLowerCase() || "-"}</span>
+              </div>
+              <div className="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3">
+                <span>Room</span>
+                <span className="font-medium text-gray-900">{profile?.room_location || "-"}</span>
+              </div>
+              <div className="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3">
+                <span>Admission</span>
+                <span className="font-medium text-gray-900">{profile?.admission_date ? new Date(profile.admission_date).toLocaleDateString("en-GB") : "-"}</span>
               </div>
             </div>
           </div>
 
-          <div className="rounded-2xl border bg-white p-5 sm:p-6">
-            <div className="flex gap-2 items-center mb-3">
-              <ShieldAlert size={16} />
-              <h2 className="font-semibold">Emergency</h2>
+          <div className="rounded-2xl border bg-white p-6 shadow-sm">
+            <div className="mb-4 flex items-center gap-2">
+              <ShieldAlert size={16} className="text-red-500" />
+              <h2 className="text-sm font-semibold text-gray-800">Emergency Contact</h2>
             </div>
-            <p className="text-sm text-gray-600">
-              {profile?.emergency_contact_name || "-"}
-            </p>
+            <div className="space-y-3 text-sm text-gray-600">
+              <p>{profile?.emergency_contact_name || "No emergency contact added"}</p>
+              <p>{profile?.emergency_contact_phone || "-"}</p>
+            </div>
           </div>
 
-          <div className="rounded-2xl border bg-white p-5 sm:p-6">
-            <div className="flex gap-2 items-center mb-3">
-              <Activity size={16} />
-              <h2 className="font-semibold">Notes</h2>
+          <div className="rounded-2xl border bg-white p-6 shadow-sm">
+            <div className="mb-4 flex items-center gap-2">
+              <Activity size={16} className="text-teal-600" />
+              <h2 className="text-sm font-semibold text-gray-800">Clinical Notes</h2>
             </div>
-            <p className="text-sm text-gray-600">
-              {profile?.notes || "No notes"}
-            </p>
+            <p className="text-sm leading-6 text-gray-600">{profile?.notes || "No clinical notes are available yet."}</p>
           </div>
-
         </div>
       </div>
-
     </div>
   );
 }

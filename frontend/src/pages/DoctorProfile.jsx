@@ -48,7 +48,7 @@ function parseFieldErrors(err) {
 
   return detail.reduce((acc, item) => {
     const fieldName = Array.isArray(item?.loc)
-      ? item.loc.filter((s) => typeof s === "string").at(-1)
+      ? item.loc.filter((segment) => typeof segment === "string" && !["body", "query", "path"].includes(segment)).at(-1)
       : "";
     if (!fieldName) return acc;
     acc[fieldName] = item?.msg?.replace(/^Value error,\s*/i, "") || "Invalid value";
@@ -57,9 +57,7 @@ function parseFieldErrors(err) {
 }
 
 function fieldClass(hasError) {
-  return `flex-1 w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 ${
-    hasError ? "border border-red-300 focus:ring-red-200" : "focus:ring-teal-400"
-  }`;
+  return `flex-1 rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 ${hasError ? "border border-red-300 focus:ring-red-200" : "focus:ring-teal-400"}`;
 }
 
 function FieldError({ message }) {
@@ -107,13 +105,15 @@ export default function DoctorProfile() {
 
   const handleChange = (event) => {
     const { name, value } = event.target;
-    setFieldErrors((c) => ({ ...c, [name]: "" }));
-    setForm((c) => ({ ...c, [name]: value }));
+    setFieldErrors((current) => ({ ...current, [name]: "" }));
+    setForm((current) => ({
+      ...current,
+      [name]: value,
+    }));
   };
 
   const handleSave = async () => {
     const nextFieldErrors = {};
-
     const normalizedFullName = normalizeWhitespace(form.full_name);
     const normalizedSpecialty = normalizeWhitespace(form.specialty);
     const normalizedBio = normalizeWhitespace(form.bio);
@@ -126,28 +126,34 @@ export default function DoctorProfile() {
     setFieldErrors({});
 
     if (!normalizedFullName) nextFieldErrors.full_name = "Enter your full name";
-    else if (!isValidFullName(normalizedFullName))
-      nextFieldErrors.full_name = "Invalid name format";
+    else if (!isValidFullName(normalizedFullName)) {
+      nextFieldErrors.full_name = "Use letters only (spaces, apostrophes, dots, or hyphens are allowed)";
+    }
 
-    if (!normalizedSpecialty) nextFieldErrors.specialty = "Enter specialty";
-    else if (!isValidSpecialty(normalizedSpecialty))
-      nextFieldErrors.specialty = "Invalid specialty";
+    if (!normalizedSpecialty) nextFieldErrors.specialty = "Enter your specialty";
+    else if (!isValidSpecialty(normalizedSpecialty)) {
+      nextFieldErrors.specialty = "Enter a valid medical specialty using text";
+    }
 
-    if (normalizedBio && !isValidBio(normalizedBio))
-      nextFieldErrors.bio = "Bio too short";
+    if (normalizedBio && !isValidBio(normalizedBio)) {
+      nextFieldErrors.bio = "Bio should be descriptive (at least 15 characters and 3 words)";
+    }
 
-    if (normalizedPhone && !PHONE_REGEX.test(normalizedPhone))
-      nextFieldErrors.phone = "Invalid phone format";
+    if (normalizedPhone && !PHONE_REGEX.test(normalizedPhone)) {
+      nextFieldErrors.phone = "Use international format, e.g. +15550123456";
+    }
 
-    if (Object.keys(nextFieldErrors).length) {
+    if (yearsOfExperience < 0 || yearsOfExperience > 50) nextFieldErrors.years_of_experience = "Use a value from 0 to 50";
+    if (consultationDuration < 10 || consultationDuration > 120) nextFieldErrors.consultation_duration_minutes = "Use a value from 10 to 120";
+
+    if (Object.keys(nextFieldErrors).length > 0) {
       setFieldErrors(nextFieldErrors);
       return;
     }
 
     try {
       setSaving(true);
-
-      const updated = await api.put("/doctors/me", {
+      const updatedProfile = await api.put("/doctors/me", {
         full_name: normalizedFullName,
         specialty: normalizedSpecialty,
         bio: normalizedBio || null,
@@ -155,165 +161,115 @@ export default function DoctorProfile() {
         years_of_experience: yearsOfExperience,
         consultation_duration_minutes: consultationDuration,
       });
-
-      setProfile(updated);
+      setProfile(updatedProfile);
+      setForm({
+        full_name: updatedProfile.full_name || "",
+        specialty: updatedProfile.specialty || "",
+        bio: updatedProfile.bio || "",
+        years_of_experience: updatedProfile.years_of_experience ? String(updatedProfile.years_of_experience) : "",
+        consultation_duration_minutes: updatedProfile.consultation_duration_minutes ? String(updatedProfile.consultation_duration_minutes) : "30",
+        phone: updatedProfile.phone || "",
+      });
       setSaved(true);
-      setTimeout(() => setSaved(false), 2500);
+      setTimeout(() => setSaved(false), 3000);
     } catch (err) {
-      setError(err.message || "Failed to save");
+      const parsedErrors = parseFieldErrors(err);
+      if (Object.keys(parsedErrors).length > 0) {
+        setFieldErrors(parsedErrors);
+      } else {
+        setError(err.message || "Failed to save profile");
+      }
     } finally {
       setSaving(false);
     }
   };
 
   if (loading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-teal-500" />
-      </div>
-    );
+    return <div className="flex h-64 items-center justify-center"><div className="h-12 w-12 animate-spin rounded-full border-b-2 border-teal-500" /></div>;
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6 px-4 sm:px-0">
+    <div className="mx-auto max-w-2xl space-y-6">
       <div>
-        <h2 className="text-xl sm:text-2xl font-semibold">My Profile</h2>
+        <h2 className="text-2xl font-semibold">My Profile</h2>
         <p className="text-sm text-gray-400">Manage your doctor profile.</p>
       </div>
 
-      {error && (
-        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
-          {error}
-        </div>
-      )}
+      {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>}
 
-      <div className="space-y-6 rounded-2xl border bg-white p-4 sm:p-6">
-        {/* EMAIL */}
+      <div className="space-y-6 rounded-2xl border bg-white p-6">
         <div>
           <label className="mb-1 block text-sm text-gray-500">Email</label>
           <div className="flex items-center gap-3">
             <Mail size={18} className="text-gray-400" />
-            <input
-              value={profile?.email || ""}
-              readOnly
-              className="flex-1 rounded-xl bg-gray-100 px-4 py-2 text-sm text-gray-500"
-            />
+            <input value={profile?.email || ""} readOnly className="flex-1 rounded-xl bg-gray-100 px-4 py-2 text-sm text-gray-500 outline-none" />
           </div>
         </div>
 
-        {/* NAME */}
         <div>
           <label className="mb-1 block text-sm text-gray-500">Full Name</label>
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          <div className="flex items-center gap-3">
             <User size={18} className="text-gray-400" />
-            <input
-              name="full_name"
-              value={form.full_name}
-              onChange={handleChange}
-              className={fieldClass(fieldErrors.full_name)}
-            />
+            <input name="full_name" value={form.full_name} onChange={handleChange} className={fieldClass(Boolean(fieldErrors.full_name))} />
           </div>
           <FieldError message={fieldErrors.full_name} />
         </div>
 
-        {/* SPECIALTY */}
         <div>
           <label className="mb-1 block text-sm text-gray-500">Specialty</label>
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          <div className="flex items-center gap-3">
             <Award size={18} className="text-gray-400" />
-            <input
-              name="specialty"
-              value={form.specialty}
-              onChange={handleChange}
-              className={fieldClass(fieldErrors.specialty)}
-            />
+            <input name="specialty" value={form.specialty} onChange={handleChange} placeholder="e.g. Cardiologist" className={fieldClass(Boolean(fieldErrors.specialty))} />
           </div>
           <FieldError message={fieldErrors.specialty} />
         </div>
 
-        {/* BIO */}
         <div>
           <label className="mb-1 block text-sm text-gray-500">Bio</label>
-          <textarea
-            name="bio"
-            value={form.bio}
-            onChange={handleChange}
-            rows={4}
-            className={`${fieldClass(fieldErrors.bio)} w-full resize-none`}
-          />
+          <textarea name="bio" value={form.bio} onChange={handleChange} rows={4} placeholder="Tell patients about yourself..." className={`${fieldClass(Boolean(fieldErrors.bio))} w-full resize-none`} />
           <FieldError message={fieldErrors.bio} />
         </div>
 
-        {/* GRID */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="mb-1 block text-sm text-gray-500">
-              Experience
-            </label>
+            <label className="mb-1 block text-sm text-gray-500">Years of Experience</label>
             <div className="flex items-center gap-3">
               <Clock size={18} className="text-gray-400" />
-              <input
-                name="years_of_experience"
-                type="number"
-                className={fieldClass(fieldErrors.years_of_experience)}
-                value={form.years_of_experience}
-                onChange={handleChange}
-              />
+              <input name="years_of_experience" type="number" min="0" max="50" value={form.years_of_experience} onChange={handleChange} className={fieldClass(Boolean(fieldErrors.years_of_experience))} />
             </div>
+            <FieldError message={fieldErrors.years_of_experience} />
           </div>
-
           <div>
-            <label className="mb-1 block text-sm text-gray-500">
-              Duration
-            </label>
+            <label className="mb-1 block text-sm text-gray-500">Session Duration (min)</label>
             <div className="flex items-center gap-3">
               <Clock size={18} className="text-gray-400" />
-              <input
-                name="consultation_duration_minutes"
-                type="number"
-                className={fieldClass(fieldErrors.consultation_duration_minutes)}
-                value={form.consultation_duration_minutes}
-                onChange={handleChange}
-              />
+              <input name="consultation_duration_minutes" type="number" min="10" max="120" step="5" value={form.consultation_duration_minutes} onChange={handleChange} className={fieldClass(Boolean(fieldErrors.consultation_duration_minutes))} />
             </div>
+            <FieldError message={fieldErrors.consultation_duration_minutes} />
           </div>
         </div>
 
-        {/* PHONE */}
         <div>
           <label className="mb-1 block text-sm text-gray-500">Phone</label>
           <div className="flex items-center gap-3">
             <Phone size={18} className="text-gray-400" />
-            <input
-              name="phone"
-              value={form.phone}
-              onChange={handleChange}
-              className={fieldClass(fieldErrors.phone)}
-            />
+            <input name="phone" type="tel" value={form.phone} onChange={handleChange} placeholder="+15550123456" className={fieldClass(Boolean(fieldErrors.phone))} />
           </div>
+          <FieldError message={fieldErrors.phone} />
         </div>
 
-        {/* BUTTON */}
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className={`flex w-full items-center justify-center gap-2 rounded-xl py-3 transition ${
-            saved
-              ? "bg-green-500 text-white"
-              : "bg-teal-500 text-white hover:bg-teal-600"
-          }`}
-        >
-          {saved ? (
-            <>
-              <Check size={18} /> Saved
-            </>
-          ) : saving ? (
-            "Saving..."
-          ) : (
-            <>
-              <Save size={18} /> Save Profile
-            </>
-          )}
+        {profile?.department_name && (
+          <div>
+            <label className="mb-1 block text-sm text-gray-500">Department</label>
+            <div className="flex items-center gap-3">
+              <Building size={18} className="text-gray-400" />
+              <span className="rounded-xl bg-gray-100 px-4 py-2 text-sm">{profile.department_name}</span>
+            </div>
+          </div>
+        )}
+
+        <button onClick={handleSave} disabled={saving} className={`flex w-full items-center justify-center gap-2 rounded-xl py-3 transition ${saved ? "bg-green-500 text-white" : "bg-teal-500 text-white hover:bg-teal-600"} disabled:opacity-50`}>
+          {saved ? <><Check size={18} /> Saved</> : saving ? "Saving..." : <><Save size={18} /> Save Profile</>}
         </button>
       </div>
     </div>
