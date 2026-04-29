@@ -27,13 +27,13 @@ const DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
 
 function StatCard({ title, value, icon: Icon, color }) {
   return (
-    <div className="flex items-center justify-between rounded-2xl border bg-white p-5">
+    <div className="flex items-center justify-between rounded-2xl border bg-white p-4 sm:p-5">
       <div>
-        <p className="text-sm text-gray-400">{title}</p>
-        <h2 className="mt-1 text-2xl font-bold">{value}</h2>
+        <p className="text-xs sm:text-sm text-gray-400">{title}</p>
+        <h2 className="mt-1 text-xl sm:text-2xl font-bold">{value}</h2>
       </div>
-      <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color}`}>
-        {Icon && <Icon size={18} />}
+      <div className={`flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl ${color}`}>
+        {Icon && <Icon size={16} className="sm:w-[18px] sm:h-[18px]" />}
       </div>
     </div>
   );
@@ -69,8 +69,12 @@ function normalizeDoctorName(value) {
 function formatPeriodLabel(startDate, endDate) {
   if (!startDate && !endDate) return "All time";
 
-  const start = startDate ? DATE_FORMATTER.format(new Date(`${startDate}T00:00:00`)) : "Earliest";
-  const end = endDate ? DATE_FORMATTER.format(new Date(`${endDate}T00:00:00`)) : "Today";
+  const start = startDate
+    ? DATE_FORMATTER.format(new Date(`${startDate}T00:00:00`))
+    : "Earliest";
+  const end = endDate
+    ? DATE_FORMATTER.format(new Date(`${endDate}T00:00:00`))
+    : "Today";
   return `${start} - ${end}`;
 }
 
@@ -92,7 +96,9 @@ function PerformanceTooltip({ active, payload }) {
       <p className="text-gray-600">Completed: {point.completed}</p>
       <p className="text-gray-600">Cancelled: {point.cancelled}</p>
       <p className="text-gray-600">Pending: {point.pending}</p>
-      <p className="mt-1 font-medium text-gray-700">Completion rate: {point.rate}%</p>
+      <p className="mt-1 font-medium text-gray-700">
+        Completion rate: {point.rate}%
+      </p>
     </div>
   );
 }
@@ -112,7 +118,9 @@ export default function Analytics() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
-  const dateRangeInvalid = Boolean(startDate && endDate && startDate > endDate);
+  const dateRangeInvalid = Boolean(
+    startDate && endDate && startDate > endDate,
+  );
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -130,7 +138,10 @@ export default function Analytics() {
         if (startDate) params.set("start_date", startDate);
         if (endDate) params.set("end_date", endDate);
         if (startDate || endDate) {
-          params.set("timezone_offset_minutes", String(new Date().getTimezoneOffset()));
+          params.set(
+            "timezone_offset_minutes",
+            String(new Date().getTimezoneOffset()),
+          );
         }
 
         const queryString = params.toString();
@@ -156,14 +167,19 @@ export default function Analytics() {
             cancelled,
             pending,
             completion_rate: Number(item.completion_rate) || 0,
-            doctor_name: normalizeDoctorName(item.doctor_name || `Doctor #${item.doctor_id}`),
+            doctor_name: normalizeDoctorName(
+              item.doctor_name || `Doctor #${item.doctor_id}`,
+            ),
           };
         });
 
         setDoctorStats(enriched);
         setDemand(
           [...(demandData || [])]
-            .sort((left, right) => Number(right.count || 0) - Number(left.count || 0))
+            .sort(
+              (left, right) =>
+                Number(right.count || 0) - Number(left.count || 0),
+            )
             .slice(0, 10),
         );
       } catch (err) {
@@ -192,7 +208,10 @@ export default function Analytics() {
     [doctorStats],
   );
 
-  const periodLabel = useMemo(() => formatPeriodLabel(startDate, endDate), [startDate, endDate]);
+  const periodLabel = useMemo(
+    () => formatPeriodLabel(startDate, endDate),
+    [startDate, endDate],
+  );
 
   const totalAppointments = useMemo(
     () => doctorStats.reduce((sum, item) => sum + item.total, 0),
@@ -214,7 +233,10 @@ export default function Analytics() {
   const avgCompletion = useMemo(() => {
     if (doctorStats.length === 0) return 0;
     return Math.round(
-      (doctorStats.reduce((sum, item) => sum + (item.completion_rate || 0), 0) /
+      (doctorStats.reduce(
+        (sum, item) => sum + (item.completion_rate || 0),
+        0,
+      ) /
         doctorStats.length) *
         100,
     );
@@ -234,26 +256,31 @@ export default function Analytics() {
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+    <div className="space-y-4 sm:space-y-5 md:space-y-6">
+
+      {/* Заголовок + фильтры дат */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Analytics</h1>
-          <p className="text-sm text-gray-400">Clinic performance overview for {periodLabel}</p>
+          <h1 className="text-xl sm:text-2xl font-semibold">Analytics</h1>
+          <p className="text-xs sm:text-sm text-gray-400">
+            Clinic performance overview for {periodLabel}
+          </p>
         </div>
 
-        <div className="grid gap-2 sm:grid-cols-3">
+        {/* Фильтры: в колонку на мобиле, в ряд на sm+ */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <input
             type="date"
             value={startDate}
             onChange={(event) => setStartDate(event.target.value)}
-            className="rounded-xl border bg-white px-3 py-2 text-sm"
+            className="w-full sm:w-auto rounded-xl border bg-white px-3 py-2 text-xs sm:text-sm"
             aria-label="Start date"
           />
           <input
             type="date"
             value={endDate}
             onChange={(event) => setEndDate(event.target.value)}
-            className="rounded-xl border bg-white px-3 py-2 text-sm"
+            className="w-full sm:w-auto rounded-xl border bg-white px-3 py-2 text-xs sm:text-sm"
             aria-label="End date"
           />
           <button
@@ -262,7 +289,7 @@ export default function Analytics() {
               setStartDate("");
               setEndDate("");
             }}
-            className="rounded-xl border bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+            className="w-full sm:w-auto rounded-xl border bg-white px-4 py-2 text-xs sm:text-sm text-gray-700 hover:bg-gray-50 transition"
           >
             Clear
           </button>
@@ -270,7 +297,7 @@ export default function Analytics() {
       </div>
 
       {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs sm:text-sm text-red-600">
           {error}
         </div>
       )}
@@ -281,7 +308,8 @@ export default function Analytics() {
         </div>
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          {/* Stat Cards: 2 колонки на мобиле, 3 на md, 5 на xl */}
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-5">
             <StatCard
               title="Total Appointments"
               value={totalAppointments}
@@ -306,6 +334,7 @@ export default function Analytics() {
               icon={Clock3}
               color="bg-amber-100 text-amber-600"
             />
+            {/* Avg Completion Rate на мобиле занимает всю строку */}
             <StatCard
               title="Avg Completion Rate"
               value={`${avgCompletion}%`}
@@ -314,25 +343,34 @@ export default function Analytics() {
             />
           </div>
 
-          <div className="grid gap-6 xl:grid-cols-3">
-            <div className="xl:col-span-2 rounded-2xl border bg-white p-5">
-              <h3 className="mb-4 font-semibold">Doctor Performance</h3>
+          {/* График + Completion Rates: в колонку на мобиле/планшете, в ряд на xl */}
+          <div className="grid gap-4 sm:gap-6 xl:grid-cols-3">
+
+            {/* График */}
+            <div className="xl:col-span-2 rounded-2xl border bg-white p-4 sm:p-5">
+              <h3 className="mb-3 sm:mb-4 text-sm sm:text-base font-semibold">
+                Doctor Performance
+              </h3>
               {chartData.length === 0 ? (
-                <p className="py-10 text-center text-sm text-gray-400">
+                <p className="py-10 text-center text-xs sm:text-sm text-gray-400">
                   No doctor performance data for the selected period.
                 </p>
               ) : (
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 52 }}>
+                /* На мобиле чуть меньше высота */
+                <ResponsiveContainer width="100%" height={260} className="sm:!h-[300px]">
+                  <BarChart
+                    data={chartData}
+                    margin={{ top: 8, right: 12, left: 0, bottom: 52 }}
+                  >
                     <XAxis
                       dataKey="label"
-                      tick={{ fontSize: 11 }}
+                      tick={{ fontSize: 10 }}
                       angle={-32}
                       textAnchor="end"
                       interval={0}
                       height={72}
                     />
-                    <YAxis tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 10 }} width={28} />
                     <Tooltip content={<PerformanceTooltip />} />
                     <Legend verticalAlign="top" height={28} />
                     <Bar
@@ -358,21 +396,29 @@ export default function Analytics() {
               )}
             </div>
 
-            <div className="rounded-2xl border bg-white p-5">
-              <h3 className="mb-4 font-semibold">Completion Rates (Sorted)</h3>
+            {/* Completion Rates */}
+            <div className="rounded-2xl border bg-white p-4 sm:p-5">
+              <h3 className="mb-3 sm:mb-4 text-sm sm:text-base font-semibold">
+                Completion Rates (Sorted)
+              </h3>
               <div className="space-y-3">
                 {sortedDoctorStats.length === 0 ? (
-                  <p className="text-sm text-gray-400">No completion data.</p>
+                  <p className="text-xs sm:text-sm text-gray-400">
+                    No completion data.
+                  </p>
                 ) : (
                   sortedDoctorStats.map((doctor) => {
                     const rate = Math.round(doctor.completion_rate * 100);
                     return (
                       <div key={doctor.doctor_id}>
                         <div className="mb-1 flex justify-between text-xs text-gray-500">
-                          <span className="max-w-[180px] truncate" title={doctor.doctor_name}>
+                          <span
+                            className="max-w-[150px] sm:max-w-[180px] truncate"
+                            title={doctor.doctor_name}
+                          >
                             {doctor.doctor_name}
                           </span>
-                          <span className="ml-1 flex-shrink-0">{rate}%</span>
+                          <span className="ml-1 shrink-0">{rate}%</span>
                         </div>
                         <div className="h-2 rounded-full bg-gray-100">
                           <div
@@ -380,7 +426,9 @@ export default function Analytics() {
                             style={{ width: `${Math.max(rate, 0)}%` }}
                           />
                         </div>
-                        <p className="mt-1 text-[11px] text-gray-400">{getCompletionNote(doctor)}</p>
+                        <p className="mt-1 text-[11px] text-gray-400">
+                          {getCompletionNote(doctor)}
+                        </p>
                       </div>
                     );
                   })
@@ -389,51 +437,62 @@ export default function Analytics() {
             </div>
           </div>
 
-          <div className="rounded-2xl border bg-white p-5">
-            <h3 className="mb-4 flex items-center gap-2 font-semibold">
-              <MapPin size={16} className="text-teal-500" /> Top Demand Areas
+          {/* Top Demand Areas */}
+          <div className="rounded-2xl border bg-white p-4 sm:p-5">
+            <h3 className="mb-3 sm:mb-4 flex items-center gap-2 text-sm sm:text-base font-semibold">
+              <MapPin size={16} className="text-teal-500 shrink-0" /> Top Demand Areas
             </h3>
             {demand.length === 0 ? (
-              <p className="py-6 text-center text-sm text-gray-400">
-                No location-based demand data for this period. This usually means appointments have
-                no mapped location.
+              <p className="py-6 text-center text-xs sm:text-sm text-gray-400">
+                No location-based demand data for this period. This usually
+                means appointments have no mapped location.
               </p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-xs text-gray-400">
-                      <th className="py-2 text-left font-medium">H3 Index</th>
-                      <th className="py-2 text-left font-medium">Latitude</th>
-                      <th className="py-2 text-left font-medium">Longitude</th>
-                      <th className="py-2 text-left font-medium">Appointments</th>
-                      <th className="py-2 text-left font-medium">Demand</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {demand.map((item) => (
-                      <tr key={item.h3_index} className="border-t hover:bg-gray-50">
-                        <td className="py-3 font-mono text-xs text-gray-500">{item.h3_index}</td>
-                        <td className="py-3">{item.center_lat?.toFixed(4)}</td>
-                        <td className="py-3">{item.center_lon?.toFixed(4)}</td>
-                        <td className="py-3 font-semibold">{item.count}</td>
-                        <td className="py-3">
-                          <div className="h-2 w-24 rounded-full bg-gray-100">
-                            <div
-                              className="h-2 rounded-full bg-teal-500"
-                              style={{
-                                width: `${Math.min(
-                                  (item.count / (demand[0]?.count || 1)) * 100,
-                                  100,
-                                )}%`,
-                              }}
-                            />
-                          </div>
-                        </td>
+              <div className="overflow-x-auto -mx-4 sm:mx-0">
+                <div className="min-w-[480px] px-4 sm:px-0 sm:min-w-0">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-xs text-gray-400">
+                        <th className="py-2 text-left font-medium">H3 Index</th>
+                        <th className="py-2 text-left font-medium">Latitude</th>
+                        <th className="py-2 text-left font-medium">Longitude</th>
+                        <th className="py-2 text-left font-medium">Appointments</th>
+                        <th className="py-2 text-left font-medium">Demand</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {demand.map((item) => (
+                        <tr key={item.h3_index} className="border-t hover:bg-gray-50">
+                          <td className="py-2.5 sm:py-3 font-mono text-xs text-gray-500">
+                            {item.h3_index}
+                          </td>
+                          <td className="py-2.5 sm:py-3 text-xs sm:text-sm">
+                            {item.center_lat?.toFixed(4)}
+                          </td>
+                          <td className="py-2.5 sm:py-3 text-xs sm:text-sm">
+                            {item.center_lon?.toFixed(4)}
+                          </td>
+                          <td className="py-2.5 sm:py-3 text-xs sm:text-sm font-semibold">
+                            {item.count}
+                          </td>
+                          <td className="py-2.5 sm:py-3">
+                            <div className="h-2 w-16 sm:w-24 rounded-full bg-gray-100">
+                              <div
+                                className="h-2 rounded-full bg-teal-500"
+                                style={{
+                                  width: `${Math.min(
+                                    (item.count / (demand[0]?.count || 1)) * 100,
+                                    100,
+                                  )}%`,
+                                }}
+                              />
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>

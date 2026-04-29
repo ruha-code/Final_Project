@@ -104,10 +104,11 @@ function ConfirmationModal({
       : "bg-red-500 text-white hover:bg-red-600";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+    // items-end на мобиле (снизу), items-center на sm+
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm px-4 pb-4 sm:pb-0">
       <div className="w-full max-w-md rounded-2xl bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b bg-red-50 px-6 py-4">
-          <h2 className="font-semibold text-gray-800">{title}</h2>
+        <div className="flex items-center justify-between border-b bg-red-50 px-4 sm:px-6 py-4">
+          <h2 className="font-semibold text-sm sm:text-base text-gray-800">{title}</h2>
           <button
             type="button"
             onClick={onClose}
@@ -118,10 +119,10 @@ function ConfirmationModal({
           </button>
         </div>
 
-        <div className="space-y-5 p-6">
-          <div className="flex items-start gap-3 rounded-xl bg-gray-50 p-4">
-            <TriangleAlert size={18} className="mt-0.5 text-amber-600" />
-            <p className="text-sm text-gray-600">{message}</p>
+        <div className="space-y-4 sm:space-y-5 p-4 sm:p-6">
+          <div className="flex items-start gap-3 rounded-xl bg-gray-50 p-3 sm:p-4">
+            <TriangleAlert size={18} className="mt-0.5 shrink-0 text-amber-600" />
+            <p className="text-xs sm:text-sm text-gray-600">{message}</p>
           </div>
 
           <div className="flex gap-3">
@@ -129,7 +130,7 @@ function ConfirmationModal({
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="flex-1 rounded-xl bg-gray-100 py-2 text-sm text-gray-700 transition hover:bg-gray-200 disabled:opacity-50"
+              className="flex-1 rounded-xl bg-gray-100 py-2 text-xs sm:text-sm text-gray-700 transition hover:bg-gray-200 disabled:opacity-50"
             >
               Cancel
             </button>
@@ -137,7 +138,7 @@ function ConfirmationModal({
               type="button"
               onClick={onConfirm}
               disabled={loading}
-              className={`flex-1 rounded-xl py-2 text-sm transition disabled:opacity-50 ${confirmClass}`}
+              className={`flex-1 rounded-xl py-2 text-xs sm:text-sm transition disabled:opacity-50 ${confirmClass}`}
             >
               {loading ? "Processing..." : confirmLabel}
             </button>
@@ -194,10 +195,10 @@ function CreateUserModal({ onClose, onCreated, role }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
-      <div className="w-full max-w-[480px] overflow-hidden rounded-2xl bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b bg-teal-50 px-6 py-4">
-          <h2 className="font-semibold">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm px-4 pb-4 sm:pb-0">
+      <div className="w-full max-w-[480px] overflow-hidden rounded-2xl bg-white shadow-xl max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 flex items-center justify-between border-b bg-teal-50 px-4 sm:px-6 py-4">
+          <h2 className="font-semibold text-sm sm:text-base">
             Create {role === "ADMIN" ? "Admin" : "Doctor"} Account
           </h2>
           <button
@@ -209,30 +210,30 @@ function CreateUserModal({ onClose, onCreated, role }) {
           </button>
         </div>
 
-        <div className="space-y-4 p-6">
+        <div className="space-y-4 p-4 sm:p-6">
           {error && (
-            <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>
+            <div className="rounded-lg bg-red-50 p-3 text-xs sm:text-sm text-red-600">{error}</div>
           )}
 
           <div>
-            <label className="mb-1 block text-sm text-gray-500">Full Name</label>
+            <label className="mb-1 block text-xs sm:text-sm text-gray-500">Full Name</label>
             <input
               name="full_name"
               value={form.full_name}
               onChange={handleChange}
               placeholder="John Doe"
-              className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400"
+              className="w-full rounded-xl bg-gray-100 px-3 sm:px-4 py-2 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-teal-400"
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-sm text-gray-500">Username</label>
+            <label className="mb-1 block text-xs sm:text-sm text-gray-500">Username</label>
             <input
               name="username"
               value={form.username}
               onChange={handleChange}
               placeholder="john.doe"
-              className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400"
+              className="w-full rounded-xl bg-gray-100 px-3 sm:px-4 py-2 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-teal-400"
             />
             <p className="mt-1 text-xs text-gray-400">
               3-30 chars: letters, numbers, dot, underscore, hyphen.
@@ -240,26 +241,26 @@ function CreateUserModal({ onClose, onCreated, role }) {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm text-gray-500">Email</label>
+            <label className="mb-1 block text-xs sm:text-sm text-gray-500">Email</label>
             <input
               name="email"
               type="email"
               value={form.email}
               onChange={handleChange}
               placeholder="john@clinic.com"
-              className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400"
+              className="w-full rounded-xl bg-gray-100 px-3 sm:px-4 py-2 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-teal-400"
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-sm text-gray-500">Password</label>
+            <label className="mb-1 block text-xs sm:text-sm text-gray-500">Password</label>
             <input
               name="password"
               type="password"
               value={form.password}
               onChange={handleChange}
               placeholder="Use uppercase, lowercase and a number"
-              className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400"
+              className="w-full rounded-xl bg-gray-100 px-3 sm:px-4 py-2 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-teal-400"
             />
             <p className="mt-1 text-xs text-gray-400">
               Minimum 8 characters with uppercase, lowercase, and one digit.
@@ -270,7 +271,7 @@ function CreateUserModal({ onClose, onCreated, role }) {
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 rounded-xl bg-gray-100 py-2 text-sm"
+              className="flex-1 rounded-xl bg-gray-100 py-2 text-xs sm:text-sm"
             >
               Cancel
             </button>
@@ -278,7 +279,7 @@ function CreateUserModal({ onClose, onCreated, role }) {
               type="button"
               onClick={handleSubmit}
               disabled={loading}
-              className="flex-1 rounded-xl bg-teal-500 py-2 text-sm text-white transition hover:bg-teal-600 disabled:opacity-50"
+              className="flex-1 rounded-xl bg-teal-500 py-2 text-xs sm:text-sm text-white transition hover:bg-teal-600 disabled:opacity-50"
             >
               {loading
                 ? "Creating..."
@@ -333,11 +334,11 @@ function EditUserModal({ user, onClose, onSaved, canChangeRole }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
-      <div className="w-full max-w-[480px] overflow-hidden rounded-2xl bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b bg-blue-50 px-6 py-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm px-4 pb-4 sm:pb-0">
+      <div className="w-full max-w-[480px] overflow-hidden rounded-2xl bg-white shadow-xl max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 flex items-center justify-between border-b bg-blue-50 px-4 sm:px-6 py-4">
           <div>
-            <h2 className="font-semibold">Edit User</h2>
+            <h2 className="font-semibold text-sm sm:text-base">Edit User</h2>
             <p className="text-xs text-gray-400">@{user.username}</p>
           </div>
           <button
@@ -349,61 +350,61 @@ function EditUserModal({ user, onClose, onSaved, canChangeRole }) {
           </button>
         </div>
 
-        <div className="space-y-4 p-6">
+        <div className="space-y-4 p-4 sm:p-6">
           {error && (
-            <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>
+            <div className="rounded-lg bg-red-50 p-3 text-xs sm:text-sm text-red-600">{error}</div>
           )}
 
           <div>
-            <label className="mb-1 block text-sm text-gray-500">Full Name</label>
+            <label className="mb-1 block text-xs sm:text-sm text-gray-500">Full Name</label>
             <input
               name="full_name"
               value={form.full_name}
               onChange={handleChange}
-              className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400"
+              className="w-full rounded-xl bg-gray-100 px-3 sm:px-4 py-2 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-teal-400"
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-sm text-gray-500">Username</label>
+            <label className="mb-1 block text-xs sm:text-sm text-gray-500">Username</label>
             <input
               name="username"
               value={form.username}
               onChange={handleChange}
-              className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400"
+              className="w-full rounded-xl bg-gray-100 px-3 sm:px-4 py-2 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-teal-400"
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-sm text-gray-500">Email</label>
+            <label className="mb-1 block text-xs sm:text-sm text-gray-500">Email</label>
             <input
               name="email"
               type="email"
               value={form.email}
               onChange={handleChange}
-              className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400"
+              className="w-full rounded-xl bg-gray-100 px-3 sm:px-4 py-2 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-teal-400"
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-sm text-gray-500">Phone</label>
+            <label className="mb-1 block text-xs sm:text-sm text-gray-500">Phone</label>
             <input
               name="phone"
               value={form.phone}
               onChange={handleChange}
               placeholder="Optional"
-              className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400"
+              className="w-full rounded-xl bg-gray-100 px-3 sm:px-4 py-2 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-teal-400"
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-sm text-gray-500">Role</label>
+            <label className="mb-1 block text-xs sm:text-sm text-gray-500">Role</label>
             <select
               name="role"
               value={form.role}
               onChange={handleChange}
               disabled={!canChangeRole}
-              className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400 disabled:opacity-60"
+              className="w-full rounded-xl bg-gray-100 px-3 sm:px-4 py-2 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-teal-400 disabled:opacity-60"
             >
               <option value="ADMIN">Admin</option>
               <option value="DOCTOR">Doctor</option>
@@ -420,7 +421,7 @@ function EditUserModal({ user, onClose, onSaved, canChangeRole }) {
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 rounded-xl bg-gray-100 py-2 text-sm"
+              className="flex-1 rounded-xl bg-gray-100 py-2 text-xs sm:text-sm"
             >
               Cancel
             </button>
@@ -428,12 +429,110 @@ function EditUserModal({ user, onClose, onSaved, canChangeRole }) {
               type="button"
               onClick={handleSubmit}
               disabled={loading}
-              className="flex-1 rounded-xl bg-blue-500 py-2 text-sm text-white transition hover:bg-blue-600 disabled:opacity-50"
+              className="flex-1 rounded-xl bg-blue-500 py-2 text-xs sm:text-sm text-white transition hover:bg-blue-600 disabled:opacity-50"
             >
               {loading ? "Saving..." : "Save Changes"}
             </button>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Мобильная карточка пользователя (вместо строки таблицы)
+function UserCard({ u, isCurrentUser, actionLoading, onEdit, onToggle, onDelete }) {
+  return (
+    <div className="flex flex-col gap-3 border-b p-4 last:border-none hover:bg-gray-50">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-teal-100 text-sm font-semibold text-teal-600">
+            {u.full_name
+              ?.split(" ")
+              .map((n) => n[0])
+              .join("")
+              .slice(0, 2)}
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-medium truncate">{u.full_name}</p>
+            <p className="text-xs text-gray-400">@{u.username}</p>
+            {isCurrentUser && (
+              <p className="text-xs text-gray-400">Current account</p>
+            )}
+          </div>
+        </div>
+        <span
+          className={`shrink-0 rounded-md px-2.5 py-1 text-xs font-medium ${
+            ROLE_STYLES[u.role] || "bg-gray-100 text-gray-500"
+          }`}
+        >
+          {u.role}
+        </span>
+      </div>
+
+      <p className="truncate text-xs text-gray-500">{u.email}</p>
+
+      <div className="flex flex-wrap gap-1">
+        <span
+          className={`rounded-md px-2.5 py-1 text-xs font-medium ${
+            u.is_active ? "bg-green-50 text-green-600" : "bg-red-50 text-red-500"
+          }`}
+        >
+          {u.is_active ? "Active" : "Inactive"}
+        </span>
+        <span
+          className={`rounded-md px-2.5 py-1 text-xs font-medium ${
+            u.is_verified
+              ? "bg-blue-50 text-blue-600"
+              : "bg-amber-50 text-amber-700"
+          }`}
+        >
+          {u.is_verified ? "Verified" : "Unverified"}
+        </span>
+      </div>
+
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => onEdit(u)}
+          disabled={actionLoading === u.id}
+          className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-blue-50 px-3 py-1.5 text-xs text-blue-500 transition hover:bg-blue-100 disabled:opacity-50"
+          aria-label="Edit user"
+        >
+          <Pencil size={12} /> Edit
+        </button>
+
+        {!isCurrentUser && (
+          <>
+            <button
+              type="button"
+              onClick={() => onToggle(u)}
+              disabled={actionLoading === u.id}
+              className={`flex flex-1 items-center justify-center gap-1 rounded-lg px-3 py-1.5 text-xs transition disabled:opacity-50 ${
+                u.is_active
+                  ? "bg-red-50 text-red-500 hover:bg-red-100"
+                  : "bg-green-50 text-green-600 hover:bg-green-100"
+              }`}
+              aria-label={u.is_active ? "Deactivate user" : "Activate user"}
+            >
+              {u.is_active ? (
+                <><UserX size={12} /> Deactivate</>
+              ) : (
+                <><UserCheck size={12} /> Activate</>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onDelete(u)}
+              disabled={actionLoading === u.id}
+              className="flex items-center justify-center rounded-lg bg-gray-100 px-3 py-1.5 text-xs text-gray-500 transition hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
+              aria-label="Delete user"
+            >
+              <Trash2 size={12} />
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
@@ -622,39 +721,42 @@ export default function AdminUsers() {
 
   return (
     <>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="space-y-4 sm:space-y-5 md:space-y-6">
+
+        {/* Заголовок + кнопки */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-2xl font-semibold">User Management</h2>
-            <p className="text-sm text-gray-400">Manage system users and accounts</p>
+            <h2 className="text-xl sm:text-2xl font-semibold">User Management</h2>
+            <p className="text-xs sm:text-sm text-gray-400">Manage system users and accounts</p>
           </div>
 
           <div className="flex gap-2">
             <button
               type="button"
               onClick={() => setModal("DOCTOR")}
-              className="flex items-center gap-1 rounded-xl bg-teal-500 px-4 py-2 text-sm text-white transition hover:bg-teal-600"
+              className="flex flex-1 sm:flex-none items-center justify-center gap-1 rounded-xl bg-teal-500 px-3 sm:px-4 py-2 text-xs sm:text-sm text-white transition hover:bg-teal-600"
             >
               <Plus size={16} /> Add Doctor
             </button>
             <button
               type="button"
               onClick={() => setModal("ADMIN")}
-              className="flex items-center gap-1 rounded-xl bg-purple-500 px-4 py-2 text-sm text-white transition hover:bg-purple-600"
+              className="flex flex-1 sm:flex-none items-center justify-center gap-1 rounded-xl bg-purple-500 px-3 sm:px-4 py-2 text-xs sm:text-sm text-white transition hover:bg-purple-600"
             >
               <Shield size={16} /> Add Admin
             </button>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="relative">
+        {/* Поиск + фильтр */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="relative flex-1 sm:max-w-xs md:max-w-sm">
             <Search size={16} className="absolute left-3 top-2.5 text-gray-400" />
             <input
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               placeholder="Search by name, username, or email..."
-              className="w-80 rounded-xl border bg-white py-2 pl-9 pr-4 text-sm outline-none focus:ring-2 focus:ring-teal-400"
+              className="w-full rounded-xl border bg-white py-2 pl-9 pr-4 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-teal-400"
             />
           </div>
 
@@ -664,7 +766,7 @@ export default function AdminUsers() {
               setRoleFilter(e.target.value);
               setPage(1);
             }}
-            className="rounded-xl border bg-white px-4 py-2 text-sm"
+            className="w-full sm:w-auto rounded-xl border bg-white px-3 sm:px-4 py-2 text-xs sm:text-sm"
           >
             <option value="">All Roles</option>
             <option value="ADMIN">Admin</option>
@@ -674,7 +776,7 @@ export default function AdminUsers() {
         </div>
 
         {!loading && loadError && (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs sm:text-sm text-red-600">
             {loadError}
           </div>
         )}
@@ -684,151 +786,171 @@ export default function AdminUsers() {
             <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-teal-500" />
           </div>
         ) : loadError && users.length === 0 ? (
-          <div className="rounded-2xl border border-red-200 bg-red-50 px-6 py-10 text-center text-sm text-red-600">
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-6 py-10 text-center text-xs sm:text-sm text-red-600">
             {loadError}
           </div>
         ) : (
           <div className="overflow-hidden rounded-2xl border bg-white shadow-sm">
-            <div className="grid grid-cols-6 border-b bg-gray-50 px-6 py-3 text-xs text-gray-400">
-              <span>Name</span>
-              <span>Username</span>
-              <span>Email</span>
-              <span>Role</span>
-              <span>Status</span>
-              <span>Actions</span>
-            </div>
 
-            {users.length === 0 ? (
-              <div className="py-10 text-center text-sm text-gray-400">No users found</div>
-            ) : (
-              users.map((u) => {
-                const isCurrentUser = currentUser?.id === u.id;
+            {/* Таблица — только md+ */}
+            <div className="hidden md:block">
+              <div className="grid grid-cols-6 border-b bg-gray-50 px-6 py-3 text-xs text-gray-400">
+                <span>Name</span>
+                <span>Username</span>
+                <span>Email</span>
+                <span>Role</span>
+                <span>Status</span>
+                <span>Actions</span>
+              </div>
 
-                return (
-                  <div
-                    key={u.id}
-                    className="grid grid-cols-6 items-center border-b px-6 py-4 last:border-none hover:bg-gray-50"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-teal-100 text-sm font-semibold text-teal-600">
-                        {u.full_name
-                          ?.split(" ")
-                          .map((n) => n[0])
-                          .join("")
-                          .slice(0, 2)}
+              {users.length === 0 ? (
+                <div className="py-10 text-center text-sm text-gray-400">No users found</div>
+              ) : (
+                users.map((u) => {
+                  const isCurrentUser = currentUser?.id === u.id;
+
+                  return (
+                    <div
+                      key={u.id}
+                      className="grid grid-cols-6 items-center border-b px-6 py-4 last:border-none hover:bg-gray-50"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-teal-100 text-sm font-semibold text-teal-600">
+                          {u.full_name
+                            ?.split(" ")
+                            .map((n) => n[0])
+                            .join("")
+                            .slice(0, 2)}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">{u.full_name}</p>
+                          {isCurrentUser && (
+                            <p className="text-xs text-gray-400">Current account</p>
+                          )}
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-medium">{u.full_name}</p>
-                        {isCurrentUser && (
-                          <p className="text-xs text-gray-400">Current account</p>
+
+                      <span className="text-sm text-gray-500">@{u.username}</span>
+                      <span className="truncate text-sm text-gray-500">{u.email}</span>
+
+                      <span
+                        className={`w-fit rounded-md px-2.5 py-1 text-xs font-medium ${
+                          ROLE_STYLES[u.role] || "bg-gray-100 text-gray-500"
+                        }`}
+                      >
+                        {u.role}
+                      </span>
+
+                      <div className="flex flex-wrap gap-1">
+                        <span
+                          className={`w-fit rounded-md px-2.5 py-1 text-xs font-medium ${
+                            u.is_active
+                              ? "bg-green-50 text-green-600"
+                              : "bg-red-50 text-red-500"
+                          }`}
+                        >
+                          {u.is_active ? "Active" : "Inactive"}
+                        </span>
+                        <span
+                          className={`w-fit rounded-md px-2.5 py-1 text-xs font-medium ${
+                            u.is_verified
+                              ? "bg-blue-50 text-blue-600"
+                              : "bg-amber-50 text-amber-700"
+                          }`}
+                        >
+                          {u.is_verified ? "Verified" : "Unverified"}
+                        </span>
+                      </div>
+
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setEditUser(u)}
+                          disabled={actionLoading === u.id}
+                          className="flex w-fit items-center gap-1 rounded-lg bg-blue-50 px-3 py-1.5 text-xs text-blue-500 transition hover:bg-blue-100 disabled:opacity-50"
+                          aria-label="Edit user"
+                        >
+                          <Pencil size={12} />
+                        </button>
+
+                        {!isCurrentUser && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => openToggleConfirmation(u)}
+                              disabled={actionLoading === u.id}
+                              className={`flex w-fit items-center gap-1 rounded-lg px-3 py-1.5 text-xs transition disabled:opacity-50 ${
+                                u.is_active
+                                  ? "bg-red-50 text-red-500 hover:bg-red-100"
+                                  : "bg-green-50 text-green-600 hover:bg-green-100"
+                              }`}
+                              aria-label={u.is_active ? "Deactivate user" : "Activate user"}
+                            >
+                              {u.is_active ? (
+                                <><UserX size={12} /> Deactivate</>
+                              ) : (
+                                <><UserCheck size={12} /> Activate</>
+                              )}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => openDeleteConfirmation(u)}
+                              disabled={actionLoading === u.id}
+                              className="flex w-fit items-center gap-1 rounded-lg bg-gray-100 px-3 py-1.5 text-xs text-gray-500 transition hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
+                              aria-label="Delete user"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </>
                         )}
                       </div>
                     </div>
+                  );
+                })
+              )}
+            </div>
 
-                    <span className="text-sm text-gray-500">@{u.username}</span>
-                    <span className="truncate text-sm text-gray-500">{u.email}</span>
-
-                    <span
-                      className={`w-fit rounded-md px-2.5 py-1 text-xs font-medium ${
-                        ROLE_STYLES[u.role] || "bg-gray-100 text-gray-500"
-                      }`}
-                    >
-                      {u.role}
-                    </span>
-
-                    <div className="flex flex-wrap gap-1">
-                      <span
-                        className={`w-fit rounded-md px-2.5 py-1 text-xs font-medium ${
-                          u.is_active
-                            ? "bg-green-50 text-green-600"
-                            : "bg-red-50 text-red-500"
-                        }`}
-                      >
-                        {u.is_active ? "Active" : "Inactive"}
-                      </span>
-                      <span
-                        className={`w-fit rounded-md px-2.5 py-1 text-xs font-medium ${
-                          u.is_verified
-                            ? "bg-blue-50 text-blue-600"
-                            : "bg-amber-50 text-amber-700"
-                        }`}
-                      >
-                        {u.is_verified ? "Verified" : "Unverified"}
-                      </span>
-                    </div>
-
-                    <div className="flex gap-1">
-                      <button
-                        type="button"
-                        onClick={() => setEditUser(u)}
-                        disabled={actionLoading === u.id}
-                        className="flex w-fit items-center gap-1 rounded-lg bg-blue-50 px-3 py-1.5 text-xs text-blue-500 transition hover:bg-blue-100 disabled:opacity-50"
-                        aria-label="Edit user"
-                      >
-                        <Pencil size={12} />
-                      </button>
-
-                      {!isCurrentUser && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => openToggleConfirmation(u)}
-                            disabled={actionLoading === u.id}
-                            className={`flex w-fit items-center gap-1 rounded-lg px-3 py-1.5 text-xs transition disabled:opacity-50 ${
-                              u.is_active
-                                ? "bg-red-50 text-red-500 hover:bg-red-100"
-                                : "bg-green-50 text-green-600 hover:bg-green-100"
-                            }`}
-                            aria-label={u.is_active ? "Deactivate user" : "Activate user"}
-                          >
-                            {u.is_active ? (
-                              <>
-                                <UserX size={12} /> Deactivate
-                              </>
-                            ) : (
-                              <>
-                                <UserCheck size={12} /> Activate
-                              </>
-                            )}
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => openDeleteConfirmation(u)}
-                            disabled={actionLoading === u.id}
-                            className="flex w-fit items-center gap-1 rounded-lg bg-gray-100 px-3 py-1.5 text-xs text-gray-500 transition hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
-                            aria-label="Delete user"
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-            )}
+            {/* Карточки — только до md */}
+            <div className="md:hidden">
+              {users.length === 0 ? (
+                <div className="py-10 text-center text-sm text-gray-400">No users found</div>
+              ) : (
+                users.map((u) => (
+                  <UserCard
+                    key={u.id}
+                    u={u}
+                    isCurrentUser={currentUser?.id === u.id}
+                    actionLoading={actionLoading}
+                    onEdit={setEditUser}
+                    onToggle={openToggleConfirmation}
+                    onDelete={openDeleteConfirmation}
+                  />
+                ))
+              )}
+            </div>
           </div>
         )}
 
+        {/* Пагинация */}
         {totalPages > 1 && (
-          <div className="flex justify-center gap-2">
+          <div className="flex items-center justify-center gap-2">
             <button
               type="button"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={displayPage === 1}
-              className="rounded-lg border bg-white px-3 py-1 text-sm disabled:opacity-50"
+              className="rounded-lg border bg-white px-3 py-1.5 text-xs sm:text-sm disabled:opacity-50 hover:bg-gray-50 transition"
             >
               Prev
             </button>
-            <span className="px-3 py-1 text-sm text-gray-500">
+            <span className="px-2 py-1 text-xs sm:text-sm text-gray-500">
               Page {displayPage} of {totalPages}
             </span>
             <button
               type="button"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={displayPage === totalPages}
-              className="rounded-lg border bg-white px-3 py-1 text-sm disabled:opacity-50"
+              className="rounded-lg border bg-white px-3 py-1.5 text-xs sm:text-sm disabled:opacity-50 hover:bg-gray-50 transition"
             >
               Next
             </button>
@@ -871,7 +993,7 @@ export default function AdminUsers() {
 
       {toast && (
         <div
-          className={`fixed bottom-5 right-5 z-[80] flex items-start gap-2 rounded-xl border px-4 py-3 text-sm shadow-lg ${
+          className={`fixed bottom-4 right-4 sm:bottom-5 sm:right-5 z-[80] flex items-start gap-2 rounded-xl border px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm shadow-lg max-w-[calc(100vw-2rem)] sm:max-w-sm ${
             toast.type === "success"
               ? "border-green-200 bg-green-50 text-green-700"
               : "border-red-200 bg-red-50 text-red-700"
@@ -882,7 +1004,7 @@ export default function AdminUsers() {
           ) : (
             <TriangleAlert size={16} className="mt-0.5 shrink-0" />
           )}
-          <p>{toast.message}</p>
+          <p className="flex-1">{toast.message}</p>
           <button
             type="button"
             onClick={() => setToast(null)}
