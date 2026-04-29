@@ -2,13 +2,13 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hospital_app/features/data/repositories/auth_repository.dart';
+import 'package:hospital_app/features/data/repositories/chat_repository.dart';
 import 'package:hospital_app/features/data/repositories/doctor_repository.dart';
 import 'package:hospital_app/features/data/repositories/patient_repository.dart';
 import 'package:hospital_app/features/presentation/bloc/appointment_bloc.dart';
 import 'package:hospital_app/features/presentation/bloc/auth/auth_bloc.dart';
 import 'package:hospital_app/features/presentation/bloc/calendar/calendar_bloc.dart';
 import 'package:hospital_app/features/presentation/bloc/doctor/doctor_bloc.dart';
-import 'package:hospital_app/features/presentation/bloc/messages/messages_bloc.dart';
 import 'package:hospital_app/features/presentation/bloc/navigation/navigation_bloc.dart';
 import 'package:hospital_app/features/presentation/bloc/notifications/notifications_bloc.dart';
 import 'package:hospital_app/features/presentation/bloc/patient/patient_bloc.dart';
@@ -26,6 +26,7 @@ Future<void> main() async {
     authRepository: AuthRepository(),
     doctorRepository: DoctorRepository(),
     patientRepository: PatientRepository(),
+    chatRepository: ChatRepository(),
   ));
 }
 
@@ -35,21 +36,22 @@ class MyApp extends StatelessWidget {
     required this.authRepository,
     required this.doctorRepository,
     required this.patientRepository,
+    required this.chatRepository,
   });
 
   final AuthRepository authRepository;
   final DoctorRepository doctorRepository;
   final PatientRepository patientRepository;
+  final ChatRepository chatRepository;
 
   @override
   Widget build(BuildContext context) {
-    // Все репозитории через MultiRepositoryProvider — экраны (forms, detail)
-    // достают их через context.read<DoctorRepository>() и т.д.
     return MultiRepositoryProvider(
       providers: [
         RepositoryProvider.value(value: authRepository),
         RepositoryProvider.value(value: doctorRepository),
         RepositoryProvider.value(value: patientRepository),
+        RepositoryProvider.value(value: chatRepository),
       ],
       child: MultiBlocProvider(
         providers: [
@@ -58,19 +60,13 @@ class MyApp extends StatelessWidget {
             lazy: false,
           ),
           BlocProvider(create: (_) => NavigationBloc()),
-
-          // Блоки списков теперь подписаны на стримы Firestore.
           BlocProvider(
-            create: (_) => DoctorBloc(repository: doctorRepository),
-          ),
+              create: (_) => DoctorBloc(repository: doctorRepository)),
           BlocProvider(
-            create: (_) => PatientBloc(repository: patientRepository),
-          ),
-
+              create: (_) => PatientBloc(repository: patientRepository)),
           BlocProvider(create: (_) => AppointmentBloc()),
           BlocProvider(create: (_) => NotificationsBloc()),
           BlocProvider(create: (_) => PrivacyBloc()),
-          BlocProvider(create: (_) => MessagesBloc()),
           BlocProvider(create: (_) => CalendarBloc()),
         ],
         child: MaterialApp(

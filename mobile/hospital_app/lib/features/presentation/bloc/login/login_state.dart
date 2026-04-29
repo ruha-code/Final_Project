@@ -32,8 +32,6 @@ class LoginState {
       obscurePassword: obscurePassword ?? this.obscurePassword,
       rememberMe: rememberMe ?? this.rememberMe,
       status: status ?? this.status,
-      // errorMessage намеренно НЕ сохраняется между стейтами —
-      // каждое новое событие считает прошлую ошибку неактуальной.
       errorMessage: errorMessage,
     );
   }
