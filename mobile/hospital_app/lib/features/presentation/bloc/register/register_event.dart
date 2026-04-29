@@ -18,20 +18,20 @@ final class RegisterTermsChanged extends RegisterEvent {
   const RegisterTermsChanged(this.value);
 }
 
+final class RegisterRoleChanged extends RegisterEvent {
+  final UserRole role;
+  const RegisterRoleChanged(this.role);
+}
+
 final class RegisterSubmitted extends RegisterEvent {
   final String displayName;
   final String email;
   final String password;
   final String confirmPassword;
-
   const RegisterSubmitted({
     required this.displayName,
     required this.email,
     required this.password,
     required this.confirmPassword,
   });
-}
-
-final class RegisterWithGoogleRequested extends RegisterEvent {
-  const RegisterWithGoogleRequested();
 }

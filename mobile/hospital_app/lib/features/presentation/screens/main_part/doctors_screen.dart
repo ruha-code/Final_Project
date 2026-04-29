@@ -13,6 +13,7 @@ import 'package:hospital_app/features/presentation/screens/main_part/widgets/top
 class DoctorsScreen extends StatelessWidget {
   const DoctorsScreen({super.key});
 
+  // Первый элемент — "All". Остальные совпадают с doctorSpecialties.
   static const _filters = ['All', ...doctorSpecialties];
 
   List<Doctor> _filtered(List<Doctor> all, int selectedFilter) {

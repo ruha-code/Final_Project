@@ -1,28 +1,47 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart';
+import 'package:hospital_app/features/data/models/doctor.dart';
+import 'package:hospital_app/features/data/models/patient.dart';
+import 'package:hospital_app/features/data/models/user_profile.dart';
 
-/// Единая точка доступа ко всей auth-логике: email/password + Google Sign-In.
+/// Auth + регистрация с ролью + чтение профиля.
 ///
-/// Экраны и Bloc'и не трогают `FirebaseAuth` напрямую — только через этот класс.
+/// При signUp создаются три документа:
+///   users/{uid}              — профиль с ролью
+///   doctors/{uid}            — если role=doctor (минимальная карточка)
+///   patients/{uid}           — если role=patient (минимальная карточка)
+///
+/// Ключ привязки — uid (он же id документа). Никаких отдельных полей-связок.
 class AuthRepository {
-  AuthRepository({FirebaseAuth? firebaseAuth, GoogleSignIn? googleSignIn})
+  AuthRepository({FirebaseAuth? firebaseAuth, FirebaseFirestore? firestore})
       : _firebaseAuth = firebaseAuth ?? FirebaseAuth.instance,
-        _googleSignIn = googleSignIn ?? GoogleSignIn();
+        _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseAuth _firebaseAuth;
-  final GoogleSignIn _googleSignIn;
+  final FirebaseFirestore _firestore;
 
-  /// Поток auth-состояния пользователя. Null = вышел из аккаунта.
-  ///
-  /// Используем [userChanges] вместо [authStateChanges]: первый дополнительно
-  /// эмитит при обновлении профиля (например, после updateDisplayName сразу
-  /// после регистрации), поэтому UI видит свежее имя без ручного рефреша.
+  /// userChanges чтобы профиль (displayName) обновлялся без ручного refresh.
   Stream<User?> get user => _firebaseAuth.userChanges();
 
-  /// Синхронный геттер для текущего пользователя (удобно в UI).
   User? get currentUser => _firebaseAuth.currentUser;
 
-  /// Вход по email/password. Бросает [FirebaseAuthException] при ошибке.
+  /// Стрим профиля юзера из Firestore.
+  ///
+  /// Игнорируем "пустые" события из локального кеша: при свежей регистрации
+  /// snapshots() сначала эмитит null (кеш пустой), и лишь спустя секунду
+  /// прилетает реальный документ с сервера. Если бы мы пропустили этот
+  /// первый null в Bloc, интерфейс на мгновение показывал бы "Profile not
+  /// found". Поэтому фильтруем: null отдаём только если документ
+  /// гарантированно пришёл с сервера и его всё равно нет.
+  Stream<UserProfile?> watchUserProfile(String uid) {
+    return _firestore
+        .collection('users')
+        .doc(uid)
+        .snapshots(includeMetadataChanges: true)
+        .where((doc) => !doc.metadata.isFromCache || doc.exists)
+        .map((doc) => doc.exists ? UserProfile.fromDoc(doc) : null);
+  }
+
   Future<void> signInWithEmail({
     required String email,
     required String password,
@@ -33,43 +52,90 @@ class AuthRepository {
     );
   }
 
-  /// Регистрация. После создания аккаунта сразу ставит displayName.
+  /// Регистрация с ролью. Создаёт Auth-юзера, пишет displayName, заводит
+  /// users/{uid} + doctors/{uid} или patients/{uid} (минимальная заготовка
+  /// карточки — пользователь дополняет её позже из своего профиля).
+  ///
+  /// Если запись в Firestore упадёт после успешного создания Auth-юзера,
+  /// удаляем созданный Auth-аккаунт, чтобы не остался "осиротевший" логин
+  /// без роли.
   Future<void> signUpWithEmail({
     required String email,
     required String password,
     required String displayName,
+    required UserRole role,
   }) async {
+    if (role != UserRole.doctor && role != UserRole.patient) {
+      throw ArgumentError('Role must be doctor or patient');
+    }
+
     final cred = await _firebaseAuth.createUserWithEmailAndPassword(
       email: email.trim(),
       password: password,
     );
-    await cred.user?.updateDisplayName(displayName.trim());
-    await cred.user?.reload();
+    final user = cred.user!;
+    await user.updateDisplayName(displayName.trim());
+
+    try {
+      // Записываем три документа одной транзакцией: профиль с ролью,
+      // плюс пустую карточку в соответствующей коллекции.
+      final batch = _firestore.batch();
+      final profile = UserProfile(
+        uid: user.uid,
+        role: role,
+        displayName: displayName.trim(),
+        email: email.trim(),
+      );
+      batch.set(
+        _firestore.collection('users').doc(user.uid),
+        profile.toMap(),
+      );
+
+      if (role == UserRole.doctor) {
+        final blank = Doctor(
+          id: user.uid,
+          name: displayName.trim(),
+          specialty: doctorSpecialties.first,
+          schedule: 'Mon-Fri 09:00-17:00',
+          availability: 'Available',
+          phone: '',
+          email: email.trim(),
+          address: '',
+        );
+        batch.set(
+          _firestore.collection('doctors').doc(user.uid),
+          blank.toCreate(),
+        );
+      } else {
+        final blank = Patient(
+          id: user.uid,
+          name: displayName.trim(),
+          age: 0,
+          gender: 'Other',
+          diagnosis: '',
+          status: 'Stable',
+          ward: 'Outpatient',
+          assignedDoctor: '',
+          phone: '',
+          email: email.trim(),
+          address: '',
+        );
+        batch.set(
+          _firestore.collection('patients').doc(user.uid),
+          blank.toCreate(),
+        );
+      }
+
+      await batch.commit();
+      await user.reload();
+    } catch (e) {
+      // Откат: чтобы не остался Auth-юзер без записей в Firestore.
+      try {
+        await user.delete();
+      } catch (_) {}
+      rethrow;
+    }
   }
 
-  /// Вход через Google.
-  ///
-  /// Возвращает `true` если пользователь успешно вошёл, `false` если отменил
-  /// выбор аккаунта (например, закрыл модалку) — это не ошибка, просто отмена.
-  Future<bool> signInWithGoogle() async {
-    final googleUser = await _googleSignIn.signIn();
-    if (googleUser == null) return false; // отмена со стороны пользователя
-
-    final googleAuth = await googleUser.authentication;
-    final credential = GoogleAuthProvider.credential(
-      accessToken: googleAuth.accessToken,
-      idToken: googleAuth.idToken,
-    );
-    await _firebaseAuth.signInWithCredential(credential);
-    return true;
-  }
-
-  /// Выход. Выходим и из Firebase, и из Google, чтобы в следующий раз
-  /// показывался выбор аккаунта.
-  Future<void> signOut() async {
-    await Future.wait([
-      _firebaseAuth.signOut(),
-      _googleSignIn.signOut(),
-    ]);
-  }
+  Future<void> signOut() => _firebaseAuth.signOut();
 }

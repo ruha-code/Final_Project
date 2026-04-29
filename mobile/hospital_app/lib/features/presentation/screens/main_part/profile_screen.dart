@@ -225,7 +225,7 @@ class ProfileScreen extends StatelessWidget {
                       icon: const Icon(Icons.sd_card,
                           size: 20, color: Colors.blue),
                       label: 'Employee ID',
-                      value: user?.uid.substring(0, 8).toUpperCase() ?? '—',
+                      value: _shortUid(user?.uid),
                     ),
                     const SizedBox(height: 8),
                     PersonalInfoCard(
@@ -301,6 +301,12 @@ class ProfileScreen extends StatelessWidget {
     if (parts.length == 1) return parts.first.characters.first.toUpperCase();
     return (parts.first.characters.first + parts.last.characters.first)
         .toUpperCase();
+  }
+
+  String _shortUid(String? uid) {
+    if (uid == null || uid.isEmpty) return '—';
+    if (uid.length <= 8) return uid.toUpperCase();
+    return uid.substring(0, 8).toUpperCase();
   }
 
   String _formatDate(DateTime? d) {

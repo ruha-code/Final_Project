@@ -38,8 +38,15 @@ class _DoctorEditScreenState extends State<DoctorEditScreen> {
     _phoneCtrl = TextEditingController(text: d?.phone ?? '');
     _emailCtrl = TextEditingController(text: d?.email ?? '');
     _addressCtrl = TextEditingController(text: d?.address ?? '');
-    _specialty = d?.specialty ?? doctorSpecialties.first;
-    _availability = d?.availability ?? doctorAvailabilities.first;
+    // Если в Firestore лежит значение, которого нет в списке (например,
+    // его убрали из enum'а), DropdownButton упадёт с assertion. Поэтому
+    // нормализуем — если значение неизвестно, берём первое из списка.
+    _specialty = doctorSpecialties.contains(d?.specialty)
+        ? d!.specialty
+        : doctorSpecialties.first;
+    _availability = doctorAvailabilities.contains(d?.availability)
+        ? d!.availability
+        : doctorAvailabilities.first;
   }
 
   @override

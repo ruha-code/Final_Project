@@ -11,12 +11,9 @@ class LoginScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // LoginBloc живёт только пока открыт этот экран. AuthRepository берём из
-    // родительского RepositoryProvider'а (объявлен в main.dart).
     return BlocProvider(
-      create: (ctx) => LoginBloc(
-        authRepository: ctx.read<AuthRepository>(),
-      ),
+      create: (ctx) =>
+          LoginBloc(authRepository: ctx.read<AuthRepository>()),
       child: const _LoginView(),
     );
   }
@@ -90,8 +87,8 @@ class _LoginViewState extends State<_LoginView> {
                         const SizedBox(height: 6),
                         const Text(
                           'Sign in to continue',
-                          style:
-                              TextStyle(fontSize: 13, color: Colors.black45),
+                          style: TextStyle(
+                              fontSize: 13, color: Colors.black45),
                         ),
                         const SizedBox(height: 24),
                         BuildTextField(
@@ -141,18 +138,16 @@ class _LoginViewState extends State<_LoginView> {
                                 const SizedBox(width: 8),
                                 const Text('Remember me',
                                     style: TextStyle(
-                                        fontSize: 13, color: Colors.black54)),
+                                        fontSize: 13,
+                                        color: Colors.black54)),
                               ],
                             ),
-                            GestureDetector(
-                              onTap: () {},
-                              child: const Text(
-                                'Forgot Password?',
-                                style: TextStyle(
-                                    fontSize: 13,
-                                    color: AppColors.primary,
-                                    fontWeight: FontWeight.w500),
-                              ),
+                            const Text(
+                              'Forgot Password?',
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w500),
                             ),
                           ],
                         ),
@@ -163,11 +158,12 @@ class _LoginViewState extends State<_LoginView> {
                           child: ElevatedButton(
                             onPressed: isLoading
                                 ? null
-                                : () =>
-                                    context.read<LoginBloc>().add(LoginSubmitted(
-                                          email: _emailController.text,
-                                          password: _passwordController.text,
-                                        )),
+                                : () => context
+                                    .read<LoginBloc>()
+                                    .add(LoginSubmitted(
+                                      email: _emailController.text,
+                                      password: _passwordController.text,
+                                    )),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primary,
                               disabledBackgroundColor:
@@ -182,24 +178,14 @@ class _LoginViewState extends State<_LoginView> {
                                     height: 20,
                                     width: 20,
                                     child: CircularProgressIndicator(
-                                      strokeWidth: 2.2,
-                                      color: Colors.white,
-                                    ),
+                                        strokeWidth: 2.2,
+                                        color: Colors.white),
                                   )
                                 : const Text('Login',
                                     style: TextStyle(
                                         fontSize: 15,
                                         fontWeight: FontWeight.w600)),
                           ),
-                        ),
-                        const SizedBox(height: 16),
-                        _divider(),
-                        const SizedBox(height: 16),
-                        _GoogleButton(
-                          enabled: !isLoading,
-                          onPressed: () => context
-                              .read<LoginBloc>()
-                              .add(const LoginWithGoogleRequested()),
                         ),
                         const SizedBox(height: 20),
                         Center(
@@ -237,53 +223,6 @@ class _LoginViewState extends State<_LoginView> {
                 ),
               ),
             ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _divider() {
-    return Row(
-      children: [
-        const Expanded(child: Divider(color: Colors.black12)),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text('or',
-              style: TextStyle(fontSize: 12, color: Colors.black45)),
-        ),
-        const Expanded(child: Divider(color: Colors.black12)),
-      ],
-    );
-  }
-}
-
-class _GoogleButton extends StatelessWidget {
-  const _GoogleButton({required this.enabled, required this.onPressed});
-  final bool enabled;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      height: 48,
-      child: OutlinedButton.icon(
-        onPressed: enabled ? onPressed : null,
-        icon: const Icon(Icons.g_mobiledata, size: 28, color: Colors.black87),
-        label: const Text(
-          'Continue with Google',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: Colors.black87,
-          ),
-        ),
-        style: OutlinedButton.styleFrom(
-          backgroundColor: Colors.white,
-          side: const BorderSide(color: Colors.black12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
           ),
         ),
       ),

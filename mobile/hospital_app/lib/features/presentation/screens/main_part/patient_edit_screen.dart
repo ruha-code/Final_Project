@@ -44,9 +44,9 @@ class _PatientEditScreenState extends State<PatientEditScreen> {
     _phoneCtrl = TextEditingController(text: p?.phone ?? '');
     _emailCtrl = TextEditingController(text: p?.email ?? '');
     _addressCtrl = TextEditingController(text: p?.address ?? '');
-    _gender = p?.gender ?? patientGenders.first;
-    _status = p?.status ?? patientStatuses.first;
-    _ward = p?.ward ?? patientWards.first;
+    _gender = patientGenders.contains(p?.gender) ? p!.gender : patientGenders.first;
+    _status = patientStatuses.contains(p?.status) ? p!.status : patientStatuses.first;
+    _ward = patientWards.contains(p?.ward) ? p!.ward : patientWards.first;
   }
 
   @override

@@ -5,13 +5,16 @@ sealed class AuthEvent {
   const AuthEvent();
 }
 
-/// Внутреннее событие от подписки на [AuthRepository.user].
 final class AuthUserChanged extends AuthEvent {
   final User? user;
   const AuthUserChanged(this.user);
 }
 
-/// Событие от UI (кнопка Logout).
+final class AuthProfileChanged extends AuthEvent {
+  final UserProfile? profile;
+  const AuthProfileChanged(this.profile);
+}
+
 final class AuthSignOutRequested extends AuthEvent {
   const AuthSignOutRequested();
 }
