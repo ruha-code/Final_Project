@@ -461,7 +461,7 @@ function MainLayout({ children }) {
       { label: "My Schedule", description: "Doctor weekly schedule", path: "/schedule", roles: ["DOCTOR"] },
       { label: "Departments", description: "Department management", path: "/departments", roles: ["ADMIN"] },
       { label: "Calendar", description: "Clinic events and schedule", path: "/calendar", roles: ["ADMIN", "DOCTOR"] },
-      { label: "Inventory", description: "Inventory management", path: "/inventory", roles: ["ADMIN"] },
+      { label: "Inventory", description: "Inventory management", path: "/inventory", roles: ["ADMIN", "DOCTOR"] },
       { label: "User Management", description: "Admin users", path: "/admin/users", roles: ["ADMIN"] },
       { label: "Audit Logs", description: "System audit trail", path: "/admin/audit-logs", roles: ["ADMIN"] },
       { label: "Analytics", description: "Clinic analytics", path: "/admin/analytics", roles: ["ADMIN"] },

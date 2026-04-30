@@ -249,15 +249,15 @@ function AppRoutes() {
           }
         />
 
-        {/* Inventory - ADMIN only */}
+        {/* Inventory - Admin and Doctor */}
         <Route
           path="/inventory"
           element={
-            <AdminRoute>
+            <ProtectedRoute allowedRoles={["ADMIN", "DOCTOR"]}>
               <MainLayout>
                 <Inventory />
               </MainLayout>
-            </AdminRoute>
+            </ProtectedRoute>
           }
         />
 

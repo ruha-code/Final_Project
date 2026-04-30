@@ -15,6 +15,7 @@ export default function InventoryChart({ reloadKey = 0 }) {
         const items = await api.get("/inventory");
         const byCategory = {};
         items.forEach((item) => {
+          if (item.status === "EXPIRED") return;
           const cat = item.category || "OTHER";
           byCategory[cat] = (byCategory[cat] || 0) + item.quantity;
         });
@@ -67,6 +68,7 @@ export default function InventoryChart({ reloadKey = 0 }) {
   return (
     <div className="bg-white rounded-2xl border p-5">
       <h3 className="font-semibold mb-4">Stock by Category</h3>
+      <p className="mb-3 text-xs text-gray-500">Usable stock only. Expired items are excluded.</p>
 
       <ResponsiveContainer width="100%" height={200}>
         <BarChart data={data}>

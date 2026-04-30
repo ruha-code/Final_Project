@@ -2,7 +2,7 @@ from datetime import date, datetime
 from typing import Literal, Optional
 
 import re
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 from app.modules.inventory.models import InventoryCategory, InventoryStatus
  
@@ -20,6 +20,13 @@ ALLOWED_UNITS = {
     "g",
     "kg",
 }
+CATEGORY_UNIT_OPTIONS = {
+    InventoryCategory.MEDICATIONS: ("pcs", "boxes", "packs", "vials", "bottles", "ml", "l", "g", "kg"),
+    InventoryCategory.CONSUMABLES: ("pcs", "boxes", "packs", "rolls", "kits"),
+    InventoryCategory.LABORATORY: ("pcs", "kits", "vials", "bottles", "ml", "l"),
+    InventoryCategory.OTHER: tuple(sorted(ALLOWED_UNITS)),
+}
+NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9\s\-()/.,+#]*$")
 MIN_EXPIRY_DATE = date(2000, 1, 1)
 
 
@@ -27,6 +34,12 @@ def _normalize_name(value: str) -> str:
     cleaned = re.sub(r"\s+", " ", value).strip()
     if len(cleaned) < 2:
         raise ValueError("Name must be at least 2 characters")
+    if len(cleaned) > 150:
+        raise ValueError("Name must be 150 characters or fewer")
+    if not re.search(r"[A-Za-z]", cleaned):
+        raise ValueError("Name must include letters and cannot be numbers only")
+    if not NAME_PATTERN.fullmatch(cleaned):
+        raise ValueError("Name contains unsupported characters")
     return cleaned
 
 
@@ -48,6 +61,20 @@ def _validate_expiry(value: Optional[date]) -> Optional[date]:
     if value > max_allowed:
         raise ValueError("Expiry date is unrealistically far in the future")
     return value
+
+
+def get_allowed_units_for_category(category: InventoryCategory) -> list[str]:
+    return list(CATEGORY_UNIT_OPTIONS.get(category, CATEGORY_UNIT_OPTIONS[InventoryCategory.OTHER]))
+
+
+def validate_unit_for_category(unit: str, category: InventoryCategory) -> str:
+    allowed_units = CATEGORY_UNIT_OPTIONS.get(category, CATEGORY_UNIT_OPTIONS[InventoryCategory.OTHER])
+    if unit not in allowed_units:
+        allowed_display = ", ".join(allowed_units)
+        raise ValueError(
+            f"{category.value.title()} items must use one of: {allowed_display}"
+        )
+    return unit
 
 
 class InventoryItemCreate(BaseModel):
@@ -89,6 +116,11 @@ class InventoryItemCreate(BaseModel):
     @classmethod
     def validate_expiry(cls, v: Optional[date]) -> Optional[date]:
         return _validate_expiry(v)
+
+    @model_validator(mode="after")
+    def validate_category_unit_pair(self):
+        self.unit = validate_unit_for_category(self.unit, self.category)
+        return self
  
  
 class InventoryItemUpdate(BaseModel):
@@ -140,6 +172,12 @@ class InventoryItemUpdate(BaseModel):
     def validate_expiry(cls, v: Optional[date]) -> Optional[date]:
         return _validate_expiry(v)
 
+    @model_validator(mode="after")
+    def validate_category_unit_pair(self):
+        if self.unit is not None and self.category is not None:
+            self.unit = validate_unit_for_category(self.unit, self.category)
+        return self
+
 
 class InventoryStockAdjust(BaseModel):
     operation: Literal["INCREASE", "DECREASE"]
@@ -176,10 +214,13 @@ class InventoryItemResponse(BaseModel):
     unit: str
     stock_percentage: int
     status: str
+    stock_status: str = "AVAILABLE"
     image_url: Optional[str] = None
     expires_at: Optional[date] = None
     low_stock_threshold: int = 0
+    target_quantity: int = 0
     is_expired: bool = False
     is_expiring_soon: bool = False
+    days_until_expiry: Optional[int] = None
     created_at: datetime
     updated_at: datetime
