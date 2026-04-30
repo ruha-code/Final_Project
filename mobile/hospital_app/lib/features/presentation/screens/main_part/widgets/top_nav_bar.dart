@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hospital_app/features/presentation/bloc/auth/auth_bloc.dart';
+import 'package:hospital_app/features/presentation/screens/main_part/search_screen.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/app_constant.dart';
+
 class TopNavBar extends StatelessWidget {
   final List<Widget> actions;
   final String? subtitle;
@@ -24,7 +28,8 @@ class TopNavBar extends StatelessWidget {
                 onTap: onBack,
                 child: const Padding(
                   padding: EdgeInsets.only(right: 8),
-                  child: Icon(Icons.arrow_back_ios_new, size: 18, color: AppColors.textPrimary),
+                  child: Icon(Icons.arrow_back_ios_new,
+                      size: 18, color: AppColors.textPrimary),
                 ),
               ),
             ],
@@ -66,11 +71,14 @@ class TopNavBar extends StatelessWidget {
             if (actions.isEmpty) ...[
               _CircleIconButton(
                 icon: Icons.search,
-                onTap: () {},
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SearchScreen()),
+                ),
               ),
               const SizedBox(width: 10),
             ],
-            const _AvatarCircle(letter: 'R'),
+            const _LiveAvatarCircle(),
           ],
         ),
       ],
@@ -80,30 +88,36 @@ class TopNavBar extends StatelessWidget {
 
 class MedlinkSearchButton extends StatelessWidget {
   final VoidCallback? onTap;
-
   const MedlinkSearchButton({super.key, this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return _CircleIconButton(icon: Icons.search, onTap: onTap ?? () {});
+    return _CircleIconButton(
+      icon: Icons.search,
+      onTap: onTap ??
+          () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SearchScreen()),
+              ),
+    );
   }
 }
 
 class MedlinkNotificationButton extends StatelessWidget {
   final VoidCallback? onTap;
-
   const MedlinkNotificationButton({super.key, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return _CircleIconButton(
-        icon: Icons.notifications_none, onTap: onTap ?? () {});
+      icon: Icons.notifications_none,
+      onTap: onTap ?? () {},
+    );
   }
 }
 
 class MedlinkGridButton extends StatelessWidget {
   final VoidCallback? onTap;
-
   const MedlinkGridButton({super.key, this.onTap});
 
   @override
@@ -144,13 +158,25 @@ class _CircleIconButton extends StatelessWidget {
   }
 }
 
-class _AvatarCircle extends StatelessWidget {
-  final String letter;
-
-  const _AvatarCircle({required this.letter});
+/// Аватарка-инициал текущего юзера. Реагирует на смену юзера/имени.
+class _LiveAvatarCircle extends StatelessWidget {
+  const _LiveAvatarCircle();
 
   @override
   Widget build(BuildContext context) {
+    final letter = context.select<AuthBloc, String>((b) {
+      final s = b.state;
+      final name = s.user?.displayName?.trim();
+      if (name != null && name.isNotEmpty) {
+        return name.characters.first.toUpperCase();
+      }
+      final email = s.user?.email;
+      if (email != null && email.isNotEmpty) {
+        return email.characters.first.toUpperCase();
+      }
+      return '?';
+    });
+
     return Container(
       width: 36,
       height: 36,

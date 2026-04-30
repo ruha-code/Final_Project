@@ -42,6 +42,34 @@ class AuthRepository {
         .map((doc) => doc.exists ? UserProfile.fromDoc(doc) : null);
   }
 
+  /// Стрим всех юзеров с указанной ролью — нужен для экрана "новый чат".
+  /// Возвращает [UserProfile], отсортированных по displayName.
+  Stream<List<UserProfile>> watchUsersByRole(UserRole role) {
+    return _firestore
+        .collection('users')
+        .where('role', isEqualTo: role.asString)
+        .snapshots()
+        .map((snap) {
+      final list = snap.docs.map(UserProfile.fromDoc).toList()
+        ..sort((a, b) => a.displayName
+            .toLowerCase()
+            .compareTo(b.displayName.toLowerCase()));
+      return list;
+    });
+  }
+
+  /// Стрим всех юзеров (любая роль). Доктор использует его, чтобы видеть
+  /// и докторов, и пациентов.
+  Stream<List<UserProfile>> watchAllUsers() {
+    return _firestore.collection('users').snapshots().map((snap) {
+      final list = snap.docs.map(UserProfile.fromDoc).toList()
+        ..sort((a, b) => a.displayName
+            .toLowerCase()
+            .compareTo(b.displayName.toLowerCase()));
+      return list;
+    });
+  }
+
   Future<void> signInWithEmail({
     required String email,
     required String password,

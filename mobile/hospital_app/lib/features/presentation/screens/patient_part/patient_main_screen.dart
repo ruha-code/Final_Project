@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:hospital_app/features/presentation/screens/chat_part/chat_list_screen.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/app_constant.dart';
-import 'package:hospital_app/features/presentation/screens/patient_part/chat_screen.dart';
 import 'package:hospital_app/features/presentation/screens/patient_part/my_card_screen.dart';
+import 'package:hospital_app/features/presentation/screens/patient_part/patient_appointments_screen.dart';
 import 'package:hospital_app/features/presentation/screens/patient_part/patient_doctors_screen.dart';
 
-/// Корневой экран для роли Patient — свой набор табов:
-///   1. My Card  — своя карточка пациента из Firestore (patients/{uid})
-///   2. Doctors  — список всех докторов (read-only)
-///   3. Chat     — общий чат с докторами
-///
-/// Самостоятельная навигация (свой StatefulWidget с _index), не использует
-/// общий NavigationBloc — он рассчитан на 5 табов докторской половины.
+/// 4 таба для роли Patient:
+///   1. My Card     — patients/{uid}
+///   2. Appointments — свои бронирования + кнопка Book
+///   3. Doctors      — список врачей (read-only, тап → бронирование)
+///   4. Chat         — общий чат
 class PatientMainScreen extends StatefulWidget {
   const PatientMainScreen({super.key});
 
@@ -23,8 +22,9 @@ class _PatientMainScreenState extends State<PatientMainScreen> {
 
   static const _tabs = <Widget>[
     MyCardScreen(),
+    PatientAppointmentsScreen(),
     PatientDoctorsScreen(),
-    ChatScreen(),
+    ChatListScreen(),
   ];
 
   @override
@@ -41,6 +41,11 @@ class _PatientMainScreenState extends State<PatientMainScreen> {
             icon: Icon(Icons.badge_outlined),
             selectedIcon: Icon(Icons.badge, color: AppColors.primary),
             label: 'My Card',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.event_note_outlined),
+            selectedIcon: Icon(Icons.event_note, color: AppColors.primary),
+            label: 'Appts',
           ),
           NavigationDestination(
             icon: Icon(Icons.medical_services_outlined),

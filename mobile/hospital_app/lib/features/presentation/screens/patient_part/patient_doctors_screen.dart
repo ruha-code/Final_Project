@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hospital_app/features/presentation/bloc/doctor/doctor_bloc.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/app_constant.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/doctor_card.dart';
+import 'package:hospital_app/features/presentation/screens/patient_part/patient_booking_screen.dart';
 
 /// Список докторов в режиме пациента — без FAB, без редактирования,
 /// без перехода в детали (детали врача — внутренние, для коллег).
@@ -64,8 +65,13 @@ class PatientDoctorsScreen extends StatelessWidget {
                           schedule: d.schedule,
                           availability: d.availability,
                           availabilityColor: d.availabilityColor,
-                          // onTap не задан — карточка не кликабельна для пациента.
-                          // Можно тут добавить переход в "Записаться" в будущем.
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  PatientBookingScreen(doctor: d),
+                            ),
+                          ),
                         )),
                   const SizedBox(height: 24),
                 ],

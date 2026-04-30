@@ -1,11 +1,12 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hospital_app/features/data/repositories/appointment_repository.dart';
 import 'package:hospital_app/features/data/repositories/auth_repository.dart';
 import 'package:hospital_app/features/data/repositories/chat_repository.dart';
 import 'package:hospital_app/features/data/repositories/doctor_repository.dart';
 import 'package:hospital_app/features/data/repositories/patient_repository.dart';
-import 'package:hospital_app/features/presentation/bloc/appointment_bloc.dart';
+import 'package:hospital_app/features/presentation/bloc/appointment/my_appointments_bloc.dart';
 import 'package:hospital_app/features/presentation/bloc/auth/auth_bloc.dart';
 import 'package:hospital_app/features/presentation/bloc/calendar/calendar_bloc.dart';
 import 'package:hospital_app/features/presentation/bloc/doctor/doctor_bloc.dart';
@@ -27,6 +28,7 @@ Future<void> main() async {
     doctorRepository: DoctorRepository(),
     patientRepository: PatientRepository(),
     chatRepository: ChatRepository(),
+    appointmentRepository: AppointmentRepository(),
   ));
 }
 
@@ -37,12 +39,14 @@ class MyApp extends StatelessWidget {
     required this.doctorRepository,
     required this.patientRepository,
     required this.chatRepository,
+    required this.appointmentRepository,
   });
 
   final AuthRepository authRepository;
   final DoctorRepository doctorRepository;
   final PatientRepository patientRepository;
   final ChatRepository chatRepository;
+  final AppointmentRepository appointmentRepository;
 
   @override
   Widget build(BuildContext context) {
@@ -52,6 +56,7 @@ class MyApp extends StatelessWidget {
         RepositoryProvider.value(value: doctorRepository),
         RepositoryProvider.value(value: patientRepository),
         RepositoryProvider.value(value: chatRepository),
+        RepositoryProvider.value(value: appointmentRepository),
       ],
       child: MultiBlocProvider(
         providers: [
@@ -64,7 +69,18 @@ class MyApp extends StatelessWidget {
               create: (_) => DoctorBloc(repository: doctorRepository)),
           BlocProvider(
               create: (_) => PatientBloc(repository: patientRepository)),
-          BlocProvider(create: (_) => AppointmentBloc()),
+
+          // MyAppointmentsBloc нужен AuthBloc — берём из контекста.
+          // lazy: false чтобы подписка стартовала с приложения, не с
+          // первого открытия экрана.
+          BlocProvider(
+            lazy: false,
+            create: (ctx) => MyAppointmentsBloc(
+              repository: appointmentRepository,
+              authBloc: ctx.read<AuthBloc>(),
+            ),
+          ),
+
           BlocProvider(create: (_) => NotificationsBloc()),
           BlocProvider(create: (_) => PrivacyBloc()),
           BlocProvider(create: (_) => CalendarBloc()),
