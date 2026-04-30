@@ -24,17 +24,17 @@ export function getDoctorPrimaryAction(status) {
       };
     case "ONGOING":
       return {
-        label: "Continue",
+        label: "Open",
         tone: "border border-blue-100 bg-blue-50 text-blue-700 hover:bg-blue-100",
       };
     case "COMPLETED":
       return {
-        label: "Summary",
+        label: "View",
         tone: "bg-transparent text-gray-500 hover:bg-gray-100 hover:text-gray-800",
       };
     case "CANCELLED":
       return {
-        label: "Patient",
+        label: "View",
         tone: "bg-transparent text-gray-500 hover:bg-gray-100 hover:text-gray-800",
       };
     default:

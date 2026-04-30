@@ -1,16 +1,16 @@
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Mail, Phone, Star, Clock, Award, ChevronLeft, Calendar } from "lucide-react";
+import { Award, Calendar, ChevronLeft, Mail, Phone, Star } from "lucide-react";
 import Badge from "../components/Badge";
-import { api } from "../services/api";
 import { useAuth } from "../context/AuthContext";
+import { api } from "../services/api";
 import { addDaysToDateString, getTodayLocalDate } from "../utils/dateTime";
 
 function getInitials(name) {
   if (!name) return "?";
   return name
     .split(" ")
-    .map((n) => n[0])
+    .map((part) => part[0])
     .join("")
     .toUpperCase();
 }
@@ -20,17 +20,21 @@ function getNextDays(count) {
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const today = getTodayLocalDate();
 
-  for (let i = 0; i < count; i++) {
+  for (let i = 0; i < count; i += 1) {
     const date = addDaysToDateString(today, i);
     const [year, month, day] = date.split("-").map(Number);
-    const d = new Date(year, month - 1, day);
+    const currentDate = new Date(year, month - 1, day);
 
     days.push({
       date,
-      label: i === 0 ? "Today" : i === 1 ? "Tomorrow" : dayNames[d.getDay()],
-      fullDate: d.toLocaleDateString("en-GB", { day: "numeric", month: "short" }),
+      label: i === 0 ? "Today" : i === 1 ? "Tomorrow" : dayNames[currentDate.getDay()],
+      fullDate: currentDate.toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "short",
+      }),
     });
   }
+
   return days;
 }
 
@@ -42,6 +46,7 @@ export default function DoctorDetails() {
   const [doctor, setDoctor] = useState(null);
   const [schedule, setSchedule] = useState({});
   const [scheduleLoading, setScheduleLoading] = useState(true);
+  const [scheduleError, setScheduleError] = useState("");
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState("");
 
@@ -63,14 +68,16 @@ export default function DoctorDetails() {
   const fetchSchedule = useCallback(async () => {
     if (!doctor?.is_available) {
       setSchedule({});
+      setScheduleError("");
       setScheduleLoading(false);
       return;
     }
 
     setScheduleLoading(true);
+    setScheduleError("");
+
     const days = getNextDays(5);
     const offset = new Date().getTimezoneOffset();
-
     const results = await Promise.allSettled(
       days.map((day) =>
         api.get(
@@ -79,14 +86,20 @@ export default function DoctorDetails() {
       ),
     );
 
-    const map = {};
-    results.forEach((result, i) => {
-      if (result.status === "fulfilled" && result.value?.available_slots) {
-        map[days[i].date] = result.value.available_slots;
+    const nextSchedule = {};
+    let successfulDays = 0;
+
+    results.forEach((result, index) => {
+      if (result.status === "fulfilled" && Array.isArray(result.value?.available_slots)) {
+        nextSchedule[days[index].date] = result.value.available_slots;
+        successfulDays += 1;
       }
     });
 
-    setSchedule(map);
+    setSchedule(nextSchedule);
+    if (successfulDays === 0 && days.length > 0) {
+      setScheduleError("Failed to load upcoming availability.");
+    }
     setScheduleLoading(false);
   }, [doctor?.is_available, id]);
 
@@ -102,31 +115,47 @@ export default function DoctorDetails() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-500" />
+      <div className="flex h-64 items-center justify-center">
+        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-teal-500" />
       </div>
     );
   }
 
   if (!doctor) {
     return (
-      <div className="text-gray-400 p-6">
+      <div className="p-6 text-gray-400">
         {pageError || "Doctor not found"}
       </div>
     );
   }
 
-  const totalAppointments = doctor.total_appointments || 0;
-  const completedAppointments = doctor.completed_appointments || 0;
-  const completionRate = totalAppointments > 0
-    ? Math.round((completedAppointments / totalAppointments) * 100)
-    : 0;
-
   const days = getNextDays(5);
+  const totalAppointments = doctor.total_appointments || 0;
+  const scheduledAppointments = doctor.scheduled_appointments || 0;
+  const ongoingAppointments = doctor.ongoing_appointments || 0;
+  const completedAppointments = doctor.completed_appointments || 0;
+  const cancelledAppointments = doctor.cancelled_appointments || 0;
+  const resolvedAppointments = completedAppointments + cancelledAppointments;
+  const completionRate = resolvedAppointments > 0
+    ? Math.round((completedAppointments / resolvedAppointments) * 100)
+    : 0;
+  const satisfactionPercent = doctor.rating
+    ? Math.round((doctor.rating / 5) * 100)
+    : 0;
+  const totalOpenSlots = days.reduce(
+    (total, day) => total + (schedule[day.date]?.length || 0),
+    0,
+  );
+  const daysWithOpenSlots = days.reduce(
+    (count, day) => count + ((schedule[day.date]?.length || 0) > 0 ? 1 : 0),
+    0,
+  );
+  const availabilityCoverage = doctor.is_available && !scheduleLoading && !scheduleError
+    ? Math.round((daysWithOpenSlots / days.length) * 100)
+    : 0;
 
   return (
     <div className="space-y-6 px-4 lg:px-0">
-      {/* Back button */}
       <button
         onClick={() => navigate("/doctors")}
         className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-teal-600"
@@ -140,30 +169,29 @@ export default function DoctorDetails() {
         </div>
       )}
 
-      {/* Header */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <div className="bg-white rounded-2xl border p-4 md:p-6">
-            <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
-              <div className="flex h-24 w-24 sm:h-28 sm:w-28 shrink-0 items-center justify-center rounded-2xl bg-teal-100 text-2xl sm:text-3xl font-bold text-teal-700">
+          <div className="rounded-2xl border bg-white p-4 md:p-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
+              <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl bg-teal-100 text-2xl font-bold text-teal-700 sm:h-28 sm:w-28 sm:text-3xl">
                 {getInitials(doctor.full_name)}
               </div>
 
               <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-3 flex-wrap">
-                <h1 className="text-xl sm:text-2xl font-semibold">
-                  {doctor.full_name}
-                </h1>
-                <Badge
-                  className={`rounded-full px-3 py-1 text-xs font-medium ${
-                    doctor.is_available
-                      ? "bg-teal-100 text-teal-700"
-                      : "bg-gray-100 text-gray-500"
-                  }`}
-                >
-                  {doctor.is_available ? "Available" : "Away"}
-                </Badge>
-              </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <h1 className="text-xl font-semibold sm:text-2xl">
+                    {doctor.full_name}
+                  </h1>
+                  <Badge
+                    className={`rounded-full px-3 py-1 text-xs font-medium ${
+                      doctor.is_available
+                        ? "bg-teal-100 text-teal-700"
+                        : "bg-gray-100 text-gray-500"
+                    }`}
+                  >
+                    {doctor.is_available ? "Available" : "Away"}
+                  </Badge>
+                </div>
 
                 <p className="mt-1 text-sm text-gray-500">
                   {doctor.specialty || "General Physician"}
@@ -197,7 +225,7 @@ export default function DoctorDetails() {
 
                 {doctor.rating != null && doctor.rating > 0 && (
                   <div className="mt-2 flex items-center gap-1">
-                    <Star size={14} className="text-amber-500 fill-amber-500" />
+                    <Star size={14} className="fill-amber-500 text-amber-500" />
                     <span className="text-sm font-medium">{doctor.rating.toFixed(1)}</span>
                   </div>
                 )}
@@ -205,36 +233,54 @@ export default function DoctorDetails() {
             </div>
 
             {doctor.bio && (
-              <div className="mt-6 pt-6 border-t">
-                <h3 className="text-sm font-semibold mb-2">About</h3>
-                <p className="text-sm text-gray-600 leading-relaxed">{doctor.bio}</p>
+              <div className="mt-6 border-t pt-6">
+                <h3 className="mb-2 text-sm font-semibold">About</h3>
+                <p className="text-sm leading-relaxed text-gray-600">{doctor.bio}</p>
               </div>
             )}
           </div>
         </div>
 
-        {/* Stats */}
         <div className="space-y-4">
-          <div className="bg-white rounded-2xl border p-4 md:p-5">
-            <h3 className="font-semibold text-sm mb-4">Quick Stats</h3>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">Total Visits</span>
-                <span className="font-medium">{totalAppointments}</span>
+          <div className="rounded-2xl border bg-white p-4 md:p-5">
+            <h3 className="mb-4 text-sm font-semibold">Quick Stats</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-xl bg-gray-50 px-3 py-2">
+                <p className="text-xs text-gray-500">Total Appointments</p>
+                <p className="mt-1 text-lg font-semibold text-gray-900">{totalAppointments}</p>
               </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">Completed</span>
-                <span className="font-medium">{completedAppointments}</span>
+              <div className="rounded-xl bg-green-50 px-3 py-2">
+                <p className="text-xs text-gray-500">Completed</p>
+                <p className="mt-1 text-lg font-semibold text-green-700">
+                  {completedAppointments}
+                </p>
               </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">Completion Rate</span>
-                <span className="font-medium">{completionRate}%</span>
+              <div className="rounded-xl bg-blue-50 px-3 py-2">
+                <p className="text-xs text-gray-500">Scheduled</p>
+                <p className="mt-1 text-lg font-semibold text-blue-700">
+                  {scheduledAppointments}
+                </p>
               </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">Consultation</span>
-                <span className="font-medium">
-                  {doctor.consultation_duration_minutes || 30} min
-                </span>
+              <div className="rounded-xl bg-amber-50 px-3 py-2">
+                <p className="text-xs text-gray-500">Ongoing</p>
+                <p className="mt-1 text-lg font-semibold text-amber-700">
+                  {ongoingAppointments}
+                </p>
+              </div>
+              <div className="rounded-xl bg-rose-50 px-3 py-2">
+                <p className="text-xs text-gray-500">Cancelled</p>
+                <p className="mt-1 text-lg font-semibold text-rose-700">
+                  {cancelledAppointments}
+                </p>
+              </div>
+              <div className="rounded-xl bg-teal-50 px-3 py-2">
+                <p className="text-xs text-gray-500">Completion Rate</p>
+                <p className="mt-1 text-lg font-semibold text-teal-700">{completionRate}%</p>
+                <p className="text-[11px] text-gray-400">
+                  {resolvedAppointments
+                    ? `${completedAppointments} of ${resolvedAppointments} resolved`
+                    : "No resolved appointments yet"}
+                </p>
               </div>
             </div>
           </div>
@@ -247,7 +293,7 @@ export default function DoctorDetails() {
                 })
               }
               disabled={!doctor.is_available}
-              className="w-full rounded-xl bg-teal-500 text-white py-3 text-sm font-medium hover:bg-teal-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full rounded-xl bg-teal-500 py-3 text-sm font-medium text-white hover:bg-teal-600 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {doctor.is_available ? "Book Appointment" : "Currently Unavailable"}
             </button>
@@ -255,10 +301,9 @@ export default function DoctorDetails() {
         </div>
       </div>
 
-      {/* Schedule */}
-      <div className="bg-white rounded-2xl border p-4 md:p-6">
-        <h3 className="font-semibold text-sm mb-4 flex items-center gap-2">
-          <Calendar size={16} /> Availability — Next 5 Days
+      <div className="rounded-2xl border bg-white p-4 md:p-6">
+        <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold">
+          <Calendar size={16} /> Availability - Next 5 Days
         </h3>
 
         {!doctor.is_available ? (
@@ -268,32 +313,35 @@ export default function DoctorDetails() {
             <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-teal-500" />
             Loading schedule...
           </div>
+        ) : scheduleError ? (
+          <p className="text-sm text-red-500">{scheduleError}</p>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
             {days.map((day) => {
               const slots = schedule[day.date] || [];
               const hasSlots = slots.length > 0;
+
               return (
                 <div
                   key={day.date}
                   className={`rounded-xl border p-3 ${
                     hasSlots
-                      ? "bg-teal-50 border-teal-200"
-                      : "bg-gray-50 border-gray-200"
+                      ? "border-teal-200 bg-teal-50"
+                      : "border-gray-200 bg-gray-50"
                   }`}
                 >
                   <p className="text-xs font-medium text-gray-700">{day.label}</p>
                   <p className="text-xs text-gray-400">{day.fullDate}</p>
                   {hasSlots ? (
                     <div className="mt-2 space-y-1">
-                      <p className="text-xs text-teal-600 font-medium">
+                      <p className="text-xs font-medium text-teal-600">
                         {slots.length} slot{slots.length > 1 ? "s" : ""}
                       </p>
                       <div className="flex flex-wrap gap-1">
                         {slots.slice(0, 3).map((slot) => (
                           <span
                             key={slot}
-                            className="text-xs bg-white px-1.5 py-0.5 rounded text-gray-600"
+                            className="rounded bg-white px-1.5 py-0.5 text-xs text-gray-600"
                           >
                             {slot}
                           </span>
@@ -313,59 +361,79 @@ export default function DoctorDetails() {
         )}
       </div>
 
-      {/* Performance */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-2xl border p-4 md:p-6">
-          <h3 className="font-semibold text-sm mb-4">Performance</h3>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="rounded-2xl border bg-white p-4 md:p-6">
+          <h3 className="mb-4 text-sm font-semibold">Performance</h3>
           <div className="space-y-4">
             <div>
-              <div className="flex justify-between text-sm mb-1">
+              <div className="mb-1 flex justify-between text-sm">
                 <span className="text-gray-500">Patient Satisfaction</span>
                 <span className="font-medium">
-                  {doctor.rating ? `${(doctor.rating / 5 * 100).toFixed(0)}%` : "N/A"}
+                  {doctor.rating ? `${doctor.rating.toFixed(1)} / 5` : "N/A"}
                 </span>
               </div>
-              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div className="h-2 overflow-hidden rounded-full bg-gray-100">
                 <div
-                  className="h-full bg-teal-500 rounded-full"
-                  style={{
-                    width: doctor.rating ? `${(doctor.rating / 5) * 100}%` : "0%",
-                  }}
+                  className="h-full rounded-full bg-teal-500"
+                  style={{ width: `${satisfactionPercent}%` }}
                 />
               </div>
             </div>
+
             <div>
-              <div className="flex justify-between text-sm mb-1">
+              <div className="mb-1 flex justify-between text-sm">
                 <span className="text-gray-500">Completion Rate</span>
                 <span className="font-medium">{completionRate}%</span>
               </div>
-              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div className="h-2 overflow-hidden rounded-full bg-gray-100">
                 <div
-                  className="h-full bg-green-500 rounded-full"
+                  className="h-full rounded-full bg-green-500"
                   style={{ width: `${completionRate}%` }}
                 />
               </div>
+              <p className="mt-1 text-xs text-gray-400">
+                {resolvedAppointments
+                  ? `${completedAppointments} completed out of ${resolvedAppointments} resolved appointments`
+                  : "Waiting for completed or cancelled appointments to measure resolution"}
+              </p>
             </div>
+
             <div>
-              <div className="flex justify-between text-sm mb-1">
-                <span className="text-gray-500">Availability</span>
+              <div className="mb-1 flex justify-between text-sm">
+                <span className="text-gray-500">Days With Open Slots</span>
                 <span className="font-medium">
-                  {doctor.is_available ? "Active" : "Inactive"}
+                  {!doctor.is_available
+                    ? "Unavailable"
+                    : scheduleLoading
+                    ? "Loading..."
+                    : scheduleError
+                    ? "Unavailable data"
+                    : `${daysWithOpenSlots}/${days.length}`}
                 </span>
               </div>
-              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div className="h-2 overflow-hidden rounded-full bg-gray-100">
                 <div
                   className={`h-full rounded-full ${
-                    doctor.is_available ? "bg-teal-500 w-full" : "bg-gray-300 w-0"
+                    doctor.is_available ? "bg-teal-500" : "bg-gray-300"
                   }`}
+                  style={{ width: `${availabilityCoverage}%` }}
                 />
               </div>
+              <p className="mt-1 text-xs text-gray-400">
+                {!doctor.is_available
+                  ? "Availability is turned off for this doctor."
+                  : scheduleLoading
+                  ? "Checking upcoming availability..."
+                  : scheduleError
+                  ? "Could not load the next 5 days of open slots."
+                  : `${totalOpenSlots} open slot${totalOpenSlots === 1 ? "" : "s"} across the next 5 days`}
+              </p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border p-4 md:p-6">
-          <h3 className="font-semibold text-sm mb-4">Doctor Info</h3>
+        <div className="rounded-2xl border bg-white p-4 md:p-6">
+          <h3 className="mb-4 text-sm font-semibold">Doctor Info</h3>
           <div className="space-y-3 text-sm">
             <div className="flex items-center justify-between">
               <span className="text-gray-500">License</span>

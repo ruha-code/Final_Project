@@ -28,6 +28,7 @@ export default function AppointmentTable({
   onCancel,
   onDoctorPrimaryAction,
   onComplete,
+  onView,
 }) {
   const grid = isPatientView ? PATIENT_GRID : STAFF_GRID;
 
@@ -48,6 +49,7 @@ export default function AppointmentTable({
               onCancel={onCancel}
               onDoctorPrimaryAction={onDoctorPrimaryAction}
               onComplete={onComplete}
+              onView={onView}
             />
           ))}
         </div>
@@ -85,7 +87,13 @@ function TableRow({ appointment, isPatientView, grid, actionLoading, ...actions 
   return (
     <div className={`grid items-center gap-4 px-6 py-4 text-sm ${grid}`}>
       {isPatientView ? (
-        <PatientCells appointment={appointment} dateTime={dateTime} actionLoading={actionLoading} onCancel={actions.onCancel} />
+        <PatientCells
+          appointment={appointment}
+          dateTime={dateTime}
+          actionLoading={actionLoading}
+          onCancel={actions.onCancel}
+          onView={actions.onView}
+        />
       ) : (
         <StaffCells appointment={appointment} dateTime={dateTime} actionLoading={actionLoading} {...actions} />
       )}
@@ -93,7 +101,7 @@ function TableRow({ appointment, isPatientView, grid, actionLoading, ...actions 
   );
 }
 
-function PatientCells({ appointment, dateTime, actionLoading, onCancel }) {
+function PatientCells({ appointment, dateTime, actionLoading, onCancel, onView }) {
   const canCancel = canCancelAppointment(appointment);
 
   return (
@@ -105,7 +113,14 @@ function PatientCells({ appointment, dateTime, actionLoading, onCancel }) {
         {canCancel ? (
           <CancelButton appointment={appointment} actionLoading={actionLoading} onCancel={onCancel} />
         ) : (
-          <span className="text-center text-xs text-gray-300">No actions</span>
+          <button
+            type="button"
+            onClick={() => onView(appointment)}
+            disabled={actionLoading === appointment.id}
+            className="min-w-[92px] rounded-lg bg-gray-100 px-3 py-1.5 text-center text-xs font-medium text-gray-700 hover:bg-gray-200 disabled:opacity-60"
+          >
+            View
+          </button>
         )}
       </div>
     </>

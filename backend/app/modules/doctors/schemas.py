@@ -220,7 +220,10 @@ class DoctorDetailResponse(DoctorResponse):
     avatar_url: Optional[str] = None
     department_name: Optional[str] = None
     total_appointments: int = 0
+    scheduled_appointments: int = 0
+    ongoing_appointments: int = 0
     completed_appointments: int = 0
+    cancelled_appointments: int = 0
  
  
 class ScheduleSlotCreate(BaseModel):

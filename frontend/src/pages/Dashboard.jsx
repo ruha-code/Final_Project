@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+  CalendarDays,
+  ClipboardList,
+} from "lucide-react";
+import {
   Bar,
   BarChart,
   CartesianGrid,
@@ -46,6 +50,57 @@ function isSameLocalDay(timestamp, nowTimestamp) {
   return (
     new Date(timestamp).toDateString() === new Date(nowTimestamp).toDateString()
   );
+}
+
+function getLocalDateKey(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getMonthCalendarDays(nowTimestamp) {
+  const today = new Date(nowTimestamp);
+  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+  const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  const leadDays = firstDay.getDay();
+  const days = [];
+
+  for (let i = 0; i < leadDays; i += 1) {
+    days.push(null);
+  }
+
+  for (let day = 1; day <= lastDay.getDate(); day += 1) {
+    days.push(new Date(today.getFullYear(), today.getMonth(), day));
+  }
+
+  while (days.length % 7 !== 0) {
+    days.push(null);
+  }
+
+  return days;
+}
+
+function buildCalendarStatusMap(appointments) {
+  return appointments.reduce((result, appointment) => {
+    const key = getLocalDateKey(appointment.appointment_time);
+    if (!key) return result;
+    const current = result[key] || {
+      scheduled: 0,
+      ongoing: 0,
+      completed: 0,
+      cancelled: 0,
+    };
+    if (appointment.status === "SCHEDULED") current.scheduled += 1;
+    if (appointment.status === "ONGOING") current.ongoing += 1;
+    if (appointment.status === "COMPLETED") current.completed += 1;
+    if (appointment.status === "CANCELLED") current.cancelled += 1;
+    result[key] = current;
+    return result;
+  }, {});
 }
 
 function SummaryCard({ title, value, subtitle }) {
@@ -186,6 +241,93 @@ function PatientAvatar({ name, size = "md" }) {
       className={`${sizeClass} shrink-0 rounded-full bg-teal-100 flex items-center justify-center font-semibold text-teal-700`}
     >
       {initials}
+    </div>
+  );
+}
+
+function MiniCalendarWidget({ appointments, nowTimestamp }) {
+  const navigate = useNavigate();
+  const today = new Date(nowTimestamp);
+  const todayKey = getLocalDateKey(today);
+  const calendarDays = getMonthCalendarDays(nowTimestamp);
+  const statusByDay = buildCalendarStatusMap(appointments);
+  const monthLabel = today.toLocaleDateString("en-GB", {
+    month: "long",
+    year: "numeric",
+  });
+
+  return (
+    <div className="rounded-2xl border border-gray-100 bg-white p-4 sm:p-5 shadow-sm">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xs sm:text-sm font-semibold text-gray-900">
+            Clinic Calendar
+          </h2>
+          <p className="mt-0.5 text-xs text-gray-400">{monthLabel}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => navigate("/calendar")}
+          className="rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+        >
+          Open
+        </button>
+      </div>
+
+      <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-semibold uppercase text-gray-400">
+        {["S", "M", "T", "W", "T", "F", "S"].map((day, index) => (
+          <span key={`${day}-${index}`}>{day}</span>
+        ))}
+      </div>
+
+      <div className="mt-2 grid grid-cols-7 gap-1">
+        {calendarDays.map((date, index) => {
+          if (!date) {
+            return <span key={`empty-${index}`} className="h-9" aria-hidden="true" />;
+          }
+
+          const dateKey = getLocalDateKey(date);
+          const meta = statusByDay[dateKey] || {};
+          const hasAppointments = Object.values(meta).some(Boolean);
+          const isToday = dateKey === todayKey;
+
+          return (
+            <button
+              key={dateKey}
+              type="button"
+              onClick={() => navigate("/appointments")}
+              className={`flex h-9 flex-col items-center justify-center rounded-xl text-xs transition ${
+                isToday
+                  ? "bg-teal-500 font-semibold text-white"
+                  : hasAppointments
+                    ? "bg-teal-50 text-gray-800 hover:bg-teal-100"
+                    : "text-gray-400 hover:bg-gray-50"
+              }`}
+            >
+              <span>{date.getDate()}</span>
+              {hasAppointments && (
+                <span className="mt-0.5 flex gap-0.5">
+                  {meta.scheduled > 0 && <span className="h-1 w-1 rounded-full bg-blue-500" />}
+                  {meta.ongoing > 0 && <span className="h-1 w-1 rounded-full bg-teal-500" />}
+                  {meta.cancelled > 0 && <span className="h-1 w-1 rounded-full bg-red-500" />}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-x-3 gap-y-2 text-[11px] text-gray-500">
+        <span className="inline-flex items-center gap-1">
+          <span className="h-2 w-2 rounded-full bg-blue-500" /> Scheduled
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <span className="h-2 w-2 rounded-full bg-teal-500" /> Ongoing
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <span className="h-2 w-2 rounded-full bg-red-500" /> Cancelled
+        </span>
+      </div>
     </div>
   );
 }
@@ -368,53 +510,6 @@ function DoctorDashboard({ appointments, patients, nowTimestamp }) {
         )}
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid gap-3 sm:grid-cols-3">
-        <button
-          onClick={() => navigate("/my-patients")}
-          className="group flex items-center gap-3 rounded-2xl border border-gray-100 bg-white px-4 py-4 text-left shadow-sm hover:border-teal-200 hover:bg-teal-50 transition-colors"
-        >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-teal-100 text-teal-600 group-hover:bg-teal-500 group-hover:text-white transition-colors">
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-gray-800">My Patients</p>
-            <p className="text-xs text-gray-400">View patient list</p>
-          </div>
-        </button>
-
-        <button
-          onClick={() => navigate("/messages")}
-          className="group flex items-center gap-3 rounded-2xl border border-gray-100 bg-white px-4 py-4 text-left shadow-sm hover:border-teal-200 hover:bg-teal-50 transition-colors"
-        >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600 group-hover:bg-teal-500 group-hover:text-white transition-colors">
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-            </svg>
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-gray-800">Messages</p>
-            <p className="text-xs text-gray-400">Check inbox</p>
-          </div>
-        </button>
-
-        <button
-          onClick={() => navigate("/schedule")}
-          className="group flex items-center gap-3 rounded-2xl border border-gray-100 bg-white px-4 py-4 text-left shadow-sm hover:border-teal-200 hover:bg-teal-50 transition-colors"
-        >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-purple-100 text-purple-600 group-hover:bg-teal-500 group-hover:text-white transition-colors">
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-gray-800">Schedule</p>
-            <p className="text-xs text-gray-400">Manage availability</p>
-          </div>
-        </button>
-      </div>
     </div>
   );
 }
@@ -426,30 +521,86 @@ function AdminDashboard({
   recentAppointments,
   topDoctors,
   agendaItems,
+  appointments,
+  doctors,
+  nowTimestamp,
 }) {
+  const navigate = useNavigate();
   const safeAgendaItems = Array.isArray(agendaItems) ? agendaItems : [];
+  const todayKey = getLocalDateKey(nowTimestamp);
+  const todayAppointments = appointments.filter(
+    (item) => getLocalDateKey(item.appointment_time) === todayKey,
+  );
+  const todayScheduled = todayAppointments.filter(
+    (item) => item.status === "SCHEDULED",
+  ).length;
+  const todayOngoing = todayAppointments.filter(
+    (item) => item.status === "ONGOING",
+  ).length;
+  const availableDoctors = doctors.filter((doctor) => doctor.is_available).length;
 
   return (
     <div className="flex flex-col gap-4 sm:gap-6 xl:flex-row xl:gap-6">
       {/* Левая основная часть */}
       <div className="flex-1 space-y-4 sm:space-y-6 min-w-0">
         {/* SummaryCards: 1 колонка → 3 колонки */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-5">
           <SummaryCard
             title="Total Patients"
             value={stats.totalPatients.toLocaleString()}
             subtitle="Registered patients"
           />
           <SummaryCard
-            title="Appointments"
-            value={stats.appointments.toLocaleString()}
-            subtitle="Total in system"
+            title="Today's Appointments"
+            value={todayAppointments.length.toLocaleString()}
+            subtitle={`${todayScheduled} scheduled today`}
           />
           <SummaryCard
-            title="Doctors"
-            value={stats.doctors}
-            subtitle="Active clinicians"
+            title="Ongoing"
+            value={todayOngoing.toLocaleString()}
+            subtitle="Currently active"
           />
+          <SummaryCard
+            title="Available Doctors"
+            value={`${availableDoctors}/${stats.doctors}`}
+            subtitle="Marked available"
+          />
+        </div>
+
+        <div className="rounded-2xl border border-gray-100 bg-white p-4 sm:p-5 shadow-sm">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xs sm:text-sm font-semibold text-gray-900">
+                Today Overview
+              </h2>
+              <p className="mt-0.5 text-xs text-gray-400">
+                Clinic activity for the current workday
+              </p>
+            </div>
+            <ClipboardList size={18} className="text-teal-500" />
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="rounded-xl bg-gray-50 p-3">
+              <p className="text-lg font-semibold text-gray-900">
+                {todayAppointments.length}
+              </p>
+              <p className="mt-0.5 text-xs text-gray-400">Total today</p>
+            </div>
+            <div className="rounded-xl bg-blue-50 p-3">
+              <p className="text-lg font-semibold text-blue-700">{todayScheduled}</p>
+              <p className="mt-0.5 text-xs text-gray-400">Scheduled</p>
+            </div>
+            <div className="rounded-xl bg-teal-50 p-3">
+              <p className="text-lg font-semibold text-teal-700">{todayOngoing}</p>
+              <p className="mt-0.5 text-xs text-gray-400">Ongoing</p>
+            </div>
+            <div className="rounded-xl bg-green-50 p-3">
+              <p className="text-lg font-semibold text-green-700">
+                {availableDoctors}
+              </p>
+              <p className="mt-0.5 text-xs text-gray-400">Doctors available</p>
+            </div>
+          </div>
         </div>
 
         {/* Графики: 1 колонка → 2 колонки */}
@@ -521,11 +672,13 @@ function AdminDashboard({
               recentAppointments.map((item) => {
                 const info = formatDateTime(item.appointment_time);
                 return (
-                  <div
-                    key={item.id}
-                    className="grid grid-cols-5 items-center rounded-xl bg-gray-50 px-4 py-3 mb-2 last:mb-0"
-                  >
-                    <span className="font-medium text-gray-700 text-sm">
+                <button
+                  type="button"
+                  onClick={() => navigate("/appointments")}
+                  key={item.id}
+                  className="grid w-full grid-cols-5 items-center rounded-xl bg-gray-50 px-4 py-3 mb-2 text-left transition hover:bg-teal-50 last:mb-0"
+                >
+                    <span className="font-medium text-gray-700 text-sm hover:text-teal-700">
                       {item.patient_name}
                     </span>
                     <span className="text-gray-500 text-sm">
@@ -540,7 +693,7 @@ function AdminDashboard({
                     >
                       {item.status}
                     </Badge>
-                  </div>
+                  </button>
                 );
               })
             )}
@@ -554,9 +707,11 @@ function AdminDashboard({
               recentAppointments.map((item) => {
                 const info = formatDateTime(item.appointment_time);
                 return (
-                  <div
+                  <button
+                    type="button"
+                    onClick={() => navigate("/appointments")}
                     key={item.id}
-                    className="rounded-xl bg-gray-50 px-4 py-3 space-y-1"
+                    className="w-full rounded-xl bg-gray-50 px-4 py-3 text-left space-y-1 transition hover:bg-teal-50"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <p className="font-medium text-gray-700 text-sm truncate">
@@ -575,7 +730,7 @@ function AdminDashboard({
                       </span>
                       <span>{info.date}</span>
                     </div>
-                  </div>
+                  </button>
                 );
               })
             )}
@@ -585,6 +740,8 @@ function AdminDashboard({
 
       {/* Правая боковая панель: под контентом на мобиле, сбоку на xl */}
       <div className="xl:w-80 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-4 sm:gap-6 xl:space-y-0">
+        <MiniCalendarWidget appointments={appointments} nowTimestamp={nowTimestamp} />
+
         {/* Action Queue */}
         <div className="rounded-2xl border border-gray-100 bg-white p-4 sm:p-5 shadow-sm">
           <h2 className="mb-3 sm:mb-4 text-xs sm:text-sm font-semibold">
@@ -597,15 +754,22 @@ function AdminDashboard({
           ) : (
             <div className="space-y-3">
               {safeAgendaItems.map((event) => (
-                <div key={event.id} className="rounded-xl bg-teal-50 p-3">
-                  <p className="text-xs sm:text-sm font-medium text-gray-800">
-                    {event.title}
-                  </p>
-                  <p className="text-xs capitalize text-gray-400">
-                    {event.category?.toLowerCase()}
-                  </p>
+                <button
+                  key={event.id}
+                  type="button"
+                  onClick={() => navigate("/appointments")}
+                  className="w-full rounded-xl bg-teal-50 p-3 text-left transition hover:bg-teal-100"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-xs sm:text-sm font-medium text-gray-800">
+                      {event.title}
+                    </p>
+                    <Badge className={`rounded-full px-2 py-0.5 text-[11px] ${getStatusClass(event.category)}`}>
+                      {event.category}
+                    </Badge>
+                  </div>
                   <p className="mt-1 text-xs text-gray-500">{event.subtitle}</p>
-                </div>
+                </button>
               ))}
             </div>
           )}
@@ -806,6 +970,8 @@ export default function Dashboard() {
     appointments: 0,
   });
   const [recentAppointments, setRecentAppointments] = useState([]);
+  const [adminAppointments, setAdminAppointments] = useState([]);
+  const [adminDoctors, setAdminDoctors] = useState([]);
   const [agendaItems, setAgendaItems] = useState([]);
   const [topDoctors, setTopDoctors] = useState([]);
   const [barData, setBarData] = useState([]);
@@ -859,6 +1025,8 @@ export default function Dashboard() {
             appointments: sortedAppointments.length,
           });
           setRecentAppointments(sortedAppointments.slice(0, 5));
+          setAdminAppointments(sortedAppointments);
+          setAdminDoctors(doctorList);
           setTopDoctors(
             buildDoctorScheduleSummary(doctorList, sortedAppointments),
           );
@@ -897,6 +1065,8 @@ export default function Dashboard() {
             appointments: appointmentList.length,
           });
           setRecentAppointments(appointmentList);
+          setAdminAppointments([]);
+          setAdminDoctors([]);
           setDoctorPatients(patientList);
           setTopDoctors([]);
           setBarData([]);
@@ -929,6 +1099,8 @@ export default function Dashboard() {
             appointments: appointmentList.length,
           });
           setRecentAppointments(appointmentList);
+          setAdminAppointments([]);
+          setAdminDoctors([]);
           setTopDoctors([]);
           setBarData([]);
           setLineData([]);
@@ -981,6 +1153,9 @@ export default function Dashboard() {
       recentAppointments={recentAppointments}
       topDoctors={topDoctors}
       agendaItems={agendaItems}
+      appointments={adminAppointments}
+      doctors={adminDoctors}
+      nowTimestamp={snapshotTime}
     />
   );
 }

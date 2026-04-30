@@ -13,7 +13,6 @@ import {
   Users,
   CheckCircle,
   XCircle,
-  MapPin,
   Clock3,
 } from "lucide-react";
 
@@ -29,11 +28,11 @@ function StatCard({ title, value, icon: Icon, color }) {
   return (
     <div className="flex items-center justify-between rounded-2xl border bg-white p-4 sm:p-5">
       <div>
-        <p className="text-xs sm:text-sm text-gray-400">{title}</p>
-        <h2 className="mt-1 text-xl sm:text-2xl font-bold">{value}</h2>
+        <p className="text-xs text-gray-400 sm:text-sm">{title}</p>
+        <h2 className="mt-1 text-xl font-bold sm:text-2xl">{value}</h2>
       </div>
-      <div className={`flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl ${color}`}>
-        {Icon && <Icon size={16} className="sm:w-[18px] sm:h-[18px]" />}
+      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl sm:h-10 sm:w-10 ${color}`}>
+        {Icon && <Icon size={16} className="sm:h-[18px] sm:w-[18px]" />}
       </div>
     </div>
   );
@@ -93,12 +92,12 @@ function PerformanceTooltip({ active, payload }) {
   return (
     <div className="rounded-lg border bg-white p-3 text-xs shadow-sm">
       <p className="mb-2 text-sm font-semibold text-gray-800">{point.name}</p>
+      <p className="text-gray-600">Total: {point.total}</p>
       <p className="text-gray-600">Completed: {point.completed}</p>
+      <p className="text-gray-600">Scheduled: {point.scheduled}</p>
+      <p className="text-gray-600">Ongoing: {point.ongoing}</p>
       <p className="text-gray-600">Cancelled: {point.cancelled}</p>
-      <p className="text-gray-600">Pending: {point.pending}</p>
-      <p className="mt-1 font-medium text-gray-700">
-        Completion rate: {point.rate}%
-      </p>
+      <p className="mt-1 font-medium text-gray-700">Completion rate: {point.rate}%</p>
     </div>
   );
 }
@@ -107,7 +106,7 @@ function getCompletionNote(doctor) {
   const rate = Math.round((doctor.completion_rate || 0) * 100);
   if (doctor.total === 0) return "No appointments in selected period";
   if (rate === 0) return "No completed appointments in selected period";
-  return `${doctor.completed}/${doctor.total} appointments completed`;
+  return `${doctor.completed}/${doctor.total} completed - ${doctor.ongoing} ongoing - ${doctor.scheduled} scheduled`;
 }
 
 export default function Analytics() {
@@ -118,13 +117,13 @@ export default function Analytics() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
-  const dateRangeInvalid = Boolean(
-    startDate && endDate && startDate > endDate,
-  );
+  const dateRangeInvalid = Boolean(startDate && endDate && startDate > endDate);
 
   useEffect(() => {
     const fetchAll = async () => {
       if (dateRangeInvalid) {
+        setDoctorStats([]);
+        setDemand([]);
         setLoading(false);
         setError("Start date must be earlier than or equal to end date.");
         return;
@@ -152,20 +151,20 @@ export default function Analytics() {
           api.get(`/analytics/demand${suffix}`),
         ]);
 
-        const enriched = stats.map((item) => {
+        const enriched = (stats || []).map((item) => {
           const total = Number(item.total) || 0;
           const completed = Number(item.completed) || 0;
           const cancelled = Number(item.cancelled) || 0;
-          const pending = Number.isFinite(item.pending)
-            ? Number(item.pending)
-            : Math.max(total - completed - cancelled, 0);
+          const scheduled = Number(item.scheduled) || 0;
+          const ongoing = Number(item.ongoing) || 0;
 
           return {
             ...item,
             total,
             completed,
             cancelled,
-            pending,
+            scheduled,
+            ongoing,
             completion_rate: Number(item.completion_rate) || 0,
             doctor_name: normalizeDoctorName(
               item.doctor_name || `Doctor #${item.doctor_id}`,
@@ -176,10 +175,7 @@ export default function Analytics() {
         setDoctorStats(enriched);
         setDemand(
           [...(demandData || [])]
-            .sort(
-              (left, right) =>
-                Number(right.count || 0) - Number(left.count || 0),
-            )
+            .sort((left, right) => Number(right.count || 0) - Number(left.count || 0))
             .slice(0, 10),
         );
       } catch (err) {
@@ -194,9 +190,16 @@ export default function Analytics() {
     void fetchAll();
   }, [startDate, endDate, dateRangeInvalid]);
 
+  const activeDoctorStats = useMemo(
+    () => doctorStats.filter((item) => item.total > 0),
+    [doctorStats],
+  );
+
+  const inactiveDoctorCount = doctorStats.length - activeDoctorStats.length;
+
   const sortedDoctorStats = useMemo(
     () =>
-      [...doctorStats].sort((left, right) => {
+      [...activeDoctorStats].sort((left, right) => {
         if (right.completion_rate !== left.completion_rate) {
           return right.completion_rate - left.completion_rate;
         }
@@ -205,7 +208,17 @@ export default function Analytics() {
         }
         return left.doctor_name.localeCompare(right.doctor_name);
       }),
-    [doctorStats],
+    [activeDoctorStats],
+  );
+
+  const volumeSortedDoctorStats = useMemo(
+    () =>
+      [...activeDoctorStats].sort((left, right) => {
+        if (right.total !== left.total) return right.total - left.total;
+        if (right.completed !== left.completed) return right.completed - left.completed;
+        return left.doctor_name.localeCompare(right.doctor_name);
+      }),
+    [activeDoctorStats],
   );
 
   const periodLabel = useMemo(
@@ -221,66 +234,62 @@ export default function Analytics() {
     () => doctorStats.reduce((sum, item) => sum + item.completed, 0),
     [doctorStats],
   );
+  const totalScheduled = useMemo(
+    () => doctorStats.reduce((sum, item) => sum + item.scheduled, 0),
+    [doctorStats],
+  );
+  const totalOngoing = useMemo(
+    () => doctorStats.reduce((sum, item) => sum + item.ongoing, 0),
+    [doctorStats],
+  );
   const totalCancelled = useMemo(
     () => doctorStats.reduce((sum, item) => sum + item.cancelled, 0),
     [doctorStats],
   );
-  const totalPending = useMemo(
-    () => doctorStats.reduce((sum, item) => sum + item.pending, 0),
-    [doctorStats],
-  );
 
-  const avgCompletion = useMemo(() => {
-    if (doctorStats.length === 0) return 0;
-    return Math.round(
-      (doctorStats.reduce(
-        (sum, item) => sum + (item.completion_rate || 0),
-        0,
-      ) /
-        doctorStats.length) *
-        100,
-    );
-  }, [doctorStats]);
+  const clinicCompletionRate = useMemo(() => {
+    if (totalAppointments === 0) return 0;
+    return Math.round((totalCompleted / totalAppointments) * 100);
+  }, [totalAppointments, totalCompleted]);
 
   const chartData = useMemo(
     () =>
-      sortedDoctorStats.map((item) => ({
+      volumeSortedDoctorStats.map((item) => ({
         name: item.doctor_name,
         label: shortenLabel(item.doctor_name),
+        total: item.total,
         completed: item.completed,
+        scheduled: item.scheduled,
+        ongoing: item.ongoing,
         cancelled: item.cancelled,
-        pending: item.pending,
         rate: Math.round(item.completion_rate * 100),
       })),
-    [sortedDoctorStats],
+    [volumeSortedDoctorStats],
   );
 
   return (
     <div className="space-y-4 sm:space-y-5 md:space-y-6">
-
-      {/* Заголовок + фильтры дат */}
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-xl sm:text-2xl font-semibold">Analytics</h1>
-          <p className="text-xs sm:text-sm text-gray-400">
+          <h1 className="text-xl font-semibold sm:text-2xl">Analytics</h1>
+          <p className="text-xs text-gray-400 sm:text-sm">
             Clinic performance overview for {periodLabel}
           </p>
         </div>
 
-        {/* Фильтры: в колонку на мобиле, в ряд на sm+ */}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <input
             type="date"
             value={startDate}
             onChange={(event) => setStartDate(event.target.value)}
-            className="w-full sm:w-auto rounded-xl border bg-white px-3 py-2 text-xs sm:text-sm"
+            className="w-full rounded-xl border bg-white px-3 py-2 text-xs sm:w-auto sm:text-sm"
             aria-label="Start date"
           />
           <input
             type="date"
             value={endDate}
             onChange={(event) => setEndDate(event.target.value)}
-            className="w-full sm:w-auto rounded-xl border bg-white px-3 py-2 text-xs sm:text-sm"
+            className="w-full rounded-xl border bg-white px-3 py-2 text-xs sm:w-auto sm:text-sm"
             aria-label="End date"
           />
           <button
@@ -289,7 +298,7 @@ export default function Analytics() {
               setStartDate("");
               setEndDate("");
             }}
-            className="w-full sm:w-auto rounded-xl border bg-white px-4 py-2 text-xs sm:text-sm text-gray-700 hover:bg-gray-50 transition"
+            className="w-full rounded-xl border bg-white px-4 py-2 text-xs text-gray-700 transition hover:bg-gray-50 sm:w-auto sm:text-sm"
           >
             Clear
           </button>
@@ -297,7 +306,7 @@ export default function Analytics() {
       </div>
 
       {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs sm:text-sm text-red-600">
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-600 sm:text-sm">
           {error}
         </div>
       )}
@@ -308,8 +317,7 @@ export default function Analytics() {
         </div>
       ) : (
         <>
-          {/* Stat Cards: 2 колонки на мобиле, 3 на md, 5 на xl */}
-          <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-6">
             <StatCard
               title="Total Appointments"
               value={totalAppointments}
@@ -323,40 +331,45 @@ export default function Analytics() {
               color="bg-green-100 text-green-600"
             />
             <StatCard
+              title="Scheduled"
+              value={totalScheduled}
+              icon={Clock3}
+              color="bg-amber-100 text-amber-600"
+            />
+            <StatCard
+              title="Ongoing"
+              value={totalOngoing}
+              icon={Users}
+              color="bg-blue-100 text-blue-600"
+            />
+            <StatCard
               title="Cancelled"
               value={totalCancelled}
               icon={XCircle}
               color="bg-red-100 text-red-500"
             />
             <StatCard
-              title="Pending"
-              value={totalPending}
-              icon={Clock3}
-              color="bg-amber-100 text-amber-600"
-            />
-            {/* Avg Completion Rate на мобиле занимает всю строку */}
-            <StatCard
-              title="Avg Completion Rate"
-              value={`${avgCompletion}%`}
-              icon={Users}
-              color="bg-blue-100 text-blue-600"
+              title="Clinic Completion Rate"
+              value={`${clinicCompletionRate}%`}
+              icon={CheckCircle}
+              color="bg-emerald-100 text-emerald-600"
             />
           </div>
 
-          {/* График + Completion Rates: в колонку на мобиле/планшете, в ряд на xl */}
           <div className="grid gap-4 sm:gap-6 xl:grid-cols-3">
-
-            {/* График */}
-            <div className="xl:col-span-2 rounded-2xl border bg-white p-4 sm:p-5">
-              <h3 className="mb-3 sm:mb-4 text-sm sm:text-base font-semibold">
-                Doctor Performance
+            <div className="rounded-2xl border bg-white p-4 sm:p-5 xl:col-span-2">
+              <h3 className="mb-2 text-sm font-semibold sm:text-base">
+                Doctor Appointment Mix
               </h3>
+              <p className="mb-3 text-xs text-gray-500">
+                Sorted by total appointment volume for the selected period.
+              </p>
+
               {chartData.length === 0 ? (
-                <p className="py-10 text-center text-xs sm:text-sm text-gray-400">
+                <p className="py-10 text-center text-xs text-gray-400 sm:text-sm">
                   No doctor performance data for the selected period.
                 </p>
               ) : (
-                /* На мобиле чуть меньше высота */
                 <ResponsiveContainer width="100%" height={260} className="sm:!h-[300px]">
                   <BarChart
                     data={chartData}
@@ -380,15 +393,21 @@ export default function Analytics() {
                       radius={[4, 4, 0, 0]}
                     />
                     <Bar
-                      name="Cancelled"
-                      dataKey="cancelled"
-                      fill="#f87171"
+                      name="Scheduled"
+                      dataKey="scheduled"
+                      fill="#f59e0b"
                       radius={[4, 4, 0, 0]}
                     />
                     <Bar
-                      name="Pending"
-                      dataKey="pending"
-                      fill="#f59e0b"
+                      name="Ongoing"
+                      dataKey="ongoing"
+                      fill="#3b82f6"
+                      radius={[4, 4, 0, 0]}
+                    />
+                    <Bar
+                      name="Cancelled"
+                      dataKey="cancelled"
+                      fill="#f87171"
                       radius={[4, 4, 0, 0]}
                     />
                   </BarChart>
@@ -396,14 +415,19 @@ export default function Analytics() {
               )}
             </div>
 
-            {/* Completion Rates */}
             <div className="rounded-2xl border bg-white p-4 sm:p-5">
-              <h3 className="mb-3 sm:mb-4 text-sm sm:text-base font-semibold">
+              <h3 className="mb-3 text-sm font-semibold sm:text-base">
                 Completion Rates (Sorted)
               </h3>
+              {inactiveDoctorCount > 0 && (
+                <p className="mb-3 text-xs text-gray-500">
+                  {inactiveDoctorCount} doctor{inactiveDoctorCount === 1 ? "" : "s"} had no appointments in this period and are hidden from the ranking.
+                </p>
+              )}
+
               <div className="space-y-3">
                 {sortedDoctorStats.length === 0 ? (
-                  <p className="text-xs sm:text-sm text-gray-400">
+                  <p className="text-xs text-gray-400 sm:text-sm">
                     No completion data.
                   </p>
                 ) : (
@@ -413,7 +437,7 @@ export default function Analytics() {
                       <div key={doctor.doctor_id}>
                         <div className="mb-1 flex justify-between text-xs text-gray-500">
                           <span
-                            className="max-w-[150px] sm:max-w-[180px] truncate"
+                            className="max-w-[150px] truncate sm:max-w-[180px]"
                             title={doctor.doctor_name}
                           >
                             {doctor.doctor_name}
@@ -435,66 +459,6 @@ export default function Analytics() {
                 )}
               </div>
             </div>
-          </div>
-
-          {/* Top Demand Areas */}
-          <div className="rounded-2xl border bg-white p-4 sm:p-5">
-            <h3 className="mb-3 sm:mb-4 flex items-center gap-2 text-sm sm:text-base font-semibold">
-              <MapPin size={16} className="text-teal-500 shrink-0" /> Top Demand Areas
-            </h3>
-            {demand.length === 0 ? (
-              <p className="py-6 text-center text-xs sm:text-sm text-gray-400">
-                No location-based demand data for this period. This usually
-                means appointments have no mapped location.
-              </p>
-            ) : (
-              <div className="overflow-x-auto -mx-4 sm:mx-0">
-                <div className="min-w-[480px] px-4 sm:px-0 sm:min-w-0">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b text-xs text-gray-400">
-                        <th className="py-2 text-left font-medium">H3 Index</th>
-                        <th className="py-2 text-left font-medium">Latitude</th>
-                        <th className="py-2 text-left font-medium">Longitude</th>
-                        <th className="py-2 text-left font-medium">Appointments</th>
-                        <th className="py-2 text-left font-medium">Demand</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {demand.map((item) => (
-                        <tr key={item.h3_index} className="border-t hover:bg-gray-50">
-                          <td className="py-2.5 sm:py-3 font-mono text-xs text-gray-500">
-                            {item.h3_index}
-                          </td>
-                          <td className="py-2.5 sm:py-3 text-xs sm:text-sm">
-                            {item.center_lat?.toFixed(4)}
-                          </td>
-                          <td className="py-2.5 sm:py-3 text-xs sm:text-sm">
-                            {item.center_lon?.toFixed(4)}
-                          </td>
-                          <td className="py-2.5 sm:py-3 text-xs sm:text-sm font-semibold">
-                            {item.count}
-                          </td>
-                          <td className="py-2.5 sm:py-3">
-                            <div className="h-2 w-16 sm:w-24 rounded-full bg-gray-100">
-                              <div
-                                className="h-2 rounded-full bg-teal-500"
-                                style={{
-                                  width: `${Math.min(
-                                    (item.count / (demand[0]?.count || 1)) * 100,
-                                    100,
-                                  )}%`,
-                                }}
-                              />
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
           </div>
         </>
       )}

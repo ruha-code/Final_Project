@@ -26,10 +26,6 @@ export function canCancelAppointment(appointment) {
   return appointment.status === "SCHEDULED" || appointment.status === "ONGOING";
 }
 
-export function canAdminDeleteAppointment(appointment) {
-  return appointment.status === "CANCELLED";
-}
-
 export function canCompleteAppointment(appointment) {
   return appointment.status === "ONGOING";
 }

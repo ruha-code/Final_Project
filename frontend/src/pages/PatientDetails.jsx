@@ -111,6 +111,8 @@ export default function PatientDetails() {
   const location = useLocation();
   const navigate = useNavigate();
   const { isAdmin, isDoctor } = useAuth();
+  const canEditDoctorNotes = isDoctor() && !isAdmin();
+  const canManagePatientStatus = isAdmin() || isDoctor();
 
   const [patient, setPatient] = useState(null);
   const [vitals, setVitals] = useState([]);
@@ -231,6 +233,7 @@ export default function PatientDetails() {
     }));
 
   const handleSaveNotes = async () => {
+    if (!canEditDoctorNotes) return;
     setNotesError("");
     setNotesSuccess("");
     const normalized = normalizeWhitespace(noteForm.notes);
@@ -250,7 +253,6 @@ export default function PatientDetails() {
       setSavingProfile(true);
       const updated = await api.put(`/patients/${id}/doctor-notes`, {
         notes: normalized,
-        patient_status: noteForm.patient_status,
         condition: normalizedCondition || null,
       });
       setPatient((prev) => ({ ...prev, ...updated }));
@@ -278,6 +280,27 @@ export default function PatientDetails() {
       setNotesSuccess("Blood type updated successfully.");
     } catch (err) {
       setNotesError(toErrorMessage(err, "Failed to update blood type."));
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handleSavePatientStatus = async () => {
+    try {
+      setSavingProfile(true);
+      setNotesError("");
+      setNotesSuccess("");
+      const updated = await api.put(`/patients/${id}`, {
+        patient_status: noteForm.patient_status,
+      });
+      setPatient(updated);
+      setNoteForm((prev) => ({
+        ...prev,
+        patient_status: updated.patient_status || prev.patient_status,
+      }));
+      setNotesSuccess("Patient status updated successfully.");
+    } catch (err) {
+      setNotesError(toErrorMessage(err, "Failed to update patient status."));
     } finally {
       setSavingProfile(false);
     }
@@ -627,6 +650,32 @@ export default function PatientDetails() {
         </div>
 
         <div className="space-y-6">
+          {canManagePatientStatus && (
+            <div className="rounded-2xl border bg-white p-4 sm:p-6 shadow-sm">
+              <h2 className="mb-4 text-sm font-semibold">Patient Status</h2>
+
+              <div className="flex items-center justify-between gap-3">
+                <select
+                  value={noteForm.patient_status}
+                  onChange={(e) => setNoteForm({ ...noteForm, patient_status: e.target.value })}
+                  className="rounded-lg border bg-white px-3 py-2 text-xs"
+                >
+                  <option value="IN_TREATMENT">In Treatment</option>
+                  {patient.patient_type === "INPATIENT" && <option value="ADMITTED">Admitted</option>}
+                  <option value="DISCHARGED">Discharged</option>
+                </select>
+
+                <button
+                  onClick={handleSavePatientStatus}
+                  disabled={savingProfile || noteForm.patient_status === patient.patient_status}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-teal-500 px-3 py-2 text-xs font-medium text-white hover:bg-teal-600 disabled:opacity-60"
+                >
+                  <Save size={14} /> {savingProfile ? "Saving..." : "Save"}
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="rounded-2xl border bg-white p-4 sm:p-6 shadow-sm">
             <h2 className="text-sm font-semibold flex items-center gap-2 mb-4">
               <MessageSquare size={14} /> Doctor Notes
@@ -635,6 +684,12 @@ export default function PatientDetails() {
             {notesError && (
               <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">
                 {notesError}
+              </div>
+            )}
+
+            {!canEditDoctorNotes && (
+              <div className="mb-3 rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-500">
+                Doctor notes are read-only for admin accounts.
               </div>
             )}
 
@@ -647,9 +702,10 @@ export default function PatientDetails() {
                 type="text"
                 value={noteForm.condition}
                 onChange={(e) => setNoteForm({ ...noteForm, condition: e.target.value })}
-                placeholder="e.g. Hypertension, Pregnancy, Diabetes..."
+                placeholder={canEditDoctorNotes ? "e.g. Hypertension, Pregnancy, Diabetes..." : ""}
                 maxLength={200}
-                className="w-full rounded-xl border bg-gray-50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400"
+                readOnly={!canEditDoctorNotes}
+                className={`w-full rounded-xl border px-3 py-2 text-sm outline-none ${canEditDoctorNotes ? "bg-gray-50 focus:ring-2 focus:ring-teal-400" : "cursor-default bg-gray-100 text-gray-600"}`}
               />
               <p className="mt-0.5 text-right text-xs text-gray-400">
                 {noteForm.condition.length}/200
@@ -665,29 +721,22 @@ export default function PatientDetails() {
                 value={noteForm.notes}
                 onChange={(e) => setNoteForm({ ...noteForm, notes: e.target.value })}
                 rows={4}
-                placeholder="Add clinical notes, observations, treatment plan..."
-                className="w-full rounded-xl border bg-gray-50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400 resize-none"
+                placeholder={canEditDoctorNotes ? "Add clinical notes, observations, treatment plan..." : ""}
+                readOnly={!canEditDoctorNotes}
+                className={`w-full rounded-xl border px-3 py-2 text-sm outline-none resize-none ${canEditDoctorNotes ? "bg-gray-50 focus:ring-2 focus:ring-teal-400" : "cursor-default bg-gray-100 text-gray-600"}`}
               />
             </div>
 
-            <div className="flex items-center justify-between gap-3">
-              <select
-                value={noteForm.patient_status}
-                onChange={(e) => setNoteForm({ ...noteForm, patient_status: e.target.value })}
-                className="rounded-lg border bg-white px-3 py-2 text-xs"
-              >
-                <option value="IN_TREATMENT">In Treatment</option>
-                <option value="ADMITTED">Admitted</option>
-                <option value="DISCHARGED">Discharged</option>
-              </select>
-
-              <button
-                onClick={handleSaveNotes}
-                disabled={savingProfile}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-teal-500 text-white px-3 py-2 text-xs font-medium hover:bg-teal-600 disabled:opacity-60"
-              >
-                <Save size={14} /> {savingProfile ? "Saving..." : "Save"}
-              </button>
+            <div className="flex items-center justify-end gap-3">
+              {canEditDoctorNotes && (
+                <button
+                  onClick={handleSaveNotes}
+                  disabled={savingProfile}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-teal-500 px-3 py-2 text-xs font-medium text-white hover:bg-teal-600 disabled:opacity-60"
+                >
+                  <Save size={14} /> {savingProfile ? "Saving..." : "Save"}
+                </button>
+              )}
             </div>
           </div>
 

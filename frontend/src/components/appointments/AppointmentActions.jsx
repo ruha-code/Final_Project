@@ -1,4 +1,11 @@
-import { MoreVertical, Trash2 } from "lucide-react";
+import { CheckCircle2, MoreVertical, XCircle } from "lucide-react";
+
+const MENU_TONES = {
+  default: "text-gray-600 hover:bg-gray-50",
+  success: "text-green-700 hover:bg-green-50",
+  danger: "text-red-600 hover:bg-red-50",
+  teal: "text-teal-700 hover:bg-teal-50",
+};
 
 export function AppointmentActionMenu({
   appointment,
@@ -9,9 +16,24 @@ export function AppointmentActionMenu({
   setOpenActionMenu,
   onCancel,
   onComplete,
+  items,
   align = "top",
 }) {
-  const hasMenu = canCancel || canComplete;
+  const menuItems = items || [
+    canComplete && {
+      label: "Complete",
+      icon: CheckCircle2,
+      tone: "success",
+      onClick: () => onComplete(appointment.id),
+    },
+    canCancel && {
+      label: "Cancel",
+      icon: XCircle,
+      tone: "danger",
+      onClick: () => onCancel(appointment.id),
+    },
+  ].filter(Boolean);
+  const hasMenu = menuItems.length > 0;
 
   return (
     <div className="relative shrink-0">
@@ -31,34 +53,29 @@ export function AppointmentActionMenu({
       </button>
       {openActionMenu === appointment.id && (
         <div
-          className={`absolute right-0 z-10 w-36 overflow-hidden rounded-xl border bg-white shadow-lg ${
+          className={`absolute right-0 z-10 w-44 overflow-hidden rounded-xl border bg-white shadow-lg ${
             align === "bottom" ? "bottom-10" : "top-11"
           }`}
         >
-          {canComplete && (
-            <button
-              type="button"
-              onClick={() => {
-                setOpenActionMenu(null);
-                onComplete(appointment.id);
-              }}
-              className="block w-full px-3 py-2 text-left text-xs font-medium text-green-700 hover:bg-green-50"
-            >
-              Complete
-            </button>
-          )}
-          {canCancel && (
-            <button
-              type="button"
-              onClick={() => {
-                setOpenActionMenu(null);
-                void onCancel(appointment.id);
-              }}
-              className="block w-full px-3 py-2 text-left text-xs font-medium text-red-600 hover:bg-red-50"
-            >
-              Cancel
-            </button>
-          )}
+          {menuItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.label}
+                type="button"
+                onClick={() => {
+                  setOpenActionMenu(null);
+                  void item.onClick();
+                }}
+                className={`flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium ${
+                  MENU_TONES[item.tone] || MENU_TONES.default
+                }`}
+              >
+                {Icon && <Icon size={13} />}
+                {item.label}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
@@ -89,29 +106,25 @@ export function DoctorPrimaryActionButton({
   );
 }
 
-export function AdminActionButton({ appointment, actionLoading, onCancel, onDelete }) {
-  if (appointment.status === "CANCELLED") {
-    return (
-      <button
-        onClick={() => onDelete(appointment)}
-        disabled={actionLoading === appointment.id}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:border-red-100 hover:bg-red-50 hover:text-red-600 disabled:opacity-60"
-        aria-label="Delete appointment"
-      >
-        <Trash2 size={12} /> Delete
-      </button>
-    );
-  }
-
-  if (appointment.status !== "SCHEDULED" && appointment.status !== "ONGOING") return null;
-
+export function AdminAppointmentActions({
+  appointment,
+  actionLoading,
+  setOpenActionMenu,
+  onView,
+}) {
   return (
-    <button
-      onClick={() => void onCancel(appointment.id)}
-      disabled={actionLoading === appointment.id}
-      className="rounded-lg border border-red-100 bg-red-50 px-3 py-1.5 text-center text-xs font-semibold text-red-600 transition hover:bg-red-100 disabled:opacity-60"
-    >
-      {actionLoading === appointment.id ? "Updating..." : "Cancel"}
-    </button>
+    <div className="flex w-full items-center justify-center">
+      <button
+        type="button"
+        onClick={() => {
+          setOpenActionMenu(null);
+          onView(appointment);
+        }}
+        disabled={actionLoading === appointment.id}
+        className="inline-flex h-9 w-[88px] items-center justify-center rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        View
+      </button>
+    </div>
   );
 }

@@ -23,13 +23,17 @@ from app.modules.doctors.schemas import (
 
 router = APIRouter()
 doctor_only = RoleChecker([UserRole.DOCTOR])
+EMPTY_APPOINTMENT_COUNTS = (0, 0, 0, 0, 0)
 
 
 def _build_detail(
     doctor: Doctor,
     *,
     total_appointments: int = 0,
+    scheduled_appointments: int = 0,
+    ongoing_appointments: int = 0,
     completed_appointments: int = 0,
+    cancelled_appointments: int = 0,
 ) -> DoctorDetailResponse:
     """Merge Doctor + User + Department into one response dict."""
     return DoctorDetailResponse(
@@ -52,14 +56,17 @@ def _build_detail(
         phone=doctor.user.phone,
         avatar_url=doctor.user.avatar_url,
         total_appointments=total_appointments,
+        scheduled_appointments=scheduled_appointments,
+        ongoing_appointments=ongoing_appointments,
         completed_appointments=completed_appointments,
+        cancelled_appointments=cancelled_appointments,
     )
 
 
 async def _get_appointment_counts(
     doctor_ids: list[int],
     db: AsyncSession,
-) -> dict[int, tuple[int, int]]:
+) -> dict[int, tuple[int, int, int, int, int]]:
     if not doctor_ids:
         return {}
 
@@ -68,15 +75,30 @@ async def _get_appointment_counts(
             Appointment.doctor_id,
             func.count(Appointment.id).label("total"),
             func.sum(
+                func.cast(Appointment.status == AppointmentStatus.SCHEDULED, Integer)
+            ).label("scheduled"),
+            func.sum(
+                func.cast(Appointment.status == AppointmentStatus.ONGOING, Integer)
+            ).label("ongoing"),
+            func.sum(
                 func.cast(Appointment.status == AppointmentStatus.COMPLETED, Integer)
             ).label("completed"),
+            func.sum(
+                func.cast(Appointment.status == AppointmentStatus.CANCELLED, Integer)
+            ).label("cancelled"),
         )
         .where(Appointment.doctor_id.in_(doctor_ids))
         .group_by(Appointment.doctor_id)
     )
     return {
-        doctor_id: (int(total or 0), int(completed or 0))
-        for doctor_id, total, completed in result.all()
+        doctor_id: (
+            int(total or 0),
+            int(scheduled or 0),
+            int(ongoing or 0),
+            int(completed or 0),
+            int(cancelled or 0),
+        )
+        for doctor_id, total, scheduled, ongoing, completed, cancelled in result.all()
     }
 
 
@@ -132,8 +154,11 @@ async def list_doctors(
     return [
         _build_detail(
             doctor,
-            total_appointments=counts.get(doctor.id, (0, 0))[0],
-            completed_appointments=counts.get(doctor.id, (0, 0))[1],
+            total_appointments=counts.get(doctor.id, EMPTY_APPOINTMENT_COUNTS)[0],
+            scheduled_appointments=counts.get(doctor.id, EMPTY_APPOINTMENT_COUNTS)[1],
+            ongoing_appointments=counts.get(doctor.id, EMPTY_APPOINTMENT_COUNTS)[2],
+            completed_appointments=counts.get(doctor.id, EMPTY_APPOINTMENT_COUNTS)[3],
+            cancelled_appointments=counts.get(doctor.id, EMPTY_APPOINTMENT_COUNTS)[4],
         )
         for doctor in doctors
     ]
@@ -183,8 +208,18 @@ async def setup_doctor_profile(
         entity_id=doctor.id,
     )
     counts = await _get_appointment_counts([doctor.id], db)
-    total, completed = counts.get(doctor.id, (0, 0))
-    return _build_detail(doctor, total_appointments=total, completed_appointments=completed)
+    total, scheduled, ongoing, completed, cancelled = counts.get(
+        doctor.id,
+        EMPTY_APPOINTMENT_COUNTS,
+    )
+    return _build_detail(
+        doctor,
+        total_appointments=total,
+        scheduled_appointments=scheduled,
+        ongoing_appointments=ongoing,
+        completed_appointments=completed,
+        cancelled_appointments=cancelled,
+    )
 
 
 @router.get("/me", response_model=DoctorDetailResponse, summary="Get my doctor profile")
@@ -201,8 +236,18 @@ async def get_my_doctor_profile(
     if not doctor:
         raise NotFoundException("Doctor profile not found. Please set it up first.")
     counts = await _get_appointment_counts([doctor.id], db)
-    total, completed = counts.get(doctor.id, (0, 0))
-    return _build_detail(doctor, total_appointments=total, completed_appointments=completed)
+    total, scheduled, ongoing, completed, cancelled = counts.get(
+        doctor.id,
+        EMPTY_APPOINTMENT_COUNTS,
+    )
+    return _build_detail(
+        doctor,
+        total_appointments=total,
+        scheduled_appointments=scheduled,
+        ongoing_appointments=ongoing,
+        completed_appointments=completed,
+        cancelled_appointments=cancelled,
+    )
 
 
 @router.put(
@@ -265,8 +310,18 @@ async def update_my_doctor_profile(
         entity_id=doctor.id,
     )
     counts = await _get_appointment_counts([doctor.id], db)
-    total, completed = counts.get(doctor.id, (0, 0))
-    return _build_detail(doctor, total_appointments=total, completed_appointments=completed)
+    total, scheduled, ongoing, completed, cancelled = counts.get(
+        doctor.id,
+        EMPTY_APPOINTMENT_COUNTS,
+    )
+    return _build_detail(
+        doctor,
+        total_appointments=total,
+        scheduled_appointments=scheduled,
+        ongoing_appointments=ongoing,
+        completed_appointments=completed,
+        cancelled_appointments=cancelled,
+    )
 
 
 @router.post(
@@ -363,8 +418,18 @@ async def get_doctor_by_id(
     if not doctor:
         raise NotFoundException("Doctor not found")
     counts = await _get_appointment_counts([doctor.id], db)
-    total, completed = counts.get(doctor.id, (0, 0))
-    return _build_detail(doctor, total_appointments=total, completed_appointments=completed)
+    total, scheduled, ongoing, completed, cancelled = counts.get(
+        doctor.id,
+        EMPTY_APPOINTMENT_COUNTS,
+    )
+    return _build_detail(
+        doctor,
+        total_appointments=total,
+        scheduled_appointments=scheduled,
+        ongoing_appointments=ongoing,
+        completed_appointments=completed,
+        cancelled_appointments=cancelled,
+    )
 
 
 @router.get(
@@ -506,8 +571,18 @@ async def update_doctor_admin(
         db, current_user.id, "UPDATE_DOCTOR", entity_type="Doctor", entity_id=doctor.id
     )
     counts = await _get_appointment_counts([doctor.id], db)
-    total, completed = counts.get(doctor.id, (0, 0))
-    return _build_detail(doctor, total_appointments=total, completed_appointments=completed)
+    total, scheduled, ongoing, completed, cancelled = counts.get(
+        doctor.id,
+        EMPTY_APPOINTMENT_COUNTS,
+    )
+    return _build_detail(
+        doctor,
+        total_appointments=total,
+        scheduled_appointments=scheduled,
+        ongoing_appointments=ongoing,
+        completed_appointments=completed,
+        cancelled_appointments=cancelled,
+    )
 
 
 @router.delete("/{doctor_id}", status_code=204, summary="Delete doctor (Admin)")

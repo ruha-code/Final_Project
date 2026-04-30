@@ -4,7 +4,10 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
 import AppointmentList from "../components/appointments/AppointmentList";
-import { CompleteModal, DeleteConfirmModal } from "../components/appointments/AppointmentModals";
+import {
+  AppointmentDetailsModal,
+  CompleteModal,
+} from "../components/appointments/AppointmentModals";
 import BookingModal from "../components/appointments/BookingModal";
 import {
   AdminAppointmentControls,
@@ -44,7 +47,7 @@ export default function Appointments() {
   const [showBooking, setShowBooking] = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
   const [completeModal, setCompleteModal] = useState(null);
-  const [deleteModal, setDeleteModal] = useState(null);
+  const [detailsModal, setDetailsModal] = useState(null);
   const [openActionMenu, setOpenActionMenu] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [bookingContext, setBookingContext] = useState({
@@ -151,24 +154,11 @@ export default function Appointments() {
       }
       return;
     }
-    openPatientCase(appointment);
-  };
-
-  const handleDelete = async (appointmentId) => {
-    try {
-      setActionLoading(appointmentId);
-      await api.delete(`/appointments/${appointmentId}`);
-      setFeedback({ tone: "success", message: "Appointment deleted successfully." });
-      setDeleteModal(null);
-      triggerReload();
-    } catch (err) {
-      setFeedback({
-        tone: "error",
-        message: err.message || "Failed to delete appointment",
-      });
-    } finally {
-      setActionLoading(null);
+    if (appointment.status === "ONGOING") {
+      openPatientCase(appointment);
+      return;
     }
+    setDetailsModal(appointment);
   };
 
   const todayKey = getTodayLocalDate();
@@ -258,7 +248,7 @@ export default function Appointments() {
           onCancel={handleCancel}
           onDoctorPrimaryAction={handleDoctorPrimaryAction}
           onComplete={setCompleteModal}
-          onDelete={setDeleteModal}
+          onView={setDetailsModal}
         />
       </div>
       {showBooking && (
@@ -282,12 +272,10 @@ export default function Appointments() {
         />
       )}
 
-      {deleteModal && (
-        <DeleteConfirmModal
-          appointment={deleteModal}
-          onClose={() => setDeleteModal(null)}
-          onConfirm={handleDelete}
-          loading={actionLoading === deleteModal.id}
+      {detailsModal && (
+        <AppointmentDetailsModal
+          appointment={detailsModal}
+          onClose={() => setDetailsModal(null)}
         />
       )}
     </>

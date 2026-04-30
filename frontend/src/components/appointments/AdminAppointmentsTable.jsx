@@ -1,29 +1,23 @@
 import { formatAppointmentDateTime } from "../../utils/dateTime";
-import {
-  canAdminDeleteAppointment,
-  canCancelAppointment,
-  formatVisitType,
-} from "./appointmentUtils";
+import { formatVisitType } from "./appointmentUtils";
 import { getRelativeStartLabel } from "./appointmentDisplayUtils";
-import { AdminActionButton } from "./AppointmentActions";
+import { AdminAppointmentActions } from "./AppointmentActions";
 import StatusBadge from "./StatusBadge";
 
 const GRID_WITH_ACTIONS =
-  "grid-cols-[minmax(0,1.45fr)_minmax(0,1.1fr)_minmax(0,0.95fr)_88px_76px_112px_116px]";
-const GRID_NO_ACTIONS =
-  "grid-cols-[minmax(0,1.45fr)_minmax(0,1.1fr)_minmax(0,0.95fr)_88px_76px_112px]";
+  "grid-cols-[minmax(0,1.35fr)_minmax(0,1.05fr)_minmax(0,0.9fr)_88px_76px_112px_128px]";
 
-export default function AdminAppointmentsTable({ appointments, actionLoading, onCancel, onDelete }) {
-  const showActions = appointments.some(
-    (appointment) => canCancelAppointment(appointment) || canAdminDeleteAppointment(appointment),
-  );
-  const grid = showActions ? GRID_WITH_ACTIONS : GRID_NO_ACTIONS;
-
+export default function AdminAppointmentsTable({
+  appointments,
+  actionLoading,
+  setOpenActionMenu,
+  onView,
+}) {
   return (
     <div className="hidden overflow-x-auto lg:block">
       <div className="min-w-[980px]">
         <div
-          className={`grid gap-4 border-b bg-gray-50 px-5 py-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400 ${grid}`}
+          className={`grid gap-4 border-b bg-gray-50 px-5 py-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400 ${GRID_WITH_ACTIONS}`}
         >
           <span>Patient</span>
           <span>Doctor</span>
@@ -31,7 +25,7 @@ export default function AdminAppointmentsTable({ appointments, actionLoading, on
           <span>Date</span>
           <span>Time</span>
           <span className="text-center">Status</span>
-          {showActions && <span className="text-right">Actions</span>}
+          <span className="text-center">Actions</span>
         </div>
 
         <div className="divide-y divide-gray-100">
@@ -40,10 +34,8 @@ export default function AdminAppointmentsTable({ appointments, actionLoading, on
               key={appointment.id}
               appointment={appointment}
               actionLoading={actionLoading}
-              onCancel={onCancel}
-              onDelete={onDelete}
-              grid={grid}
-              showActions={showActions}
+              setOpenActionMenu={setOpenActionMenu}
+              onView={onView}
             />
           ))}
         </div>
@@ -52,12 +44,17 @@ export default function AdminAppointmentsTable({ appointments, actionLoading, on
   );
 }
 
-function AdminAppointmentRow({ appointment, actionLoading, onCancel, onDelete, grid, showActions }) {
+function AdminAppointmentRow({
+  appointment,
+  actionLoading,
+  setOpenActionMenu,
+  onView,
+}) {
   const dateTime = formatAppointmentDateTime(appointment.appointment_time);
   const startHint = getRelativeStartLabel(appointment.appointment_time);
 
   return (
-    <div className={`grid items-center gap-4 px-5 py-3 text-sm transition hover:bg-slate-50 ${grid}`}>
+    <div className={`grid items-center gap-4 px-5 py-3 text-sm transition hover:bg-slate-50 ${GRID_WITH_ACTIONS}`}>
       <div className="min-w-0">
         <p className="truncate font-semibold text-gray-900">{appointment.patient_name}</p>
         <p className="truncate text-xs text-gray-400">{appointment.reason || "No reason provided"}</p>
@@ -72,16 +69,12 @@ function AdminAppointmentRow({ appointment, actionLoading, onCancel, onDelete, g
       <div className="flex items-center justify-center">
         <StatusBadge status={appointment.status} />
       </div>
-      {showActions && (
-        <div className="flex items-center justify-end gap-2">
-          <AdminActionButton
-            appointment={appointment}
-            actionLoading={actionLoading}
-            onCancel={onCancel}
-            onDelete={onDelete}
-          />
-        </div>
-      )}
+      <AdminAppointmentActions
+        appointment={appointment}
+        actionLoading={actionLoading}
+        setOpenActionMenu={setOpenActionMenu}
+        onView={onView}
+      />
     </div>
   );
 }

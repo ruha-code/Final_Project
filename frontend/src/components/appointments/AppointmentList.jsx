@@ -19,7 +19,7 @@ export default function AppointmentList({
   onCancel,
   onDoctorPrimaryAction,
   onComplete,
-  onDelete,
+  onView,
 }) {
   const actionProps = {
     actionLoading,
@@ -28,7 +28,7 @@ export default function AppointmentList({
     onCancel,
     onDoctorPrimaryAction,
     onComplete,
-    onDelete,
+    onView,
   };
 
   return (
@@ -47,8 +47,10 @@ export default function AppointmentList({
             <AdminAppointmentsTable
               appointments={appointments}
               actionLoading={actionLoading}
+              openActionMenu={openActionMenu}
+              setOpenActionMenu={setOpenActionMenu}
               onCancel={onCancel}
-              onDelete={onDelete}
+              onView={onView}
             />
           )}
           {!isDoctorView && !isAdminView && (

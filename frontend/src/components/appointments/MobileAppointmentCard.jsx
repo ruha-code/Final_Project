@@ -1,13 +1,11 @@
-import { Trash2 } from "lucide-react";
-
 import { formatAppointmentDateTime } from "../../utils/dateTime";
 import {
-  canAdminDeleteAppointment,
   canCancelAppointment,
   canCompleteAppointment,
   formatVisitType,
 } from "./appointmentUtils";
 import {
+  AdminAppointmentActions,
   AppointmentActionMenu,
 } from "./AppointmentActions";
 import {
@@ -27,15 +25,13 @@ export default function MobileAppointmentCard({
   onCancel,
   onDoctorPrimaryAction,
   onComplete,
-  onDelete,
+  onView,
 }) {
   const dateTime = formatAppointmentDateTime(appointment.appointment_time);
   const canCancel = canCancelAppointment(appointment);
   const canComplete = isDoctorView && canCompleteAppointment(appointment);
   const startHint = getRelativeStartLabel(appointment.appointment_time);
   const doctorAction = isDoctorView ? getDoctorPrimaryAction(appointment.status) : null;
-  const canAdminCancel = isAdminView && canCancel;
-  const canAdminDelete = isAdminView && canAdminDeleteAppointment(appointment);
 
   return (
     <div className="flex flex-col gap-3 border-b p-4 last:border-none hover:bg-gray-50">
@@ -69,6 +65,9 @@ export default function MobileAppointmentCard({
         {isPatientView && canCancel && (
           <CancelButton appointment={appointment} actionLoading={actionLoading} onCancel={onCancel} />
         )}
+        {isPatientView && !canCancel && (
+          <ViewButton appointment={appointment} actionLoading={actionLoading} onView={onView} />
+        )}
         {isDoctorView && doctorAction && (
           <button
             onClick={() => {
@@ -94,21 +93,33 @@ export default function MobileAppointmentCard({
             align="bottom"
           />
         )}
-        {canAdminCancel && <CancelButton appointment={appointment} actionLoading={actionLoading} onCancel={onCancel} />}
-        {canAdminDelete && (
-          <button
-            onClick={() => onDelete(appointment)}
-            disabled={actionLoading === appointment.id}
-            className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs text-gray-600 hover:bg-red-50 hover:text-red-600 disabled:opacity-60"
-          >
-            <Trash2 size={12} />
-          </button>
+        {isAdminView && (
+          <div className="w-full">
+            <AdminAppointmentActions
+              appointment={appointment}
+              actionLoading={actionLoading}
+              setOpenActionMenu={setOpenActionMenu}
+              onView={onView}
+            />
+          </div>
         )}
-        {!doctorAction && !canCancel && !canComplete && !isAdminView && (
+        {!doctorAction && !canCancel && !canComplete && !isAdminView && !isPatientView && (
           <span className="text-xs text-gray-300">No actions</span>
         )}
       </div>
     </div>
+  );
+}
+
+function ViewButton({ appointment, actionLoading, onView }) {
+  return (
+    <button
+      onClick={() => onView(appointment)}
+      disabled={actionLoading === appointment.id}
+      className="flex-1 rounded-lg bg-gray-100 px-3 py-1.5 text-center text-xs font-medium text-gray-700 hover:bg-gray-200 disabled:opacity-60"
+    >
+      View
+    </button>
   );
 }
 
