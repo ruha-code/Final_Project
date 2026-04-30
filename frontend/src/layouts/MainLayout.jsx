@@ -3,6 +3,7 @@ import { Search, Bell, CalendarClock, Package2, LogOut, MessageSquare, Settings,
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
+import { formatAppointmentDateTime } from "../utils/dateTime";
 import ChatBot from "../components/ChatBot";
 
 const TOAST_LIFETIME_MS = 5000;
@@ -30,6 +31,32 @@ const NOTIFICATION_TOAST_META = {
     actionLabel: "Open calendar",
   },
 };
+
+function stripDoctorPrefix(name) {
+  return (name || "").replace(/^dr\.?\s+/i, "").trim();
+}
+
+function formatNotificationMessage(notification) {
+  if (notification?.notification_type !== "APPOINTMENT" || !notification.created_at) {
+    return notification?.message || "";
+  }
+
+  const dateTime = formatAppointmentDateTime(notification.created_at);
+  const patientMatch = notification.message?.match(/^(.+?) at /);
+  const doctorMatch = notification.message?.match(/^With Dr\. (.+?) on /);
+
+  if (doctorMatch) {
+    return `With Dr. ${stripDoctorPrefix(doctorMatch[1])} on ${dateTime.date}, ${dateTime.time}.`;
+  }
+
+  if (patientMatch) {
+    return `${patientMatch[1]} at ${dateTime.date}, ${dateTime.time}.`;
+  }
+
+  return notification.message
+    ?.replace(/\b\d{1,2} [A-Za-z]{3}, \d{2}:\d{2} UTC\b/, `${dateTime.date}, ${dateTime.time}`)
+    || "";
+}
 
 function MainLayout({ children }) {
   const navigate = useNavigate();
@@ -735,7 +762,9 @@ function MainLayout({ children }) {
                               <span className="h-2 w-2 rounded-full bg-teal-500" />
                             )}
                           </div>
-                          <p className="text-xs text-gray-500">{notification.message}</p>
+                          <p className="text-xs text-gray-500">
+                            {formatNotificationMessage(notification)}
+                          </p>
                         </button>
                       ))}
                     </div>
@@ -939,7 +968,7 @@ function MainLayout({ children }) {
                         {notification.title || "New message"}
                       </p>
                       <p className="mt-1 text-sm text-gray-500">
-                        {notification.message}
+                        {formatNotificationMessage(notification)}
                       </p>
                       <p className="mt-2 text-xs font-medium text-teal-600">
                         {(NOTIFICATION_TOAST_META[notification.notification_type] || NOTIFICATION_TOAST_META.MESSAGE).actionLabel}

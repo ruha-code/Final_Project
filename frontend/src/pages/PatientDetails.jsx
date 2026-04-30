@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { Activity, HeartPulse, Mail, MapPin, MessageSquare, Phone, Stethoscope, UserRoundCheck, Plus, Save, X } from "lucide-react";
+import { Calendar, HeartPulse, Mail, MessageSquare, Phone, Stethoscope, Plus, Save, X } from "lucide-react";
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import Badge from "../components/Badge";
@@ -86,8 +86,6 @@ export default function PatientDetails() {
   const [notesError, setNotesError] = useState("");
   const [notesSuccess, setNotesSuccess] = useState("");
   const [vitalsSuccess, setVitalsSuccess] = useState("");
-  const [appointmentActionLoading, setAppointmentActionLoading] = useState(false);
-  const [appointmentActionError, setAppointmentActionError] = useState("");
 
   const [vitalsForm, setVitalsForm] = useState({
     blood_sugar: "",
