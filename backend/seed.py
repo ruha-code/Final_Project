@@ -423,22 +423,13 @@ APPOINTMENT_REASONS = [
 
 
 async def clear_all(session):
-    """Delete all rows in correct FK order."""
     print("Clearing existing data...")
-    for table in [
-        "messages",
-        "conversations",
-        "calendar_events",
-        "health_vitals",
-        "appointments",
-        "doctor_schedules",
-        "inventory_items",
-        "patients",
-        "doctors",
-        "departments",
-        "users",
-    ]:
-        await session.execute(text(f"DELETE FROM {table}"))
+    await session.execute(text(
+        "TRUNCATE TABLE notification_reads, notification_preferences, messages, "
+        "conversations, calendar_events, health_vitals, appointments, "
+        "doctor_schedules, inventory_items, patients, doctors, departments, users "
+        "RESTART IDENTITY CASCADE"
+    ))
     await session.commit()
     print("Done.\n")
 

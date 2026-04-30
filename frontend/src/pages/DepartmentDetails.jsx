@@ -9,15 +9,6 @@ import { useAuth } from "../context/AuthContext";
 const FALLBACK_IMG =
   "https://images.unsplash.com/photo-1584982751601-97dcc096659c";
 
-function getInitials(name) {
-  if (!name) return "?";
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase();
-}
-
 export default function DepartmentDetails() {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -41,9 +32,6 @@ export default function DepartmentDetails() {
   const unassignedDoctors = allDoctors.filter(
     (doctor) => doctor.department_id === null || doctor.department_id === undefined
   );
-
-  const doctorRosterUnavailable =
-    Boolean(loadWarning) && allDoctors.length === 0;
 
   const fetchData = useCallback(
     async (showLoader = true) => {

@@ -105,6 +105,11 @@ class HealthVital(Base):
     temperature: Mapped[float | None] = mapped_column(Float, nullable=True)  # °C
     systolic_bp: Mapped[int | None] = mapped_column(Integer, nullable=True)  # mmHg
     diastolic_bp: Mapped[int | None] = mapped_column(Integer, nullable=True)  # mmHg
+    heart_rate: Mapped[int | None] = mapped_column(Integer, nullable=True)  # bpm
+    oxygen_saturation: Mapped[float | None] = mapped_column(Float, nullable=True)  # SpO2 %
+    respiratory_rate: Mapped[int | None] = mapped_column(Integer, nullable=True)  # breaths/min
+    pain_score: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 0-10
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     recorded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

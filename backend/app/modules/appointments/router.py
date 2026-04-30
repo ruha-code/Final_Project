@@ -443,6 +443,8 @@ async def complete_appointment(
         raise ValidationException("Cannot complete a cancelled appointment")
     if appointment.status == AppointmentStatus.COMPLETED:
         raise ValidationException("Appointment is already completed")
+    if appointment.status != AppointmentStatus.ONGOING:
+        raise ValidationException("Start the appointment before completing it")
 
     appointment.status = AppointmentStatus.COMPLETED
     appointment.completed_at = datetime.now(timezone.utc)

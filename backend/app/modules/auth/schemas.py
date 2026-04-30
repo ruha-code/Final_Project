@@ -69,6 +69,55 @@ class RegisterSchema(BaseModel):
         return cleaned or None
 
 
+class AdminDoctorCreateSchema(RegisterSchema):
+    department_id: Optional[int] = None
+    specialty: Optional[str] = None
+    license_number: Optional[str] = None
+    license_status: Optional[str] = "PENDING"
+    rating: Optional[float] = 0
+    years_of_experience: Optional[int] = None
+    consultation_duration_minutes: int = 30
+
+    @field_validator("specialty", "license_number")
+    @classmethod
+    def strip_optional_strings(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        cleaned = v.strip()
+        return cleaned or None
+
+    @field_validator("years_of_experience")
+    @classmethod
+    def validate_experience(cls, v: Optional[int]) -> Optional[int]:
+        if v is not None and not 0 <= v <= 50:
+            raise ValueError("Years of experience must be between 0 and 50")
+        return v
+
+    @field_validator("consultation_duration_minutes")
+    @classmethod
+    def validate_duration(cls, v: int) -> int:
+        if not 10 <= v <= 120:
+            raise ValueError("Consultation duration must be between 10 and 120 minutes")
+        return v
+
+    @field_validator("rating")
+    @classmethod
+    def validate_rating(cls, v: Optional[float]) -> Optional[float]:
+        if v is not None and not 0 <= v <= 5:
+            raise ValueError("Rating must be between 0 and 5")
+        return v
+
+    @field_validator("license_status")
+    @classmethod
+    def validate_license_status(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return "PENDING"
+        cleaned = v.strip().upper()
+        if cleaned not in {"PENDING", "VERIFIED", "REJECTED", "EXPIRED"}:
+            raise ValueError("License status is invalid")
+        return cleaned
+
+
 class LoginSchema(BaseModel):
     email: EmailStr
     password: str

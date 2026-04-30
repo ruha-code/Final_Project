@@ -238,36 +238,6 @@ export default function DoctorProfile() {
         </div>
       </div>
 
-      {/* STATS ROW */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatItem
-          icon={Clock}
-          label="Consultation"
-          value={`${profile?.consultation_duration_minutes || 30} min`}
-          color="teal"
-        />
-        <StatItem
-          icon={Award}
-          label="Experience"
-          value={profile?.years_of_experience ? `${profile.years_of_experience} yrs` : "—"}
-          color="amber"
-        />
-        <StatItem
-          icon={Star}
-          label="Rating"
-          value={profile?.rating ? `${profile.rating.toFixed(1)} ★` : "—"}
-          color="purple"
-        />
-        <StatItem
-          icon={Calendar}
-          label="Member Since"
-          value={profile?.created_at
-            ? new Date(profile.created_at).toLocaleDateString("en-GB", { month: "short", year: "numeric" })
-            : "—"}
-          color="blue"
-        />
-      </div>
-
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-600 flex items-start gap-2">
           <ShieldAlert size={16} className="shrink-0 mt-0.5" />

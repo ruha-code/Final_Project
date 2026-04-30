@@ -40,9 +40,23 @@ function AddDoctorModal({ onClose, onCreated }) {
     email: "",
     password: "",
     phone: "",
+    department_id: "",
+    specialty: "",
+    license_number: "",
+    license_status: "PENDING",
+    rating: "0",
+    years_of_experience: "",
+    consultation_duration_minutes: "30",
   });
+  const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    api.get("/departments")
+      .then((data) => setDepartments(Array.isArray(data) ? data : []))
+      .catch(() => setDepartments([]));
+  }, []);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -96,6 +110,17 @@ function AddDoctorModal({ onClose, onCreated }) {
         email: normalizedEmail,
         password: form.password,
         phone: normalizedPhone || null,
+        department_id: form.department_id ? Number(form.department_id) : null,
+        specialty: form.specialty.trim() || null,
+        license_number: form.license_number.trim() || null,
+        license_status: form.license_status,
+        rating: parseFloat(form.rating) || 0,
+        years_of_experience: form.years_of_experience
+          ? Number(form.years_of_experience)
+          : 0,
+        consultation_duration_minutes: form.consultation_duration_minutes
+          ? Number(form.consultation_duration_minutes)
+          : 30,
       });
       onCreated();
       onClose();
@@ -108,7 +133,7 @@ function AddDoctorModal({ onClose, onCreated }) {
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-3 sm:p-0">
-      <div className="bg-white w-full max-w-[500px] rounded-2xl shadow-xl overflow-hidden">
+      <div className="bg-white w-full max-w-[500px] rounded-2xl shadow-xl overflow-hidden max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center px-4 sm:px-6 py-4 bg-teal-50">
           <h2 className="font-semibold">Add New Doctor</h2>
           <button onClick={onClose}>
@@ -186,6 +211,104 @@ function AddDoctorModal({ onClose, onCreated }) {
             />
           </div>
 
+          <div>
+            <label className="text-sm text-gray-500 mb-1 block">Department</label>
+            <select
+              name="department_id"
+              value={form.department_id}
+              onChange={handleChange}
+              className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-teal-400"
+            >
+              <option value="">No department</option>
+              {departments.map((department) => (
+                <option key={department.id} value={department.id}>
+                  {department.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-sm text-gray-500 mb-1 block">Specialty</label>
+            <input
+              name="specialty"
+              value={form.specialty}
+              onChange={handleChange}
+              placeholder="Cardiologist"
+              className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-teal-400"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm text-gray-500 mb-1 block">License Number</label>
+            <input
+              name="license_number"
+              value={form.license_number}
+              onChange={handleChange}
+              placeholder="Medical license number"
+              className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-teal-400"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className="text-sm text-gray-500 mb-1 block">License Status</label>
+              <select
+                name="license_status"
+                value={form.license_status}
+                onChange={handleChange}
+                className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-teal-400"
+              >
+                <option value="PENDING">Pending</option>
+                <option value="VERIFIED">Verified</option>
+                <option value="REJECTED">Rejected</option>
+                <option value="EXPIRED">Expired</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-sm text-gray-500 mb-1 block">Rating</label>
+              <input
+                name="rating"
+                type="number"
+                min="0"
+                max="5"
+                step="0.1"
+                value={form.rating}
+                onChange={handleChange}
+                className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-teal-400"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className="text-sm text-gray-500 mb-1 block">Experience</label>
+              <input
+                name="years_of_experience"
+                type="number"
+                min="0"
+                max="50"
+                value={form.years_of_experience}
+                onChange={handleChange}
+                placeholder="0"
+                className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-teal-400"
+              />
+            </div>
+            <div>
+              <label className="text-sm text-gray-500 mb-1 block">Consultation</label>
+              <input
+                name="consultation_duration_minutes"
+                type="number"
+                min="10"
+                max="120"
+                step="5"
+                value={form.consultation_duration_minutes}
+                onChange={handleChange}
+                className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-teal-400"
+              />
+            </div>
+          </div>
+
           <div className="flex flex-col sm:flex-row justify-end gap-3 pt-2">
             <button
               onClick={onClose}
@@ -212,6 +335,7 @@ export default function Doctors() {
   const { isAdmin, isPatient } = useAuth();
 
   const [doctors, setDoctors] = useState([]);
+  const [departmentOptions, setDepartmentOptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -239,6 +363,12 @@ export default function Doctors() {
     fetchDoctors();
   }, []);
 
+  useEffect(() => {
+    api.get("/departments")
+      .then((data) => setDepartmentOptions(Array.isArray(data) ? data : []))
+      .catch(() => setDepartmentOptions([]));
+  }, []);
+
   const handleDelete = async (id, e) => {
     e.stopPropagation();
     if (!window.confirm("Are you sure you want to delete this doctor?")) return;
@@ -256,6 +386,10 @@ export default function Doctors() {
     setEditForm({
       specialty: doc.specialty || "",
       bio: doc.bio || "",
+      department_id: doc.department_id ? String(doc.department_id) : "",
+      license_number: doc.license_number || "",
+      license_status: doc.license_status || "PENDING",
+      rating: doc.rating != null ? String(doc.rating) : "0",
       years_of_experience: doc.years_of_experience
         ? String(doc.years_of_experience)
         : "",
@@ -271,6 +405,10 @@ export default function Doctors() {
     try {
       await api.put(`/doctors/${editDoctor.id}`, {
         ...editForm,
+        department_id: editForm.department_id ? Number(editForm.department_id) : null,
+        license_number: editForm.license_number?.trim() || null,
+        license_status: editForm.license_status || "PENDING",
+        rating: parseFloat(editForm.rating) || 0,
         years_of_experience: parseIntegerInput(editForm.years_of_experience, 0),
         consultation_duration_minutes: parseIntegerInput(
           editForm.consultation_duration_minutes,
@@ -508,7 +646,7 @@ export default function Doctors() {
 
       {editDoctor && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-0">
-          <div className="bg-white w-full max-w-[500px] rounded-2xl shadow-xl overflow-hidden">
+          <div className="bg-white w-full max-w-[500px] rounded-2xl shadow-xl overflow-hidden max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center px-4 sm:px-6 py-4 bg-teal-50 border-b">
               <h2 className="font-semibold">
                 Edit Doctor - {editDoctor.full_name}
@@ -532,6 +670,72 @@ export default function Doctors() {
                   }
                   className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
                 />
+              </div>
+              <div>
+                <label className="text-sm text-gray-500 mb-1 block">
+                  Department
+                </label>
+                <select
+                  value={editForm.department_id}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, department_id: e.target.value })
+                  }
+                  className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
+                >
+                  <option value="">No department</option>
+                  {departmentOptions.map((department) => (
+                    <option key={department.id} value={department.id}>
+                      {department.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-sm text-gray-500 mb-1 block">
+                  License Number
+                </label>
+                <input
+                  value={editForm.license_number}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, license_number: e.target.value })
+                  }
+                  className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
+                />
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="text-sm text-gray-500 mb-1 block">
+                    License Status
+                  </label>
+                  <select
+                    value={editForm.license_status}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, license_status: e.target.value })
+                    }
+                    className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
+                  >
+                    <option value="PENDING">Pending</option>
+                    <option value="VERIFIED">Verified</option>
+                    <option value="REJECTED">Rejected</option>
+                    <option value="EXPIRED">Expired</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500 mb-1 block">
+                    Rating
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="5"
+                    step="0.1"
+                    value={editForm.rating}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, rating: e.target.value })
+                    }
+                    className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
+                  />
+                </div>
               </div>
               <div>
                 <label className="text-sm text-gray-500 mb-1 block">Bio</label>

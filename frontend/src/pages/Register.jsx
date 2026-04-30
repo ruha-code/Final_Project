@@ -13,33 +13,52 @@ function Register() {
     password: "",
     confirmPassword: "",
   });
+  const [fieldErrors, setFieldErrors] = useState({});
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   const handleChange = (e) => {
-    setForm((current) => ({
-      ...current,
-      [e.target.name]: e.target.value,
-    }));
+    const { name } = e.target;
+    setFieldErrors((c) => ({ ...c, [name]: "" }));
+    setError("");
+    setForm((current) => ({ ...current, [name]: e.target.value }));
+  };
+
+  const validateEmail = (value) =>
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+
+  const handleEmailBlur = () => {
+    if (form.email && !validateEmail(form.email)) {
+      setFieldErrors((c) => ({ ...c, email: "Please enter a valid email address" }));
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setFieldErrors({});
 
-    if (form.password !== form.confirmPassword) {
-      setError("Passwords do not match");
-      return;
-    }
+    const nextErrors = {};
 
-    if (form.username.length < 3) {
-      setError("Username must be at least 3 characters");
-      return;
-    }
+    if (!form.name.trim()) nextErrors.name = "Full name is required";
 
-    if (form.password.length < 8) {
-      setError("Password must be at least 8 characters");
+    if (form.username.length < 3)
+      nextErrors.username = "Username must be at least 3 characters";
+
+    if (!validateEmail(form.email))
+      nextErrors.email = "Please enter a valid email address";
+
+    if (form.password.length < 8)
+      nextErrors.password = "Password must be at least 8 characters";
+    else if (!/\d/.test(form.password))
+      nextErrors.password = "Password must contain at least one digit";
+
+    if (form.password !== form.confirmPassword)
+      nextErrors.confirmPassword = "Passwords do not match";
+
+    if (Object.keys(nextErrors).length) {
+      setFieldErrors(nextErrors);
       return;
     }
 
@@ -55,7 +74,14 @@ function Register() {
 
       navigate("/verify", { state: { email: form.email.trim() } });
     } catch (err) {
-      setError(err.message || "Failed to create account");
+      const msg = err.message || "Failed to create account";
+      if (msg.toLowerCase().includes("email already")) {
+        setFieldErrors({ email: "This email is already registered. Try logging in." });
+      } else if (msg.toLowerCase().includes("username already")) {
+        setFieldErrors({ username: "This username is already taken." });
+      } else {
+        setError(msg);
+      }
     } finally {
       setLoading(false);
     }
@@ -130,10 +156,10 @@ function Register() {
                 placeholder="John Doe"
                 value={form.name}
                 onChange={handleChange}
-                className="w-full p-2.5 sm:p-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent transition text-sm"
+                className={`w-full p-2.5 sm:p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent transition text-sm ${fieldErrors.name ? "border-red-300 bg-red-50" : "border-gray-200"}`}
                 autoComplete="name"
-                required
               />
+              {fieldErrors.name && <p className="mt-1 text-xs text-red-500">{fieldErrors.name}</p>}
             </div>
 
             <div>
@@ -146,11 +172,13 @@ function Register() {
                 placeholder="johndoe"
                 value={form.username}
                 onChange={handleChange}
-                className="w-full p-2.5 sm:p-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent transition text-sm"
+                className={`w-full p-2.5 sm:p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent transition text-sm ${fieldErrors.username ? "border-red-300 bg-red-50" : "border-gray-200"}`}
                 autoComplete="username"
-                required
               />
-              <p className="text-xs text-gray-400 mt-1">Minimum 3 characters</p>
+              {fieldErrors.username
+                ? <p className="mt-1 text-xs text-red-500">{fieldErrors.username}</p>
+                : <p className="text-xs text-gray-400 mt-1">Minimum 3 characters</p>
+              }
             </div>
 
             <div>
@@ -163,10 +191,11 @@ function Register() {
                 placeholder="you@example.com"
                 value={form.email}
                 onChange={handleChange}
-                className="w-full p-2.5 sm:p-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent transition text-sm"
+                onBlur={handleEmailBlur}
+                className={`w-full p-2.5 sm:p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent transition text-sm ${fieldErrors.email ? "border-red-300 bg-red-50" : "border-gray-200"}`}
                 autoComplete="email"
-                required
               />
+              {fieldErrors.email && <p className="mt-1 text-xs text-red-500">{fieldErrors.email}</p>}
             </div>
 
             <div>
@@ -180,9 +209,8 @@ function Register() {
                   placeholder="Create a strong password"
                   value={form.password}
                   onChange={handleChange}
-                  className="w-full p-2.5 sm:p-3 pr-12 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent transition text-sm"
+                  className={`w-full p-2.5 sm:p-3 pr-12 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent transition text-sm ${fieldErrors.password ? "border-red-300 bg-red-50" : "border-gray-200"}`}
                   autoComplete="new-password"
-                  required
                 />
                 <button
                   type="button"
@@ -201,9 +229,10 @@ function Register() {
                   )}
                 </button>
               </div>
-              <p className="text-xs text-gray-400 mt-1">
-                Minimum 8 characters, include a digit
-              </p>
+              {fieldErrors.password
+                ? <p className="mt-1 text-xs text-red-500">{fieldErrors.password}</p>
+                : <p className="text-xs text-gray-400 mt-1">Minimum 8 characters, include a digit</p>
+              }
             </div>
 
             <div>
@@ -216,10 +245,10 @@ function Register() {
                 placeholder="Re-enter your password"
                 value={form.confirmPassword}
                 onChange={handleChange}
-                className="w-full p-2.5 sm:p-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent transition text-sm"
+                className={`w-full p-2.5 sm:p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent transition text-sm ${fieldErrors.confirmPassword ? "border-red-300 bg-red-50" : "border-gray-200"}`}
                 autoComplete="new-password"
-                required
               />
+              {fieldErrors.confirmPassword && <p className="mt-1 text-xs text-red-500">{fieldErrors.confirmPassword}</p>}
             </div>
 
             <button

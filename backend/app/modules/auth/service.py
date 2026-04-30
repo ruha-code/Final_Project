@@ -123,22 +123,22 @@ class AuthService:
     async def forgot_password(self, email: str):
         result = await self.db.execute(select(User).where(User.email == email.lower()))
         user = result.scalar_one_or_none()
- 
+
         if not user:
-            return {"message": "If an account exists, a reset link has been sent"}
- 
+            raise ValidationException("No account found with this email address")
+
         reset_token = secrets.token_urlsafe(32)
         reset_expires = datetime.now(timezone.utc) + timedelta(minutes=30)
- 
+
         user.reset_token = reset_token
         user.reset_token_expires = reset_expires
- 
+
         await self.db.commit()
- 
+
         reset_link = f"{settings.FRONTEND_URL}/reset-password?token={reset_token}"
         await send_password_reset(user.email, user.full_name, reset_link)
- 
-        return {"message": "If an account exists, a reset link has been sent"}
+
+        return {"message": "Reset link sent to your email"}
  
     async def reset_password(self, token: str, new_password: str):
         result = await self.db.execute(select(User).where(User.reset_token == token))

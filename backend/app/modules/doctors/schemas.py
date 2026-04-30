@@ -7,6 +7,7 @@ from typing import Optional
 PHONE_E164_REGEX = re.compile(r"^\+[1-9]\d{9,14}$")
 SPECIALTY_ALLOWED_CHARS = {" ", "-", "'", ".", "/", "&", "(", ")"}
 NAME_ALLOWED_CHARS = {" ", "-", "'", "."}
+LICENSE_STATUSES = {"PENDING", "VERIFIED", "REJECTED", "EXPIRED"}
 
 
 def _normalize_whitespace(value: str) -> str:
@@ -108,10 +109,13 @@ class DoctorProfileUpdate(BaseModel):
     phone: Optional[str] = None
     department_id: Optional[int] = None
     specialty: Optional[str] = None
+    license_number: Optional[str] = None
     years_of_experience: Optional[int] = None
     consultation_duration_minutes: Optional[int] = None
     bio: Optional[str] = None
     is_available: Optional[bool] = None
+    rating: Optional[float] = None
+    license_status: Optional[str] = None
 
     @field_validator("consultation_duration_minutes")
     @classmethod
@@ -163,6 +167,31 @@ class DoctorProfileUpdate(BaseModel):
         if not v.strip():
             return None
         return _validate_bio(v)
+
+    @field_validator("license_number")
+    @classmethod
+    def validate_license_number(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        cleaned = v.strip()
+        return cleaned or None
+
+    @field_validator("rating")
+    @classmethod
+    def validate_rating(cls, v: Optional[float]) -> Optional[float]:
+        if v is not None and not 0 <= v <= 5:
+            raise ValueError("Rating must be between 0 and 5")
+        return v
+
+    @field_validator("license_status")
+    @classmethod
+    def validate_license_status(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        cleaned = v.strip().upper()
+        if cleaned not in LICENSE_STATUSES:
+            raise ValueError("License status is invalid")
+        return cleaned
  
  
 class DoctorResponse(BaseModel):
@@ -190,6 +219,8 @@ class DoctorDetailResponse(DoctorResponse):
     phone: Optional[str] = None
     avatar_url: Optional[str] = None
     department_name: Optional[str] = None
+    total_appointments: int = 0
+    completed_appointments: int = 0
  
  
 class ScheduleSlotCreate(BaseModel):

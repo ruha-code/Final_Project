@@ -14,6 +14,7 @@ import {
   Tooltip,
   XAxis,
   YAxis,
+  Legend,
 } from "recharts";
 
 import Badge from "../components/Badge";
@@ -63,15 +64,42 @@ function SummaryCard({ title, value, subtitle, icon: ICON }) {
   );
 }
 
-function VitalCard({ label, value }) {
+function VitalCard({ label, value, metric }) {
+  const tone = getVitalTone(metric, value);
   return (
     <div className="rounded-xl border bg-white p-3 sm:p-4">
       <p className="text-xs text-gray-400">{label}</p>
-      <p className="mt-2 text-base sm:text-lg font-semibold text-gray-900">
+      <p className={`mt-2 text-base sm:text-lg font-semibold ${tone || "text-gray-900"}`}>
         {value}
       </p>
     </div>
   );
+}
+
+function getVitalTone(metric, value) {
+  if (value === "-" || value === null || value === undefined) return "";
+  
+  let num;
+  if (metric === "bp" && typeof value === "string" && value.includes("/")) {
+    num = Number(value.split("/")[0]);
+  } else {
+    num = Number(value);
+  }
+  
+  if (isNaN(num)) return "";
+  
+  const ranges = {
+    bp: { low: 90, high: 140 },
+    pulse: { low: 60, high: 100 },
+    spo2: { low: 95, high: 100 },
+    temp: { low: 36.1, high: 37.5 },
+  };
+  
+  const range = ranges[metric];
+  if (!range) return "";
+  
+  if (num < range.low || num > range.high) return "text-red-600";
+  return "text-green-600";
 }
 
 function appointmentTone(status) {
@@ -90,6 +118,14 @@ function statusLabel(status) {
     .join(" ");
 }
 
+function formatBloodPressure(vital) {
+  if (!vital?.systolic_bp && !vital?.diastolic_bp) return "-";
+  if (vital?.systolic_bp && vital?.diastolic_bp) {
+    return `${vital.systolic_bp}/${vital.diastolic_bp}`;
+  }
+  return vital?.systolic_bp || vital?.diastolic_bp || "-";
+}
+
 /* ================= PAGE ================= */
 
 export default function MyHealth() {
@@ -98,7 +134,7 @@ export default function MyHealth() {
   const [profile, setProfile] = useState(null);
   const [vitals, setVitals] = useState([]);
   const [appointments, setAppointments] = useState([]);
-  const [snapshotTime, setSnapshotTime] = useState(Date.now());
+  const [snapshotTime, setSnapshotTime] = useState(() => Date.now());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [profileError, setProfileError] = useState("");
@@ -181,6 +217,8 @@ export default function MyHealth() {
     }),
     sugar: item.blood_sugar || 0,
     bp: item.systolic_bp || 0,
+    pulse: item.heart_rate || 0,
+    spo2: item.oxygen_saturation || 0,
   }));
 
   /* ================= LOADING ================= */
@@ -267,10 +305,10 @@ export default function MyHealth() {
           {/* VITALS */}
           <div className="rounded-2xl border bg-white p-5 sm:p-6">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <VitalCard label="Sugar" value={latestVitals.blood_sugar || "-"} />
-              <VitalCard label="Weight" value={latestVitals.weight || "-"} />
-              <VitalCard label="Temp" value={latestVitals.temperature || "-"} />
-              <VitalCard label="BP" value={latestVitals.systolic_bp || "-"} />
+              <VitalCard label="BP" value={formatBloodPressure(latestVitals)} metric="bp" />
+              <VitalCard label="Pulse" value={latestVitals.heart_rate || "-"} metric="pulse" />
+              <VitalCard label="SpO2" value={latestVitals.oxygen_saturation || "-"} metric="spo2" />
+              <VitalCard label="Temp" value={latestVitals.temperature || "-"} metric="temp" />
             </div>
 
             <div className="mt-6 h-56 sm:h-64">
@@ -280,8 +318,11 @@ export default function MyHealth() {
                     <XAxis dataKey="date" />
                     <YAxis width={30} />
                     <Tooltip />
-                    <Line type="monotone" dataKey="bp" stroke="#0d9488" />
-                    <Line type="monotone" dataKey="sugar" stroke="#f59e0b" />
+                    <Legend />
+                    <Line type="monotone" dataKey="bp" stroke="#0d9488" name="BP (Systolic)" />
+                    <Line type="monotone" dataKey="sugar" stroke="#f59e0b" name="Blood Sugar" />
+                    <Line type="monotone" dataKey="pulse" stroke="#2563eb" name="Pulse" />
+                    <Line type="monotone" dataKey="spo2" stroke="#16a34a" name="SpO2" />
                   </LineChart>
                 </ResponsiveContainer>
               ) : (
@@ -290,6 +331,12 @@ export default function MyHealth() {
                 </div>
               )}
             </div>
+
+            {latestVitals.notes && (
+              <div className="mt-4 rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-600">
+                {latestVitals.notes}
+              </div>
+            )}
           </div>
 
           {/* HISTORY */}

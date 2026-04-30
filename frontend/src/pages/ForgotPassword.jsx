@@ -112,7 +112,7 @@ function ForgotPassword() {
 
             <form onSubmit={handleSubmit}>
 
-              <div className="mb-6 text-left">
+              <div className="mb-4 text-left">
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Email Address
                 </label>
@@ -120,18 +120,20 @@ function ForgotPassword() {
                 <input
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => { setEmail(e.target.value); setError(""); }}
                   placeholder="you@example.com"
-                  className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-400"
+                  className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-400 transition ${error ? "border-red-300 bg-red-50" : "border-gray-200"}`}
                   required
                 />
+                {error && (
+                  <p className="mt-1.5 flex items-center gap-1.5 text-sm text-red-600">
+                    <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                    </svg>
+                    {error}
+                  </p>
+                )}
               </div>
-
-              {error && (
-                <div className="bg-red-50 text-red-700 p-3 rounded-lg mb-4 text-sm border border-red-100">
-                  {error}
-                </div>
-              )}
 
               <button
                 type="submit"

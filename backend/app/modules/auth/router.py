@@ -27,6 +27,7 @@ from app.core.cache import (
     RateLimitKeys,
 )
 from app.modules.auth.schemas import (
+    AdminDoctorCreateSchema,
     RegisterSchema,
     LoginSchema,
     TokenResponse,
@@ -358,12 +359,13 @@ async def logout(
     summary="Create a doctor account (Admin only)",
 )
 async def create_doctor_account(
-    dto: RegisterSchema,
+    dto: AdminDoctorCreateSchema,
     request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(RoleChecker(["ADMIN"])),
 ):
     from app.modules.doctors.models import Doctor
+    from app.modules.doctors.models import LicenseStatus
     normalized_name, normalized_username = _validate_admin_managed_user_payload(
         full_name=dto.full_name,
         username=dto.username,
@@ -391,7 +393,23 @@ async def create_doctor_account(
     )
     db.add(user)
 
-    doctor = Doctor(user=user)
+    if dto.license_number:
+        result = await db.execute(
+            select(Doctor).where(Doctor.license_number == dto.license_number)
+        )
+        if result.scalar_one_or_none():
+            raise ConflictException("License number already exists")
+
+    doctor = Doctor(
+        user=user,
+        department_id=dto.department_id,
+        specialty=dto.specialty,
+        license_number=dto.license_number,
+        license_status=LicenseStatus(dto.license_status or "PENDING"),
+        rating=dto.rating or 0,
+        years_of_experience=dto.years_of_experience or 0,
+        consultation_duration_minutes=dto.consultation_duration_minutes,
+    )
     db.add(doctor)
 
     await db.commit()

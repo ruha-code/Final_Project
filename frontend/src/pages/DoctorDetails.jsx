@@ -4,6 +4,7 @@ import { Mail, Phone, Star, Clock, Award, ChevronLeft, Calendar } from "lucide-r
 import Badge from "../components/Badge";
 import { api } from "../services/api";
 import { useAuth } from "../context/AuthContext";
+import { addDaysToDateString, getTodayLocalDate } from "../utils/dateTime";
 
 function getInitials(name) {
   if (!name) return "?";
@@ -17,11 +18,15 @@ function getInitials(name) {
 function getNextDays(count) {
   const days = [];
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const today = getTodayLocalDate();
+
   for (let i = 0; i < count; i++) {
-    const d = new Date();
-    d.setDate(d.getDate() + i);
+    const date = addDaysToDateString(today, i);
+    const [year, month, day] = date.split("-").map(Number);
+    const d = new Date(year, month - 1, day);
+
     days.push({
-      date: d.toISOString().split("T")[0],
+      date,
       label: i === 0 ? "Today" : i === 1 ? "Tomorrow" : dayNames[d.getDay()],
       fullDate: d.toLocaleDateString("en-GB", { day: "numeric", month: "short" }),
     });
@@ -32,7 +37,7 @@ function getNextDays(count) {
 export default function DoctorDetails() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const { isPatient, isAdmin } = useAuth();
+  const { isPatient } = useAuth();
 
   const [doctor, setDoctor] = useState(null);
   const [schedule, setSchedule] = useState({});

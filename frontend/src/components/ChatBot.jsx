@@ -1,6 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import { MessageSquare, X, Send, Bot } from "lucide-react";
 
+import { api } from "../services/api";
+import { useAuth } from "../context/AuthContext";
+
 const BOT_REPLY_DELAY_MS = 900;
 
 const FAQ_DATA = [
@@ -69,7 +72,75 @@ const FAQ_DATA = [
 const DEFAULT_ANSWER =
   "I'm not sure about that. Here are some topics I can help with:\n\n• Appointments & scheduling\n• Doctors & specialties\n• Prescriptions & medications\n• Test results\n• Billing & insurance\n• Clinic hours\n\nTry asking about one of these topics!";
 
-function findBestAnswer(message) {
+function formatDateTime(value) {
+  if (!value) return "-";
+  return new Date(value).toLocaleString("en-GB", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function getNextAppointment(appointments) {
+  return [...appointments]
+    .filter((item) => item.status !== "CANCELLED" && new Date(item.appointment_time).getTime() >= Date.now())
+    .sort((a, b) => new Date(a.appointment_time) - new Date(b.appointment_time))[0];
+}
+
+function formatBloodPressure(vital) {
+  if (!vital?.systolic_bp && !vital?.diastolic_bp) return "-";
+  if (vital.systolic_bp && vital.diastolic_bp) return `${vital.systolic_bp}/${vital.diastolic_bp}`;
+  return vital.systolic_bp || vital.diastolic_bp || "-";
+}
+
+function findContextAnswer(message, context) {
+  if (!context.loaded) return null;
+
+  const lower = message.toLowerCase();
+  const appointments = context.appointments || [];
+  const vitals = context.vitals || [];
+  const profile = context.profile;
+
+  if (lower.includes("next") || lower.includes("upcoming") || lower.includes("ближай")) {
+    const next = getNextAppointment(appointments);
+    if (!next) return "You do not have an upcoming appointment right now. You can book one from **Appointments** or **Doctors**.";
+    return `Your next appointment is with **Dr. ${next.doctor_name}** on **${formatDateTime(next.appointment_time)}**. Status: **${next.status.toLowerCase()}**.`;
+  }
+
+  if (lower.includes("appointment") || lower.includes("запис")) {
+    const active = appointments.filter((item) => item.status !== "CANCELLED");
+    return active.length
+      ? `I found **${active.length} active appointment(s)** in your account. Open **Appointments** to view, cancel, or book another visit.`
+      : "I do not see active appointments in your account. You can book one from **Appointments**.";
+  }
+
+  if (lower.includes("doctor") || lower.includes("врач")) {
+    const doctorNames = [...new Set(appointments.filter((item) => item.status !== "CANCELLED").map((item) => item.doctor_name).filter(Boolean))];
+    if (doctorNames.length > 0) {
+      return `Doctors connected to your appointments: **${doctorNames.slice(0, 3).join(", ")}**. You can also browse all doctors from **Doctors**.`;
+    }
+    return `There are **${context.doctors.length} doctors** available to browse. Open **Doctors** to choose a specialist.`;
+  }
+
+  if (lower.includes("vital") || lower.includes("blood pressure") || lower.includes("bp") || lower.includes("давлен")) {
+    const latest = vitals[0];
+    if (!latest) return "I do not see vitals in your record yet. They will appear in **My Health** after a doctor records them.";
+    return `Latest vitals: BP **${formatBloodPressure(latest)}**, pulse **${latest.heart_rate || "-"}**, SpO2 **${latest.oxygen_saturation || "-"}**, temperature **${latest.temperature || "-"}**, weight **${latest.weight || "-"}**, sugar **${latest.blood_sugar || "-"}**.`;
+  }
+
+  if (lower.includes("profile") || lower.includes("профил")) {
+    if (!profile) return "Your patient profile is not complete yet. Open **My Profile** to finish it.";
+    return `Your profile is saved for **${profile.full_name}**. Phone: **${profile.phone || "not set"}**. Emergency contact: **${profile.emergency_contact_name || "not set"}**.`;
+  }
+
+  return null;
+}
+
+function findBestAnswer(message, context) {
+  const contextAnswer = findContextAnswer(message, context);
+  if (contextAnswer) return contextAnswer;
+
   const lower = message.toLowerCase();
   let bestMatch = null;
   let bestScore = 0;
@@ -97,15 +168,23 @@ function formatMessage(text) {
 }
 
 function ChatBot() {
+  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
     {
       from: "bot",
-      text: "Hi! 👋 I'm your Medlink assistant. How can I help you today?",
+      text: "Hi! I'm your Medlink assistant. I can help with appointments, doctors, and your patient record.",
     },
   ]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [context, setContext] = useState({
+    loaded: false,
+    profile: null,
+    appointments: [],
+    doctors: [],
+    vitals: [],
+  });
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -119,6 +198,31 @@ function ChatBot() {
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen || user?.role !== "PATIENT" || context.loaded) return;
+
+    let cancelled = false;
+    Promise.allSettled([
+      api.get("/patients/me"),
+      api.get("/appointments/my"),
+      api.get("/doctors"),
+      api.get("/patients/me/vitals?limit=1"),
+    ]).then(([profile, appointments, doctors, vitals]) => {
+      if (cancelled) return;
+      setContext({
+        loaded: true,
+        profile: profile.status === "fulfilled" ? profile.value : null,
+        appointments: appointments.status === "fulfilled" && Array.isArray(appointments.value) ? appointments.value : [],
+        doctors: doctors.status === "fulfilled" && Array.isArray(doctors.value) ? doctors.value : [],
+        vitals: vitals.status === "fulfilled" && Array.isArray(vitals.value) ? vitals.value : [],
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [context.loaded, isOpen, user?.role]);
+
   const sendMessage = () => {
     const trimmed = input.trim();
     if (!trimmed) return;
@@ -128,7 +232,7 @@ function ChatBot() {
     setIsTyping(true);
 
     setTimeout(() => {
-      const answer = findBestAnswer(trimmed);
+      const answer = findBestAnswer(trimmed, context);
       setMessages((prev) => [...prev, { from: "bot", text: answer }]);
       setIsTyping(false);
     }, BOT_REPLY_DELAY_MS);
@@ -152,7 +256,7 @@ function ChatBot() {
     setMessages((prev) => [...prev, { from: "user", text: q }]);
     setIsTyping(true);
     setTimeout(() => {
-      const answer = findBestAnswer(q);
+      const answer = findBestAnswer(q, context);
       setMessages((prev) => [...prev, { from: "bot", text: answer }]);
       setIsTyping(false);
     }, BOT_REPLY_DELAY_MS);

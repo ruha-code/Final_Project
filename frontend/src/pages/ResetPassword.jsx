@@ -11,7 +11,6 @@ function ResetPassword() {
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -163,7 +162,7 @@ function ResetPassword() {
                 <label className="text-sm font-medium text-gray-700">New Password</label>
 
                 <input
-                  type={showPassword ? "text" : "password"}
+                  type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full mt-1 p-3 border rounded-lg focus:ring-2 focus:ring-teal-400"
@@ -176,7 +175,7 @@ function ResetPassword() {
                 <label className="text-sm font-medium text-gray-700">Confirm Password</label>
 
                 <input
-                  type={showPassword ? "text" : "password"}
+                  type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   className="w-full mt-1 p-3 border rounded-lg focus:ring-2 focus:ring-teal-400"

@@ -16,6 +16,8 @@ from app.modules.patients.models import (
     PatientStatus,
     PatientType,
 )
+from app.modules.appointments.models import Appointment, AppointmentStatus
+from app.modules.doctors.models import Doctor
 from app.modules.patients.schemas import (
     PatientProfileCreate,
     PatientProfileUpdate,
@@ -71,6 +73,36 @@ def _validate_patient_timeline(
     elif admission_date is None:
         raise ConflictException("Inpatients must include an admission date")
 
+
+async def _get_doctor_for_user(current_user: User, db: AsyncSession) -> Doctor:
+    result = await db.execute(select(Doctor).where(Doctor.user_id == current_user.id))
+    doctor = result.scalar_one_or_none()
+    if not doctor:
+        raise ForbiddenException("Doctor profile not found")
+    return doctor
+
+
+async def _ensure_doctor_patient_access(
+    patient_id: int,
+    current_user: User,
+    db: AsyncSession,
+) -> None:
+    if current_user.role != "DOCTOR":
+        return
+
+    doctor = await _get_doctor_for_user(current_user, db)
+    result = await db.execute(
+        select(Appointment.id)
+        .where(
+            Appointment.patient_id == patient_id,
+            Appointment.doctor_id == doctor.id,
+            Appointment.status != AppointmentStatus.CANCELLED,
+        )
+        .limit(1)
+    )
+    if result.scalar_one_or_none() is None:
+        raise ForbiddenException("You can only access patients assigned to your appointments")
+
 @router.post(
     "/profile",
     response_model=PatientDetailResponse,
@@ -82,6 +114,9 @@ async def setup_patient_profile(
     current_user: User = Depends(patient_only),
     db: AsyncSession = Depends(get_db),
 ):
+    if dto.full_name:
+        current_user.full_name = dto.full_name
+
     target_status = (
         PatientStatus.ADMITTED
         if dto.patient_type == PatientType.INPATIENT
@@ -274,6 +309,17 @@ async def list_patients(
 ):
     query = select(Patient).options(selectinload(Patient.user)).join(Patient.user)
 
+    if current_user.role == "DOCTOR":
+        doctor = await _get_doctor_for_user(current_user, db)
+        query = (
+            query.join(Appointment, Appointment.patient_id == Patient.id)
+            .where(
+                Appointment.doctor_id == doctor.id,
+                Appointment.status != AppointmentStatus.CANCELLED,
+            )
+            .distinct()
+        )
+
     if status:
         query = query.where(Patient.patient_status == status)
     if patient_type:
@@ -304,6 +350,7 @@ async def get_patient_by_id(
     patient = result.scalar_one_or_none()
     if not patient:
         raise NotFoundException("Patient not found")
+    await _ensure_doctor_patient_access(patient_id, current_user, db)
     return _build_detail(patient)
 
 
@@ -322,6 +369,7 @@ async def add_vitals(
     result = await db.execute(select(Patient).where(Patient.id == patient_id))
     if not result.scalar_one_or_none():
         raise NotFoundException("Patient not found")
+    await _ensure_doctor_patient_access(patient_id, current_user, db)
 
     vital = HealthVital(patient_id=patient_id, **dto.model_dump())
     db.add(vital)
@@ -346,6 +394,8 @@ async def get_vitals(
         patient = result.scalar_one_or_none()
         if not patient or patient.id != patient_id:
             raise ForbiddenException("You can only view your own vitals")
+    elif current_user.role == "DOCTOR":
+        await _ensure_doctor_patient_access(patient_id, current_user, db)
 
     result = await db.execute(
         select(HealthVital)
@@ -375,8 +425,14 @@ async def update_doctor_notes(
     patient = result.scalar_one_or_none()
     if not patient:
         raise NotFoundException("Patient not found")
+    await _ensure_doctor_patient_access(patient_id, current_user, db)
 
-    patient.notes = dto.notes
+    if dto.notes is not None:
+        patient.notes = dto.notes
+    if dto.condition is not None:
+        patient.condition = dto.condition
+    elif "condition" in dto.model_fields_set and dto.condition is None:
+        patient.condition = None
     if dto.patient_status is not None:
         _validate_patient_timeline(
             patient_type=patient.patient_type,
@@ -399,7 +455,7 @@ async def update_doctor_notes(
         Actions.UPDATE_PATIENT,
         entity_type="Patient",
         entity_id=patient.id,
-        extra_data={"updated_fields": ["notes", "patient_status"]},
+        extra_data={"updated_fields": ["notes", "patient_status", "condition"]},
     )
     return _build_detail(patient)
 
@@ -423,14 +479,15 @@ async def update_patient(
     patient = result.scalar_one_or_none()
     if not patient:
         raise NotFoundException("Patient not found")
+    await _ensure_doctor_patient_access(patient_id, current_user, db)
 
     updates = dto.model_dump(exclude_unset=True)
 
     if current_user.role == "DOCTOR":
-        disallowed = [field for field in updates if field not in {"notes", "patient_status"}]
+        disallowed = [field for field in updates if field not in {"notes", "patient_status", "blood_type"}]
         if disallowed:
             raise ForbiddenException(
-                "Doctors can only update notes and patient_status via this endpoint"
+                "Doctors can only update notes, patient_status, and blood_type via this endpoint"
             )
 
     timeline_fields = {"patient_type", "patient_status", "admission_date", "room_location"}

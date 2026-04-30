@@ -155,9 +155,25 @@ function CreateUserModal({ onClose, onCreated, role }) {
     username: "",
     email: "",
     password: "",
+    phone: "",
+    department_id: "",
+    specialty: "",
+    license_number: "",
+    license_status: "PENDING",
+    rating: "0",
+    years_of_experience: "",
+    consultation_duration_minutes: "30",
   });
+  const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (role !== "DOCTOR") return;
+    api.get("/departments")
+      .then((data) => setDepartments(Array.isArray(data) ? data : []))
+      .catch(() => setDepartments([]));
+  }, [role]);
 
   const handleChange = (e) => {
     setForm((current) => ({ ...current, [e.target.name]: e.target.value }));
@@ -182,6 +198,22 @@ function CreateUserModal({ onClose, onCreated, role }) {
         username: form.username.trim(),
         email: form.email.trim().toLowerCase(),
         password: form.password,
+        phone: form.phone.trim() || null,
+        ...(role === "DOCTOR"
+          ? {
+              department_id: form.department_id ? Number(form.department_id) : null,
+              specialty: form.specialty.trim() || null,
+              license_number: form.license_number.trim() || null,
+              license_status: form.license_status,
+              rating: parseFloat(form.rating) || 0,
+              years_of_experience: form.years_of_experience
+                ? Number(form.years_of_experience)
+                : 0,
+              consultation_duration_minutes: form.consultation_duration_minutes
+                ? Number(form.consultation_duration_minutes)
+                : 30,
+            }
+          : {}),
       });
       onCreated(
         `${role === "ADMIN" ? "Admin" : "Doctor"} account created successfully.`,
@@ -266,6 +298,121 @@ function CreateUserModal({ onClose, onCreated, role }) {
               Minimum 8 characters with uppercase, lowercase, and one digit.
             </p>
           </div>
+
+          {role === "DOCTOR" && (
+            <>
+              <div>
+                <label className="mb-1 block text-xs sm:text-sm text-gray-500">Phone</label>
+                <input
+                  name="phone"
+                  value={form.phone}
+                  onChange={handleChange}
+                  placeholder="+1234567890"
+                  className="w-full rounded-xl bg-gray-100 px-3 sm:px-4 py-2 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-teal-400"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs sm:text-sm text-gray-500">Department</label>
+                <select
+                  name="department_id"
+                  value={form.department_id}
+                  onChange={handleChange}
+                  className="w-full rounded-xl bg-gray-100 px-3 sm:px-4 py-2 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-teal-400"
+                >
+                  <option value="">No department</option>
+                  {departments.map((department) => (
+                    <option key={department.id} value={department.id}>
+                      {department.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs sm:text-sm text-gray-500">Specialty</label>
+                <input
+                  name="specialty"
+                  value={form.specialty}
+                  onChange={handleChange}
+                  placeholder="Cardiologist"
+                  className="w-full rounded-xl bg-gray-100 px-3 sm:px-4 py-2 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-teal-400"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs sm:text-sm text-gray-500">License Number</label>
+                <input
+                  name="license_number"
+                  value={form.license_number}
+                  onChange={handleChange}
+                  placeholder="Medical license number"
+                  className="w-full rounded-xl bg-gray-100 px-3 sm:px-4 py-2 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-teal-400"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs sm:text-sm text-gray-500">License Status</label>
+                  <select
+                    name="license_status"
+                    value={form.license_status}
+                    onChange={handleChange}
+                    className="w-full rounded-xl bg-gray-100 px-3 sm:px-4 py-2 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-teal-400"
+                  >
+                    <option value="PENDING">Pending</option>
+                    <option value="VERIFIED">Verified</option>
+                    <option value="REJECTED">Rejected</option>
+                    <option value="EXPIRED">Expired</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs sm:text-sm text-gray-500">Rating</label>
+                  <input
+                    name="rating"
+                    type="number"
+                    min="0"
+                    max="5"
+                    step="0.1"
+                    value={form.rating}
+                    onChange={handleChange}
+                    className="w-full rounded-xl bg-gray-100 px-3 sm:px-4 py-2 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-teal-400"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs sm:text-sm text-gray-500">Experience</label>
+                  <input
+                    name="years_of_experience"
+                    type="number"
+                    min="0"
+                    max="50"
+                    value={form.years_of_experience}
+                    onChange={handleChange}
+                    placeholder="0"
+                    className="w-full rounded-xl bg-gray-100 px-3 sm:px-4 py-2 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-teal-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs sm:text-sm text-gray-500">Consultation</label>
+                  <input
+                    name="consultation_duration_minutes"
+                    type="number"
+                    min="10"
+                    max="120"
+                    step="5"
+                    value={form.consultation_duration_minutes}
+                    onChange={handleChange}
+                    className="w-full rounded-xl bg-gray-100 px-3 sm:px-4 py-2 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-teal-400"
+                  />
+                </div>
+              </div>
+            </>
+          )}
 
           <div className="flex gap-3 pt-2">
             <button
