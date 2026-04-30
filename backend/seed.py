@@ -1,6 +1,7 @@
 import asyncio
 from datetime import date, time, datetime, timezone, timedelta
 import random
+import secrets
 
 from sqlalchemy import text
 from app.core.database import engine, async_session_factory, Base, init_db
@@ -351,11 +352,12 @@ async def seed_departments(session) -> dict[str, Department]:
 
 async def seed_admin(session) -> User:
     print("Seeding admin user...")
+    admin_password = secrets.token_urlsafe(12)
     admin = User(
         full_name="Admin User",
         username="admin",
         email="admin@clinic.com",
-        password_hash=hash_password("Admin123"),
+        password_hash=hash_password(admin_password),
         role=UserRole.ADMIN,
         phone="+1 555-0000",
         is_verified=True,
@@ -363,19 +365,22 @@ async def seed_admin(session) -> User:
     session.add(admin)
     await session.flush()
     await session.commit()
-    print("  Admin: admin@clinic.com / Admin123")
+    print(f"  [PASSWORD] admin@clinic.com → {admin_password}")
     return admin
 
 
 async def seed_doctors(session, dept_map: dict) -> list[Doctor]:
     print("Seeding doctors...")
     doctors = []
+    doctor_passwords = {}
     for i, d in enumerate(DOCTORS_DATA):
+        doctor_password = secrets.token_urlsafe(12)
+        doctor_passwords[d["email"]] = doctor_password
         user = User(
             full_name=d["full_name"],
             username=d["username"],
             email=d["email"],
-            password_hash=hash_password("Doctor123"),
+            password_hash=hash_password(doctor_password),
             role=UserRole.DOCTOR,
             phone=f"+1 555-02{i:02d}",
             is_verified=True,
@@ -411,19 +416,24 @@ async def seed_doctors(session, dept_map: dict) -> list[Doctor]:
         doctors.append(doctor)
 
     await session.commit()
-    print(f"  Created {len(doctors)} doctors. Password: doctor123")
+    for email, pwd in doctor_passwords.items():
+        print(f"  [PASSWORD] {email} → {pwd}")
+    print(f"  Created {len(doctors)} doctors.")
     return doctors
 
 
 async def seed_patients(session) -> list[Patient]:
     print("Seeding patients...")
     patients = []
+    patient_passwords = {}
     for d in PATIENTS_DATA:
+        patient_password = secrets.token_urlsafe(12)
+        patient_passwords[d["email"]] = patient_password
         user = User(
             full_name=d["full_name"],
             username=d["username"],
             email=d["email"],
-            password_hash=hash_password("patient123"),
+            password_hash=hash_password(patient_password),
             role=UserRole.PATIENT,
             phone=d["phone"],
             is_verified=True,
@@ -464,7 +474,9 @@ async def seed_patients(session) -> list[Patient]:
         patients.append(patient)
 
     await session.commit()
-    print(f"  Created {len(patients)} patients. Password: patient123")
+    for email, pwd in patient_passwords.items():
+        print(f"  [PASSWORD] {email} → {pwd}")
+    print(f"  Created {len(patients)} patients.")
     return patients
 
 
@@ -620,6 +632,11 @@ async def seed_calendar(session, admin: User):
 
 
 async def main():
+    import os
+    if os.getenv("ALLOW_SEED") != "true":
+        print("Seed is disabled in production. Set ALLOW_SEED=true to enable.")
+        return
+
     print("=" * 50)
     print("Clinic Management System — Seed Script")
     print("=" * 50)
@@ -642,12 +659,7 @@ async def main():
     await engine.dispose()
 
     print("\n" + "=" * 50)
-    print("Seed complete!")
-    print("=" * 50)
-    print("\nLogin credentials:")
-    print("  Admin:   admin@clinic.com   / Admin123")
-    print("  Doctor:  jwilson@clinic.com / Doctor123")
-    print("  Patient: sjohnson@email.com / patient123")
+    print("Seed complete! Credentials printed above.")
     print("=" * 50)
 
 

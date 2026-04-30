@@ -456,8 +456,7 @@ function DoctorDashboard({ appointments, patients, nowTimestamp }) {
               return (
                 <div
                   key={item.id}
-                  className="grid items-center gap-x-3 py-3 first:pt-0 last:pb-0"
-                  style={{ gridTemplateColumns: "2.25rem 1fr 4rem 7rem 5.5rem" }}
+                  className="grid grid-cols-[2.25rem_1fr_4rem_7rem_5.5rem] items-center gap-x-3 py-3 first:pt-0 last:pb-0"
                 >
                   {/* Avatar */}
                   <button onClick={() => navigate(`/patients/${item.patient_id}`)}>

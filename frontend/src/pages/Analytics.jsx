@@ -370,7 +370,8 @@ export default function Analytics() {
                   No doctor performance data for the selected period.
                 </p>
               ) : (
-                <ResponsiveContainer width="100%" height={260} className="sm:!h-[300px]">
+                <div className="h-[220px] sm:h-[280px] xl:h-[320px]">
+                <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={chartData}
                     margin={{ top: 8, right: 12, left: 0, bottom: 52 }}
@@ -412,6 +413,7 @@ export default function Analytics() {
                     />
                   </BarChart>
                 </ResponsiveContainer>
+                </div>
               )}
             </div>
 

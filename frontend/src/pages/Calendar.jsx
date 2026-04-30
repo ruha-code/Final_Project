@@ -567,7 +567,7 @@ export default function Calendar() {
       )}
 
       {/* Основной layout */}
-      <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(160px,200px)_1fr_210px] lg:gap-6">
+      <div className="flex flex-col gap-4 md:grid md:grid-cols-[1fr_210px] md:gap-5 lg:grid-cols-[minmax(160px,200px)_1fr_210px] lg:gap-6">
 
         {/* Левая боковая панель — только lg+ */}
         <div className="hidden lg:block space-y-5 rounded-2xl border bg-white p-5">

@@ -148,10 +148,14 @@ export default function PatientDetails() {
         setVitals([]);
         setAppointments([]);
 
+        const appointmentsEndpoint = isAdmin()
+          ? `/appointments/admin/all?all=true&patient_id=${id}`
+          : "/appointments/my";
+
         const [patientResult, vitalsResult, appointmentsResult] = await Promise.allSettled([
           api.get(`/patients/${id}`),
           api.get(`/patients/${id}/vitals`),
-          api.get("/appointments/my"),
+          api.get(appointmentsEndpoint),
         ]);
 
         if (patientResult.status !== "fulfilled") {
@@ -165,10 +169,15 @@ export default function PatientDetails() {
         const vitalsData = vitalsResult.status === "fulfilled" ? (vitalsResult.value || []) : [];
         if (vitalsResult.status !== "fulfilled") warningSources.push("vitals history");
 
-        const myAppointments = appointmentsResult.status === "fulfilled" ? (appointmentsResult.value || []) : [];
+        const rawAppointments = appointmentsResult.status === "fulfilled"
+          ? (appointmentsResult.value?.items ?? appointmentsResult.value ?? [])
+          : [];
         if (appointmentsResult.status !== "fulfilled") warningSources.push("appointments");
 
-        const patientAppointments = myAppointments.filter((item) => Number(item.patient_id) === Number(id));
+        const myAppointments = Array.isArray(rawAppointments) ? rawAppointments : [];
+        const patientAppointments = isAdmin()
+          ? myAppointments
+          : myAppointments.filter((item) => Number(item.patient_id) === Number(id));
 
         setPatient(patientData);
         setVitals(vitalsData);

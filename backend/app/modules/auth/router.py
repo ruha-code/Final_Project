@@ -17,7 +17,7 @@ from app.core.exceptions import (
     ValidationException,
 )
 from app.core.pagination import paginate
-from app.core.security import decode_access_token, hash_password, create_access_token
+from app.core.security import decode_access_token, hash_password, create_access_token, verify_password
 from app.core.cache import (
     blacklist_raw_token,
     blacklist_token,
@@ -37,6 +37,7 @@ from app.modules.auth.schemas import (
     VerifyCodeSchema,
     ForgotPasswordSchema,
     ResetPasswordSchema,
+    ChangePasswordSchema,
     validate_privileged_password,
 )
 from app.modules.auth.service import AuthService
@@ -747,3 +748,32 @@ async def delete_user(
         request=request,
     )
     return {"message": "User deleted"}
+
+
+@router.put("/change-password")
+async def change_password(
+    dto: ChangePasswordSchema,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if not current_user.password_hash:
+        raise HTTPException(status_code=400, detail="Password authentication not enabled for this account")
+
+    if not verify_password(dto.current_password, current_user.password_hash):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+
+    if dto.current_password == dto.new_password:
+        raise HTTPException(status_code=400, detail="New password must be different from current password")
+
+    current_user.password_hash = hash_password(dto.new_password)
+    await db.commit()
+
+    await log(
+        db=db,
+        user_id=current_user.id,
+        action="CHANGE_PASSWORD",
+        entity_type="User",
+        entity_id=current_user.id,
+    )
+
+    return {"message": "Password changed successfully"}

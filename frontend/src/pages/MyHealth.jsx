@@ -304,7 +304,7 @@ export default function MyHealth() {
 
           {/* VITALS */}
           <div className="rounded-2xl border bg-white p-5 sm:p-6">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <VitalCard label="BP" value={formatBloodPressure(latestVitals)} metric="bp" />
               <VitalCard label="Pulse" value={latestVitals.heart_rate || "-"} metric="pulse" />
               <VitalCard label="SpO2" value={latestVitals.oxygen_saturation || "-"} metric="spo2" />

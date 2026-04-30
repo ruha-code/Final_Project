@@ -1,7 +1,10 @@
 services:
   # Frontend (React + Nginx)
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
     container_name: clinic_frontend
     ports:
       - "5173:80"
@@ -18,15 +21,13 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      DATABASE_URL: postgresql+asyncpg://clinic_user:clinic123@db:5432/clinic_db
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       REDIS_URL: redis://redis:6379
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
-      mailpit:
-        condition: service_started
     restart: unless-stopped
 
   # PostgreSQL
@@ -34,15 +35,13 @@ services:
     image: postgres:16-alpine
     container_name: clinic_db
     environment:
-      POSTGRES_USER: clinic_user
-      POSTGRES_PASSWORD: clinic123
-      POSTGRES_DB: clinic_db
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U clinic_user -d clinic_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-clinic_user} -d ${POSTGRES_DB:-clinic_db}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -51,28 +50,19 @@ services:
   redis:
     image: redis:7-alpine
     container_name: clinic_redis
-    ports:
-      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 5
 
-  mailpit:
-    image: axllent/mailpit:latest
-    container_name: clinic_mailpit
-    ports:
-      - "1025:1025"
-      - "8025:8025"
-    restart: unless-stopped
-
+  # pgAdmin (development only — do not expose in production)
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: clinic_pgadmin
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@example.com
-      PGADMIN_DEFAULT_PASSWORD: password
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@example.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:?pgAdmin password required}
     ports:
       - "8080:80"
     depends_on:

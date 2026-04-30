@@ -74,7 +74,8 @@ export default function NotificationPreferences() {
             : getFallbackTypesByRole(user?.role),
         );
       } catch (err) {
-        setError(err.message || "Failed to load preferences");
+        console.error("Failed to load notification preferences:", err);
+        setError("Failed to load preferences. Using defaults.");
         setAvailableTypes(getFallbackTypesByRole(user?.role));
       } finally {
         setLoading(false);

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AlertCircle, ArrowRight, Check, Mail, MapPin, Phone, Save, User, X } from "lucide-react";
+import { AlertCircle, ArrowRight, Check, Mail, MapPin, Phone, Save, User, X, Lock } from "lucide-react";
 
 import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
@@ -68,6 +68,11 @@ export default function PatientProfile() {
     emergency_contact_name: "",
     emergency_contact_phone: "",
   });
+
+  const [pwForm, setPwForm] = useState({ current_password: "", new_password: "", confirm_password: "" });
+  const [pwSaving, setPwSaving] = useState(false);
+  const [pwSaved, setPwSaved] = useState(false);
+  const [pwError, setPwError] = useState("");
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -194,6 +199,25 @@ export default function PatientProfile() {
       else setError(err.message || "Failed to save profile");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSavePassword = async () => {
+    setPwError("");
+    setPwSaved(false);
+    if (!pwForm.current_password) { setPwError("Enter current password"); return; }
+    if (!pwForm.new_password || pwForm.new_password.length < 8) { setPwError("New password must be at least 8 characters"); return; }
+    if (pwForm.new_password !== pwForm.confirm_password) { setPwError("Passwords do not match"); return; }
+    try {
+      setPwSaving(true);
+      await api.put("/auth/change-password", { current_password: pwForm.current_password, new_password: pwForm.new_password });
+      setPwForm({ current_password: "", new_password: "", confirm_password: "" });
+      setPwSaved(true);
+      setTimeout(() => setPwSaved(false), 2500);
+    } catch (err) {
+      setPwError(err.message || "Failed to change password");
+    } finally {
+      setPwSaving(false);
     }
   };
 
@@ -380,6 +404,30 @@ export default function PatientProfile() {
             </>
           )}
         </button>
+      </div>
+
+      {/* CHANGE PASSWORD */}
+      <div className="bg-white rounded-2xl border p-6 space-y-4">
+        <h3 className="text-lg font-semibold flex items-center gap-2"><Lock size={18} /> Change Password</h3>
+        {pwError && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">{pwError}</div>}
+        {pwSaved && <div className="bg-emerald-50 text-emerald-600 p-3 rounded-lg text-sm flex items-center gap-2"><Check size={16} /> Password changed</div>}
+        <div className="space-y-3">
+          <div>
+            <label className="text-sm text-gray-500 mb-1 block">Current Password</label>
+            <input type="password" value={pwForm.current_password} onChange={(e) => setPwForm({ ...pwForm, current_password: e.target.value })} className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400" placeholder="Enter current password" />
+          </div>
+          <div>
+            <label className="text-sm text-gray-500 mb-1 block">New Password</label>
+            <input type="password" value={pwForm.new_password} onChange={(e) => setPwForm({ ...pwForm, new_password: e.target.value })} className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400" placeholder="Min 8 characters" />
+          </div>
+          <div>
+            <label className="text-sm text-gray-500 mb-1 block">Confirm New Password</label>
+            <input type="password" value={pwForm.confirm_password} onChange={(e) => setPwForm({ ...pwForm, confirm_password: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") handleSavePassword(); }} className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400" placeholder="Repeat new password" />
+          </div>
+          <button onClick={handleSavePassword} disabled={pwSaving} className={`w-full rounded-xl py-3 text-white flex items-center justify-center gap-2 ${pwSaved ? "bg-emerald-500" : "bg-teal-500 hover:bg-teal-600"} disabled:opacity-50`}>
+            {pwSaved ? <><Check size={18} /> Changed</> : pwSaving ? "Saving..." : <><Lock size={18} /> Change Password</>}
+          </button>
+        </div>
       </div>
     </div>
   );

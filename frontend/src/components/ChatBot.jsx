@@ -185,8 +185,23 @@ function ChatBot() {
     doctors: [],
     vitals: [],
   });
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+
+  useEffect(() => {
+    const checkVisibility = () => {
+      const modal = document.querySelector('.fixed.z-50.backdrop-blur-sm');
+      const overlay = document.querySelector('.fixed.inset-0.z-40.bg-black\\/40');
+      setIsModalOpen(!!modal || !!overlay);
+    };
+
+    const observer = new MutationObserver(checkVisibility);
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+    
+    checkVisibility();
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -267,8 +282,8 @@ function ChatBot() {
       {/* Chat Window */}
       {isOpen && (
         <div
-          className="fixed bottom-20 right-5 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-gray-100 z-[60] flex flex-col overflow-hidden"
-          style={{ height: "480px" }}
+          className="fixed inset-0 sm:inset-auto sm:bottom-20 sm:right-5 sm:w-80 md:w-96 bg-white sm:rounded-2xl shadow-2xl border sm:border-gray-100 z-[70] flex flex-col overflow-hidden"
+          style={{ height: "100%" }}
         >
           {/* Header */}
           <div className="bg-gradient-to-r from-teal-500 to-teal-600 px-4 py-3 flex items-center justify-between shrink-0">
@@ -283,9 +298,9 @@ function ChatBot() {
             </div>
             <button
               onClick={() => setIsOpen(false)}
-              className="text-white/80 hover:text-white transition"
+              className="text-white/80 hover:text-white transition p-1"
             >
-              <X size={18} />
+              <X size={20} />
             </button>
           </div>
 
@@ -365,21 +380,26 @@ function ChatBot() {
         </div>
       )}
 
-      {/* Toggle Button */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className={`fixed bottom-5 right-5 z-[65] w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 ${
-          isOpen
-            ? "bg-gray-600 hover:bg-gray-700"
-            : "bg-teal-500 hover:bg-teal-600 hover:scale-110"
-        }`}
-      >
-        {isOpen ? (
-          <X size={22} className="text-white" />
-        ) : (
+      {/* Toggle Button - Hidden on mobile when sidebar or modal is open */}
+      {!isOpen && !isModalOpen && (
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className="fixed bottom-5 right-5 sm:z-[65] z-[45] w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 bg-teal-500 hover:bg-teal-600 hover:scale-110 md:hidden"
+          style={{ zIndex: 45 }}
+        >
           <MessageSquare size={22} className="text-white" />
-        )}
-      </button>
+        </button>
+      )}
+
+      {/* Desktop Toggle Button */}
+      {!isOpen && !isModalOpen && (
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className="hidden md:flex fixed bottom-5 right-5 z-[65] w-14 h-14 rounded-full shadow-lg items-center justify-center transition-all duration-300 bg-teal-500 hover:bg-teal-600 hover:scale-110"
+        >
+          <MessageSquare size={22} className="text-white" />
+        </button>
+      )}
     </>
   );
 }

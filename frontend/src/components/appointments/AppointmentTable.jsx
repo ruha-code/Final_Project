@@ -33,25 +33,142 @@ export default function AppointmentTable({
   const grid = isPatientView ? PATIENT_GRID : STAFF_GRID;
 
   return (
-    <div className="hidden overflow-x-auto lg:block">
-      <div className="min-w-[900px]">
-        <TableHeader isPatientView={isPatientView} grid={grid} />
-        <div className="divide-y">
-          {appointments.map((appointment) => (
-            <TableRow
-              key={appointment.id}
-              appointment={appointment}
-              isPatientView={isPatientView}
-              grid={grid}
-              actionLoading={actionLoading}
-              openActionMenu={openActionMenu}
-              setOpenActionMenu={setOpenActionMenu}
-              onCancel={onCancel}
-              onDoctorPrimaryAction={onDoctorPrimaryAction}
-              onComplete={onComplete}
-              onView={onView}
-            />
-          ))}
+    <>
+      {/* DESKTOP TABLE */}
+      <div className="hidden overflow-x-auto lg:block">
+        <div className="min-w-[900px]">
+          <TableHeader isPatientView={isPatientView} grid={grid} />
+          <div className="divide-y">
+            {appointments.map((appointment) => (
+              <TableRow
+                key={appointment.id}
+                appointment={appointment}
+                isPatientView={isPatientView}
+                grid={grid}
+                actionLoading={actionLoading}
+                openActionMenu={openActionMenu}
+                setOpenActionMenu={setOpenActionMenu}
+                onCancel={onCancel}
+                onDoctorPrimaryAction={onDoctorPrimaryAction}
+                onComplete={onComplete}
+                onView={onView}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* MOBILE / TABLET CARD VIEW */}
+      <div className="divide-y lg:hidden">
+        {appointments.map((appointment) => (
+          <MobileCard
+            key={appointment.id}
+            appointment={appointment}
+            isPatientView={isPatientView}
+            actionLoading={actionLoading}
+            openActionMenu={openActionMenu}
+            setOpenActionMenu={setOpenActionMenu}
+            onCancel={onCancel}
+            onDoctorPrimaryAction={onDoctorPrimaryAction}
+            onComplete={onComplete}
+            onView={onView}
+          />
+        ))}
+      </div>
+    </>
+  );
+}
+
+function MobileCard({
+  appointment,
+  isPatientView,
+  actionLoading,
+  openActionMenu,
+  setOpenActionMenu,
+  onCancel,
+  onDoctorPrimaryAction,
+  onComplete,
+  onView,
+}) {
+  const dateTime = formatAppointmentDateTime(appointment.appointment_time);
+  const canCancel = canCancelAppointment(appointment);
+  const canComplete = canCompleteAppointment(appointment);
+  const doctorAction = getDoctorPrimaryAction(appointment.status);
+  const startHint = getRelativeStartLabel(appointment.appointment_time);
+
+  return (
+    <div className="px-4 py-3 space-y-2">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate font-medium text-gray-900 text-sm">
+            {isPatientView ? appointment.doctor_name : appointment.patient_name}
+          </p>
+          <p className="truncate text-xs text-gray-400">
+            {isPatientView
+              ? (appointment.doctor_specialty || "General physician")
+              : (appointment.reason || "No reason provided")}
+          </p>
+          {!isPatientView && appointment.doctor_name && (
+            <p className="truncate text-xs text-gray-500 mt-0.5">
+              {appointment.doctor_name} · {formatVisitType(appointment.appointment_type)}
+            </p>
+          )}
+          {!isPatientView && appointment.status === "SCHEDULED" && startHint && (
+            <p className="text-xs font-medium text-teal-600 mt-0.5">{startHint}</p>
+          )}
+        </div>
+        <StatusBadge status={appointment.status} />
+      </div>
+
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs text-gray-500 shrink-0">
+          {dateTime.date}, {dateTime.time}
+        </span>
+
+        <div className="flex items-center gap-2 shrink-0">
+          {isPatientView ? (
+            canCancel ? (
+              <button
+                onClick={() => onCancel(appointment.id)}
+                disabled={actionLoading === appointment.id}
+                className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-100 disabled:opacity-60"
+              >
+                {actionLoading === appointment.id ? "Updating..." : "Cancel"}
+              </button>
+            ) : (
+              <button
+                onClick={() => onView(appointment)}
+                disabled={actionLoading === appointment.id}
+                className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-200 disabled:opacity-60"
+              >
+                View
+              </button>
+            )
+          ) : (
+            <>
+              <DoctorPrimaryActionButton
+                appointment={appointment}
+                actionLoading={actionLoading}
+                action={doctorAction}
+                setOpenActionMenu={setOpenActionMenu}
+                onDoctorPrimaryAction={onDoctorPrimaryAction}
+                className="h-8 rounded-lg px-3 text-xs font-semibold"
+              />
+              {(canCancel || canComplete) && (
+                <AppointmentActionMenu
+                  appointment={appointment}
+                  actionLoading={actionLoading}
+                  canCancel={canCancel}
+                  canComplete={canComplete}
+                  openActionMenu={openActionMenu}
+                  setOpenActionMenu={setOpenActionMenu}
+                  onCancel={onCancel}
+                  onComplete={onComplete}
+                  align="bottom"
+                />
+              )}
+            </>
+          )}
         </div>
       </div>
     </div>

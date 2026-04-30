@@ -200,11 +200,70 @@ export default function DoctorSchedule() {
         </div>
       )}
 
-      {/* TABLE WRAPPER (RESPONSIVE FIX) */}
-      <div className="overflow-x-auto rounded-2xl border bg-white shadow-sm">
+      {/* MOBILE CARD VIEW */}
+      <div className="divide-y rounded-2xl border bg-white shadow-sm lg:hidden">
+        {schedule.map((slot, index) => {
+          const day = DAYS.find((d) => d.value === slot.day_of_week);
+          const slotCount = slot.is_available
+            ? countGeneratedSlots(slot.start_time, slot.end_time, sessionDuration)
+            : 0;
+
+          return (
+            <div key={slot.day_of_week} className="p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 font-medium text-gray-800">
+                  <Clock size={14} className="text-teal-500" />
+                  {day?.label}
+                </div>
+                <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={slot.is_available}
+                    onChange={(e) => updateSlot(index, "is_available", e.target.checked)}
+                    className="h-4 w-4 rounded accent-teal-500"
+                  />
+                  Available
+                </label>
+              </div>
+
+              {slot.is_available ? (
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <p className="mb-1 text-xs text-gray-400">Start</p>
+                    <input
+                      type="time"
+                      value={slot.start_time}
+                      onChange={(e) => updateSlot(index, "start_time", e.target.value)}
+                      className="w-full rounded-lg bg-gray-100 px-2 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <p className="mb-1 text-xs text-gray-400">End</p>
+                    <input
+                      type="time"
+                      value={slot.end_time}
+                      onChange={(e) => updateSlot(index, "end_time", e.target.value)}
+                      className="w-full rounded-lg bg-gray-100 px-2 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <p className="mb-1 text-xs text-gray-400">Slots</p>
+                    <p className="pt-2 text-sm font-medium text-gray-700">{slotCount}</p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-400">Not available this day</p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* DESKTOP TABLE */}
+      <div className="hidden lg:block overflow-x-auto rounded-2xl border bg-white shadow-sm">
 
         {/* HEADER ROW */}
-        <div className="min-w-[700px] grid grid-cols-[1fr_0.85fr_0.85fr_0.8fr_0.8fr] bg-gray-50 px-4 sm:px-6 py-3 text-xs text-gray-400 uppercase">
+        <div className="grid grid-cols-[1fr_0.85fr_0.85fr_0.8fr_0.8fr] bg-gray-50 px-6 py-3 text-xs text-gray-400 uppercase">
           <span>Day</span>
           <span>Start</span>
           <span>End</span>
@@ -222,7 +281,7 @@ export default function DoctorSchedule() {
           return (
             <div
               key={slot.day_of_week}
-              className="min-w-[700px] grid grid-cols-[1fr_0.85fr_0.85fr_0.8fr_0.8fr] items-center border-b px-4 sm:px-6 py-4"
+              className="grid grid-cols-[1fr_0.85fr_0.85fr_0.8fr_0.8fr] items-center border-b px-6 py-4"
             >
               <div className="flex items-center gap-2">
                 <Clock size={14} />
@@ -234,7 +293,7 @@ export default function DoctorSchedule() {
                 value={slot.start_time}
                 onChange={(e) => updateSlot(index, "start_time", e.target.value)}
                 disabled={!slot.is_available}
-                className="w-full sm:w-32 rounded-lg bg-gray-100 px-2 py-2 text-sm"
+                className="w-32 rounded-lg bg-gray-100 px-2 py-2 text-sm"
               />
 
               <input
@@ -242,7 +301,7 @@ export default function DoctorSchedule() {
                 value={slot.end_time}
                 onChange={(e) => updateSlot(index, "end_time", e.target.value)}
                 disabled={!slot.is_available}
-                className="w-full sm:w-32 rounded-lg bg-gray-100 px-2 py-2 text-sm"
+                className="w-32 rounded-lg bg-gray-100 px-2 py-2 text-sm"
               />
 
               <div className="text-sm text-gray-600">

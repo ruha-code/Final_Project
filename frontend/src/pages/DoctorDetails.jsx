@@ -316,7 +316,7 @@ export default function DoctorDetails() {
         ) : scheduleError ? (
           <p className="text-sm text-red-500">{scheduleError}</p>
         ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 md:grid-cols-5">
             {days.map((day) => {
               const slots = schedule[day.date] || [];
               const hasSlots = slots.length > 0;

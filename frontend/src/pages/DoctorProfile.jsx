@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Award, Building, Check, Clock, Mail, Phone, Save, User, Shield, ShieldAlert, ShieldCheck, Star, Calendar, MapPin } from "lucide-react";
+import { Award, Building, Check, Clock, Mail, Phone, Save, User, Shield, ShieldAlert, ShieldCheck, Star, Calendar, MapPin, Lock } from "lucide-react";
 
 import { api } from "../services/api";
 
@@ -97,6 +97,11 @@ export default function DoctorProfile() {
     phone: "",
   });
 
+  const [pwForm, setPwForm] = useState({ current_password: "", new_password: "", confirm_password: "" });
+  const [pwSaving, setPwSaving] = useState(false);
+  const [pwSaved, setPwSaved] = useState(false);
+  const [pwError, setPwError] = useState("");
+
   useEffect(() => {
     const fetchProfile = async () => {
       try {
@@ -177,6 +182,39 @@ export default function DoctorProfile() {
       setError(err.message || "Failed to save");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSavePassword = async () => {
+    setPwError("");
+    setPwSaved(false);
+
+    if (!pwForm.current_password) {
+      setPwError("Enter current password");
+      return;
+    }
+    if (!pwForm.new_password || pwForm.new_password.length < 8) {
+      setPwError("New password must be at least 8 characters");
+      return;
+    }
+    if (pwForm.new_password !== pwForm.confirm_password) {
+      setPwError("Passwords do not match");
+      return;
+    }
+
+    try {
+      setPwSaving(true);
+      await api.put("/auth/change-password", {
+        current_password: pwForm.current_password,
+        new_password: pwForm.new_password,
+      });
+      setPwForm({ current_password: "", new_password: "", confirm_password: "" });
+      setPwSaved(true);
+      setTimeout(() => setPwSaved(false), 2500);
+    } catch (err) {
+      setPwError(err.message || "Failed to change password");
+    } finally {
+      setPwSaving(false);
     }
   };
 
@@ -395,6 +433,73 @@ export default function DoctorProfile() {
                 <>
                   <Save size={18} /> Save Profile
                 </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* CHANGE PASSWORD */}
+        <div className="rounded-2xl border bg-white p-6">
+          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <Lock size={18} /> Change Password
+          </h3>
+
+          {pwError && (
+            <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">{pwError}</div>
+          )}
+          {pwSaved && (
+            <div className="mb-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-600 flex items-center gap-2">
+              <Check size={16} /> Password changed successfully
+            </div>
+          )}
+
+          <div className="space-y-4">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-600">Current Password</label>
+              <input
+                type="password"
+                value={pwForm.current_password}
+                onChange={(e) => setPwForm({ ...pwForm, current_password: e.target.value })}
+                className="w-full rounded-xl bg-gray-50 border border-gray-200 px-4 py-3 text-sm outline-none focus:ring-2 focus:border-teal-400 focus:ring-teal-100"
+                placeholder="Enter current password"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-600">New Password</label>
+              <input
+                type="password"
+                value={pwForm.new_password}
+                onChange={(e) => setPwForm({ ...pwForm, new_password: e.target.value })}
+                className="w-full rounded-xl bg-gray-50 border border-gray-200 px-4 py-3 text-sm outline-none focus:ring-2 focus:border-teal-400 focus:ring-teal-100"
+                placeholder="Min 8 characters"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-600">Confirm New Password</label>
+              <input
+                type="password"
+                value={pwForm.confirm_password}
+                onChange={(e) => setPwForm({ ...pwForm, confirm_password: e.target.value })}
+                onKeyDown={(e) => { if (e.key === "Enter") handleSavePassword(); }}
+                className="w-full rounded-xl bg-gray-50 border border-gray-200 px-4 py-3 text-sm outline-none focus:ring-2 focus:border-teal-400 focus:ring-teal-100"
+                placeholder="Repeat new password"
+              />
+            </div>
+            <button
+              onClick={handleSavePassword}
+              disabled={pwSaving}
+              className={`flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold transition-all ${
+                pwSaved
+                  ? "bg-emerald-500 text-white"
+                  : "bg-teal-500 text-white hover:bg-teal-600"
+              } disabled:opacity-50`}
+            >
+              {pwSaved ? (
+                <><Check size={18} /> Password Changed</>
+              ) : pwSaving ? (
+                "Saving..."
+              ) : (
+                <><Lock size={18} /> Change Password</>
               )}
             </button>
           </div>

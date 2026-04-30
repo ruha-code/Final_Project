@@ -490,6 +490,7 @@ async def get_all_appointments(
     all_records: bool = Query(False, alias="all"),
     status: Optional[str] = None,
     doctor_id: Optional[int] = None,
+    patient_id: Optional[int] = None,
     db: AsyncSession = Depends(get_db),
 ):
     query = select(Appointment).options(*_load_opts())
@@ -497,6 +498,8 @@ async def get_all_appointments(
         query = query.where(Appointment.status == status.upper())
     if doctor_id:
         query = query.where(Appointment.doctor_id == doctor_id)
+    if patient_id:
+        query = query.where(Appointment.patient_id == patient_id)
     query = query.order_by(Appointment.appointment_time.desc(), Appointment.id.desc())
     if all_records:
         result = await db.execute(query)

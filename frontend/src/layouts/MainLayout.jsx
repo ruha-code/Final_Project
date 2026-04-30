@@ -205,6 +205,16 @@ function MainLayout({ children }) {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  // Lock body scroll when mobile sidebar is open
+  useEffect(() => {
+    if (sidebarOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [sidebarOpen]);
+
   const menuItem = (path, name, Icon) => {
     const isActive = location.pathname.startsWith(path);
 
@@ -244,7 +254,7 @@ function MainLayout({ children }) {
     if (path.includes("/admin/profile")) return "My Profile";
     if (path.includes("calendar")) return "Calendar";
     if (path.includes("messages")) return "Messages";
-    if (path.includes("settings/notifications")) return "Notification Settings";
+    if (path.includes("settings/notifications")) return "Notifications";
 
     return "Dashboard";
   };
@@ -591,18 +601,18 @@ function MainLayout({ children }) {
       {/* MOBILE SIDEBAR OVERLAY */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/40 md:hidden"
+          className="fixed inset-0 z-[60] bg-black/40 md:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* MOBILE SIDEBAR DRAWER */}
       <div
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white flex flex-col justify-between px-6 py-7 transform transition-transform duration-300 ease-in-out md:hidden ${
+        className={`fixed inset-y-0 left-0 z-[70] w-72 bg-white flex flex-col px-6 py-7 transform transition-transform duration-300 ease-in-out md:hidden ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="flex justify-end mb-2">
+        <div className="flex justify-end mb-4 shrink-0">
           <button
             onClick={() => setSidebarOpen(false)}
             className="p-1 rounded-lg text-gray-400 hover:bg-gray-100"
@@ -610,7 +620,9 @@ function MainLayout({ children }) {
             <X size={18} />
           </button>
         </div>
-        <SidebarContent />
+        <div className="flex-1 overflow-y-auto flex flex-col justify-between">
+          <SidebarContent />
+        </div>
       </div>
 
       {/* DESKTOP SIDEBAR */}
@@ -625,7 +637,7 @@ function MainLayout({ children }) {
         <div className="bg-white border-b px-4 md:px-8 py-4 flex justify-between items-center relative z-50">
 
           {/* LEFT — hamburger on mobile + title */}
-          <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
             <button
               onClick={() => setSidebarOpen(true)}
               className="md:hidden w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 shrink-0"
@@ -644,7 +656,7 @@ function MainLayout({ children }) {
           <div className="flex items-center gap-2 md:gap-4 relative shrink-0" ref={dropdownRef}>
 
             {/* DESKTOP SEARCH */}
-            <div className="relative hidden md:block">
+            <div className="relative hidden md:block w-44 lg:w-64">
               <Search size={16} className="absolute left-3 top-2.5 text-gray-400" />
               <input
                 value={search}
@@ -663,7 +675,7 @@ function MainLayout({ children }) {
                   }
                 }}
                 placeholder="Search pages, doctors, patients..."
-                className="bg-gray-100 pl-9 pr-4 py-2 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400 w-64"
+                className="w-full bg-gray-100 pl-9 pr-4 py-2 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
               />
               {searchOpen && search.trim() && (
                 <div className="absolute left-0 top-12 w-full rounded-xl border bg-white p-2 shadow-lg">
@@ -982,7 +994,7 @@ function MainLayout({ children }) {
         </div>
       )}
 
-      {isPatient() && <ChatBot />}
+      {isPatient() && !location.pathname.startsWith("/messages") && <ChatBot />}
     </div>
   );
 }

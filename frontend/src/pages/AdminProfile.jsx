@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "../services/api";
-import { Save, Check, User, Mail, Phone } from "lucide-react";
+import { Save, Check, User, Mail, Phone, Lock } from "lucide-react";
 
 export default function AdminProfile() {
   const [loading, setLoading] = useState(true);
@@ -14,6 +14,11 @@ export default function AdminProfile() {
     phone: "",
     avatar_url: "",
   });
+
+  const [pwForm, setPwForm] = useState({ current_password: "", new_password: "", confirm_password: "" });
+  const [pwSaving, setPwSaving] = useState(false);
+  const [pwSaved, setPwSaved] = useState(false);
+  const [pwError, setPwError] = useState("");
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -51,6 +56,25 @@ export default function AdminProfile() {
       setError(err.message || "Failed to save profile");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSavePassword = async () => {
+    setPwError("");
+    setPwSaved(false);
+    if (!pwForm.current_password) { setPwError("Enter current password"); return; }
+    if (!pwForm.new_password || pwForm.new_password.length < 8) { setPwError("New password must be at least 8 characters"); return; }
+    if (pwForm.new_password !== pwForm.confirm_password) { setPwError("Passwords do not match"); return; }
+    try {
+      setPwSaving(true);
+      await api.put("/auth/change-password", { current_password: pwForm.current_password, new_password: pwForm.new_password });
+      setPwForm({ current_password: "", new_password: "", confirm_password: "" });
+      setPwSaved(true);
+      setTimeout(() => setPwSaved(false), 2500);
+    } catch (err) {
+      setPwError(err.message || "Failed to change password");
+    } finally {
+      setPwSaving(false);
     }
   };
 
@@ -215,6 +239,34 @@ export default function AdminProfile() {
               <><Save size={16} className="sm:w-[18px] sm:h-[18px]" /> Save Profile</>
             )}
           </button>
+        </div>
+
+        {/* CHANGE PASSWORD */}
+        <div className="bg-white rounded-2xl border p-4 sm:p-5 md:p-6 xl:p-8 space-y-4">
+          <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
+            <Lock size={18} /> Change Password
+          </h3>
+          {pwError && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-xs sm:text-sm">{pwError}</div>}
+          {pwSaved && <div className="bg-emerald-50 text-emerald-600 p-3 rounded-lg text-xs sm:text-sm flex items-center gap-2"><Check size={16} /> Password changed</div>}
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs sm:text-sm text-gray-500 mb-1 block">Current Password</label>
+              <input type="password" value={pwForm.current_password} onChange={(e) => setPwForm({ ...pwForm, current_password: e.target.value })} className="w-full px-3 sm:px-4 py-2 sm:py-2.5 bg-gray-100 rounded-xl text-xs sm:text-sm outline-none focus:ring-2 focus:ring-teal-400" placeholder="Enter current password" />
+            </div>
+            <div>
+              <label className="text-xs sm:text-sm text-gray-500 mb-1 block">New Password</label>
+              <input type="password" value={pwForm.new_password} onChange={(e) => setPwForm({ ...pwForm, new_password: e.target.value })} className="w-full px-3 sm:px-4 py-2 sm:py-2.5 bg-gray-100 rounded-xl text-xs sm:text-sm outline-none focus:ring-2 focus:ring-teal-400" placeholder="Min 8 characters" />
+            </div>
+            <div>
+              <label className="text-xs sm:text-sm text-gray-500 mb-1 block">Confirm New Password</label>
+              <input type="password" value={pwForm.confirm_password} onChange={(e) => setPwForm({ ...pwForm, confirm_password: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") handleSavePassword(); }} className="w-full px-3 sm:px-4 py-2 sm:py-2.5 bg-gray-100 rounded-xl text-xs sm:text-sm outline-none focus:ring-2 focus:ring-teal-400" placeholder="Repeat new password" />
+            </div>
+            <div className="flex justify-center sm:justify-end">
+              <button onClick={handleSavePassword} disabled={pwSaving} className={`w-full sm:w-auto px-6 py-2.5 sm:py-3 rounded-xl flex items-center justify-center gap-2 text-sm transition ${pwSaved ? "bg-emerald-500 text-white" : "bg-teal-500 text-white hover:bg-teal-600"} disabled:opacity-50`}>
+                {pwSaved ? <><Check size={16} /> Changed</> : pwSaving ? "Saving..." : <><Lock size={16} /> Change Password</>}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
