@@ -6,7 +6,6 @@ import {
   Calendar,
   Shield,
   Trash2,
-  Package2,
 } from "lucide-react";
 
 import { api } from "../services/api";
@@ -101,26 +100,6 @@ const ACTION_META = {
     icon: Trash2,
     color: "bg-red-100 text-red-700",
     label: "Deleted appointment",
-  },
-  INVENTORY_ADD: {
-    icon: Package2,
-    color: "bg-emerald-100 text-emerald-700",
-    label: "Added inventory item",
-  },
-  INVENTORY_UPDATE: {
-    icon: Package2,
-    color: "bg-sky-100 text-sky-700",
-    label: "Updated inventory item",
-  },
-  INVENTORY_REMOVE: {
-    icon: Package2,
-    color: "bg-orange-100 text-orange-700",
-    label: "Removed inventory item",
-  },
-  INVENTORY_LOW: {
-    icon: Package2,
-    color: "bg-amber-100 text-amber-700",
-    label: "Inventory low warning",
   },
   VIEW_AUDIT_LOGS: {
     icon: Activity,

@@ -30,7 +30,6 @@ const MyHealth = lazy(() => import("../pages/MyHealth"));
 const AdminProfile = lazy(() => import("../pages/AdminProfile"));
 const MyPatients = lazy(() => import("../pages/MyPatients"));
 const AuditLogs = lazy(() => import("../pages/AuditLogs"));
-const Inventory = lazy(() => import("../pages/Inventory"));
 const Departments = lazy(() => import("../pages/Departments"));
 const DepartmentDetails = lazy(() => import("../pages/DepartmentDetails"));
 const AdminUsers = lazy(() => import("../pages/AdminUsers"));
@@ -246,18 +245,6 @@ function AppRoutes() {
                 <PatientDetails />
               </MainLayout>
             </DoctorRoute>
-          }
-        />
-
-        {/* Inventory - Admin and Doctor */}
-        <Route
-          path="/inventory"
-          element={
-            <ProtectedRoute allowedRoles={["ADMIN", "DOCTOR"]}>
-              <MainLayout>
-                <Inventory />
-              </MainLayout>
-            </ProtectedRoute>
           }
         />
 

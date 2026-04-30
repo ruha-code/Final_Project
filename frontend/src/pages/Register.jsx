@@ -105,7 +105,7 @@ function Register() {
               Stay on Top of Every Detail
             </h2>
             <p className="text-gray-600 max-w-sm mx-auto">
-              From appointments to inventory, Medlink gives you a clear view of
+              From appointments to patient records, Medlink gives you a clear view of
               daily hospital operations.
             </p>
           </div>

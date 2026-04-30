@@ -11,7 +11,6 @@ from app.modules.departments.models import Department
 from app.modules.doctors.models import Doctor, DoctorSchedule
 from app.modules.patients.models import Patient, HealthVital
 from app.modules.appointments.models import Appointment
-from app.modules.inventory.models import InventoryItem
 from app.modules.messages.models import Conversation, Message
 from app.modules.calendar.models import CalendarEvent
 from app.modules.audit.models import AuditLog

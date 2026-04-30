@@ -14,7 +14,6 @@ from app.modules.appointments.models import Appointment, AppointmentStatus
 from app.modules.auth.models import User, UserRole
 from app.modules.calendar.models import CalendarEvent
 from app.modules.doctors.models import Doctor
-from app.modules.inventory.models import InventoryItem, InventoryStatus
 from app.modules.messages.models import Conversation, Message
 from app.modules.notifications.models import NotificationPreference, NotificationRead
 from app.modules.notifications.schemas import (
@@ -39,14 +38,12 @@ def _available_notification_types_for_role(role: UserRole) -> list[NotificationT
     if role == UserRole.ADMIN:
         return [
             NotificationType.APPOINTMENT,
-            NotificationType.INVENTORY,
             NotificationType.CALENDAR,
         ]
     if role == UserRole.DOCTOR:
         return [
             NotificationType.MESSAGE,
             NotificationType.APPOINTMENT,
-            NotificationType.INVENTORY,
         ]
     return [NotificationType.MESSAGE, NotificationType.APPOINTMENT]
 
@@ -58,8 +55,6 @@ def _allowed_preference_fields_for_role(role: UserRole) -> set[str]:
     }
     if role in {UserRole.DOCTOR, UserRole.PATIENT}:
         fields.add("mute_message_notifications")
-    if role in {UserRole.ADMIN, UserRole.DOCTOR}:
-        fields.add("mute_inventory_notifications")
     if role == UserRole.ADMIN:
         fields.add("mute_calendar_notifications")
     return fields
@@ -88,8 +83,6 @@ def _notification_muted(
         return preference.mute_message_notifications
     if notification_type == NotificationType.APPOINTMENT:
         return preference.mute_appointment_notifications
-    if notification_type == NotificationType.INVENTORY:
-        return preference.mute_inventory_notifications
     if notification_type == NotificationType.CALENDAR:
         return preference.mute_calendar_notifications
     return False
@@ -275,25 +268,6 @@ async def _build_notifications_for_user(
                 created_at=now_utc,
             )
 
-        low_stock_result = await db.execute(
-            select(func.count(InventoryItem.id)).where(
-                InventoryItem.status.in_([InventoryStatus.LOW, InventoryStatus.OUT])
-            )
-        )
-        low_stock_count = int(low_stock_result.scalar() or 0)
-        if low_stock_count > 0:
-            _append_notification(
-                items,
-                preference,
-                key=f"inventory-low-stock-{low_stock_count}",
-                notification_type=NotificationType.INVENTORY,
-                title="Inventory attention needed",
-                message=f"{low_stock_count} inventory item(s) are low or out of stock.",
-                level=NotificationLevel.CRITICAL,
-                route="/inventory",
-                created_at=now_utc,
-            )
-
         event_result = await db.execute(
             select(CalendarEvent)
             .where(
@@ -441,7 +415,6 @@ async def get_notification_preferences(
     return NotificationPreferencesResponse(
         mute_message_notifications=preference.mute_message_notifications,
         mute_appointment_notifications=preference.mute_appointment_notifications,
-        mute_inventory_notifications=preference.mute_inventory_notifications,
         mute_calendar_notifications=preference.mute_calendar_notifications,
         appointment_reminder_hours=preference.appointment_reminder_hours,
         available_notification_types=available_types,
@@ -486,7 +459,6 @@ async def update_notification_preferences(
     return NotificationPreferencesResponse(
         mute_message_notifications=preference.mute_message_notifications,
         mute_appointment_notifications=preference.mute_appointment_notifications,
-        mute_inventory_notifications=preference.mute_inventory_notifications,
         mute_calendar_notifications=preference.mute_calendar_notifications,
         appointment_reminder_hours=preference.appointment_reminder_hours,
         available_notification_types=available_types,

@@ -81,26 +81,6 @@ function LicenseBadge({ status }) {
   );
 }
 
-function StatItem({ icon: Icon, label, value, color = "teal" }) {
-  const colors = {
-    teal: "bg-teal-50 text-teal-600",
-    amber: "bg-amber-50 text-amber-600",
-    blue: "bg-blue-50 text-blue-600",
-    purple: "bg-purple-50 text-purple-600",
-  };
-  return (
-    <div className="flex items-center gap-3 rounded-xl bg-gray-50 border border-gray-100 p-3">
-      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${colors[color]}`}>
-        <Icon size={18} />
-      </div>
-      <div className="min-w-0">
-        <p className="text-xs text-gray-400">{label}</p>
-        <p className="text-sm font-semibold text-gray-800 truncate">{value}</p>
-      </div>
-    </div>
-  );
-}
-
 export default function DoctorProfile() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);

@@ -13,7 +13,6 @@ class NotificationLevel(str, Enum):
 class NotificationType(str, Enum):
     MESSAGE = "MESSAGE"
     APPOINTMENT = "APPOINTMENT"
-    INVENTORY = "INVENTORY"
     CALENDAR = "CALENDAR"
 
 
@@ -36,7 +35,6 @@ class NotificationsResponse(BaseModel):
 class NotificationPreferencesResponse(BaseModel):
     mute_message_notifications: bool = False
     mute_appointment_notifications: bool = False
-    mute_inventory_notifications: bool = False
     mute_calendar_notifications: bool = False
     appointment_reminder_hours: int = 48
     available_notification_types: list[NotificationType] = Field(default_factory=list)
@@ -45,6 +43,5 @@ class NotificationPreferencesResponse(BaseModel):
 class NotificationPreferencesUpdate(BaseModel):
     mute_message_notifications: bool | None = None
     mute_appointment_notifications: bool | None = None
-    mute_inventory_notifications: bool | None = None
     mute_calendar_notifications: bool | None = None
     appointment_reminder_hours: int | None = None

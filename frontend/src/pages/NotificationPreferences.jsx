@@ -7,12 +7,11 @@ import { useAuth } from "../context/AuthContext";
 const DEFAULT_FORM = {
   mute_message_notifications: false,
   mute_appointment_notifications: false,
-  mute_inventory_notifications: false,
   mute_calendar_notifications: false,
   appointment_reminder_hours: 48,
 };
 
-const TYPE_ORDER = ["MESSAGE", "APPOINTMENT", "INVENTORY", "CALENDAR"];
+const TYPE_ORDER = ["MESSAGE", "APPOINTMENT", "CALENDAR"];
 
 const TYPE_CONFIG = {
   MESSAGE: {
@@ -25,11 +24,6 @@ const TYPE_CONFIG = {
     label: "Appointments",
     description: "Mute upcoming appointment notifications.",
   },
-  INVENTORY: {
-    field: "mute_inventory_notifications",
-    label: "Inventory",
-    description: "Mute low stock alerts.",
-  },
   CALENDAR: {
     field: "mute_calendar_notifications",
     label: "Calendar",
@@ -38,8 +32,8 @@ const TYPE_CONFIG = {
 };
 
 function getFallbackTypesByRole(role) {
-  if (role === "ADMIN") return ["APPOINTMENT", "INVENTORY", "CALENDAR"];
-  if (role === "DOCTOR") return ["MESSAGE", "APPOINTMENT", "INVENTORY"];
+  if (role === "ADMIN") return ["APPOINTMENT", "CALENDAR"];
+  if (role === "DOCTOR") return ["MESSAGE", "APPOINTMENT"];
   return ["MESSAGE", "APPOINTMENT"];
 }
 
@@ -66,7 +60,6 @@ export default function NotificationPreferences() {
         setForm({
           mute_message_notifications: Boolean(data?.mute_message_notifications),
           mute_appointment_notifications: Boolean(data?.mute_appointment_notifications),
-          mute_inventory_notifications: Boolean(data?.mute_inventory_notifications),
           mute_calendar_notifications: Boolean(data?.mute_calendar_notifications),
           appointment_reminder_hours: data?.appointment_reminder_hours ?? 48,
         });
@@ -130,9 +123,6 @@ export default function NotificationPreferences() {
       if (availableTypes.includes("APPOINTMENT")) {
         payload.mute_appointment_notifications = form.mute_appointment_notifications;
       }
-      if (availableTypes.includes("INVENTORY")) {
-        payload.mute_inventory_notifications = form.mute_inventory_notifications;
-      }
       if (availableTypes.includes("CALENDAR")) {
         payload.mute_calendar_notifications = form.mute_calendar_notifications;
       }
@@ -142,7 +132,6 @@ export default function NotificationPreferences() {
       setForm({
         mute_message_notifications: Boolean(updated?.mute_message_notifications),
         mute_appointment_notifications: Boolean(updated?.mute_appointment_notifications),
-        mute_inventory_notifications: Boolean(updated?.mute_inventory_notifications),
         mute_calendar_notifications: Boolean(updated?.mute_calendar_notifications),
         appointment_reminder_hours: updated?.appointment_reminder_hours ?? reminderHours,
       });

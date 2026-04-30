@@ -45,7 +45,6 @@ class NotificationPreference(Base):
     )
     mute_message_notifications: Mapped[bool] = mapped_column(default=False, nullable=False)
     mute_appointment_notifications: Mapped[bool] = mapped_column(default=False, nullable=False)
-    mute_inventory_notifications: Mapped[bool] = mapped_column(default=False, nullable=False)
     mute_calendar_notifications: Mapped[bool] = mapped_column(default=False, nullable=False)
     appointment_reminder_hours: Mapped[int] = mapped_column(default=48, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(

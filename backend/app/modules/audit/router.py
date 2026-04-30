@@ -38,10 +38,6 @@ class Actions:
     UPDATE_DOCTOR = "UPDATE_DOCTOR"
     DELETE_DOCTOR = "DELETE_DOCTOR"
     DELETE_APPOINTMENT = "DELETE_APPOINTMENT"
-    INVENTORY_ADD = "INVENTORY_ADD"
-    INVENTORY_UPDATE = "INVENTORY_UPDATE"
-    INVENTORY_REMOVE = "INVENTORY_REMOVE"
-    INVENTORY_LOW = "INVENTORY_LOW"
     VIEW_AUDIT_LOGS = "VIEW_AUDIT_LOGS"
     VIEW_ANALYTICS = "VIEW_ANALYTICS"
 
@@ -67,10 +63,6 @@ ACTION_LABELS = {
     Actions.UPDATE_DOCTOR: "Updated doctor",
     Actions.DELETE_DOCTOR: "Deleted doctor",
     Actions.DELETE_APPOINTMENT: "Deleted appointment",
-    Actions.INVENTORY_ADD: "Added inventory item",
-    Actions.INVENTORY_UPDATE: "Updated inventory item",
-    Actions.INVENTORY_REMOVE: "Removed inventory item",
-    Actions.INVENTORY_LOW: "Inventory low warning",
     Actions.VIEW_AUDIT_LOGS: "Viewed audit logs",
     Actions.VIEW_ANALYTICS: "Viewed analytics",
 }

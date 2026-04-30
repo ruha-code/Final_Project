@@ -1,4 +1,3 @@
-
 import asyncio
 from datetime import date, time, datetime, timezone, timedelta
 import random
@@ -22,11 +21,6 @@ from app.modules.appointments.models import (
     Appointment,
     AppointmentStatus,
     AppointmentType,
-)
-from app.modules.inventory.models import (
-    InventoryItem,
-    InventoryCategory,
-    InventoryStatus,
 )
 from app.modules.messages.models import Conversation, Message
 from app.modules.calendar.models import CalendarEvent, EventCategory
@@ -308,105 +302,6 @@ PATIENTS_DATA = [
     },
 ]
 
-INVENTORY_DATA = [
-    {
-        "name": "Surgical Gloves",
-        "category": InventoryCategory.CONSUMABLES,
-        "quantity": 320,
-        "unit": "boxes",
-        "stock": 80,
-        "status": InventoryStatus.AVAILABLE,
-    },
-    {
-        "name": "Paracetamol 500mg",
-        "category": InventoryCategory.MEDICATIONS,
-        "quantity": 1500,
-        "unit": "pcs",
-        "stock": 75,
-        "status": InventoryStatus.AVAILABLE,
-    },
-    {
-        "name": "Syringes 5ml",
-        "category": InventoryCategory.CONSUMABLES,
-        "quantity": 45,
-        "unit": "boxes",
-        "stock": 22,
-        "status": InventoryStatus.LOW,
-    },
-    {
-        "name": "Blood Test Kits",
-        "category": InventoryCategory.LABORATORY,
-        "quantity": 60,
-        "unit": "kits",
-        "stock": 30,
-        "status": InventoryStatus.LOW,
-    },
-    {
-        "name": "Amoxicillin 250mg",
-        "category": InventoryCategory.MEDICATIONS,
-        "quantity": 800,
-        "unit": "pcs",
-        "stock": 60,
-        "status": InventoryStatus.AVAILABLE,
-    },
-    {
-        "name": "Face Masks",
-        "category": InventoryCategory.CONSUMABLES,
-        "quantity": 0,
-        "unit": "boxes",
-        "stock": 0,
-        "status": InventoryStatus.OUT,
-    },
-    {
-        "name": "Ibuprofen 400mg",
-        "category": InventoryCategory.MEDICATIONS,
-        "quantity": 600,
-        "unit": "pcs",
-        "stock": 55,
-        "status": InventoryStatus.AVAILABLE,
-    },
-    {
-        "name": "Glucose Test Strips",
-        "category": InventoryCategory.LABORATORY,
-        "quantity": 20,
-        "unit": "boxes",
-        "stock": 15,
-        "status": InventoryStatus.LOW,
-    },
-    {
-        "name": "IV Drip Sets",
-        "category": InventoryCategory.CONSUMABLES,
-        "quantity": 150,
-        "unit": "pcs",
-        "stock": 50,
-        "status": InventoryStatus.AVAILABLE,
-    },
-    {
-        "name": "Bandages",
-        "category": InventoryCategory.CONSUMABLES,
-        "quantity": 0,
-        "unit": "rolls",
-        "stock": 0,
-        "status": InventoryStatus.OUT,
-    },
-    {
-        "name": "Metformin 500mg",
-        "category": InventoryCategory.MEDICATIONS,
-        "quantity": 1200,
-        "unit": "pcs",
-        "stock": 90,
-        "status": InventoryStatus.AVAILABLE,
-    },
-    {
-        "name": "Urine Test Strips",
-        "category": InventoryCategory.LABORATORY,
-        "quantity": 30,
-        "unit": "boxes",
-        "stock": 20,
-        "status": InventoryStatus.LOW,
-    },
-]
-
 APPOINTMENT_REASONS = [
     "Routine blood pressure follow-up",
     "Persistent headache and dizziness",
@@ -427,7 +322,7 @@ async def clear_all(session):
     await session.execute(text(
         "TRUNCATE TABLE notification_reads, notification_preferences, messages, "
         "conversations, calendar_events, health_vitals, appointments, "
-        "doctor_schedules, inventory_items, patients, doctors, departments, users "
+        "doctor_schedules, patients, doctors, departments, users "
         "RESTART IDENTITY CASCADE"
     ))
     await session.commit()
@@ -641,22 +536,6 @@ async def seed_appointments(session, patients: list, doctors: list):
     print(f"  Created {count} appointments.")
 
 
-async def seed_inventory(session):
-    print("Seeding inventory...")
-    for item in INVENTORY_DATA:
-        inv = InventoryItem(
-            name=item["name"],
-            category=item["category"],
-            quantity=item["quantity"],
-            unit=item["unit"],
-            stock_percentage=item["stock"],
-            status=item["status"],
-        )
-        session.add(inv)
-    await session.commit()
-    print(f"  Created {len(INVENTORY_DATA)} inventory items.")
-
-
 async def seed_messages(session, patients: list, doctors: list, admin: User):
     print("Seeding messages...")
     pairs = [
@@ -757,7 +636,6 @@ async def main():
         doctors = await seed_doctors(session, dept_map)
         patients = await seed_patients(session)
         await seed_appointments(session, patients, doctors)
-        await seed_inventory(session)
         await seed_messages(session, patients, doctors, admin)
         await seed_calendar(session, admin)
 

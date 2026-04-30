@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { Search, Bell, CalendarClock, Package2, LogOut, MessageSquare, Settings, Users, X, LayoutDashboard, CalendarDays, Stethoscope, UserRound, Building2, CalendarRange, UserPlus, HeartPulse, UserCircle, Calendar, Package, MessageCircle, ShieldCheck, FileText, BarChart3, Menu } from "lucide-react";
+import { Search, Bell, CalendarClock, LogOut, MessageSquare, Settings, Users, X, LayoutDashboard, CalendarDays, Stethoscope, UserRound, Building2, CalendarRange, UserPlus, HeartPulse, UserCircle, Calendar, MessageCircle, ShieldCheck, FileText, BarChart3, Menu } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
@@ -19,11 +19,6 @@ const NOTIFICATION_TOAST_META = {
     icon: CalendarClock,
     iconClass: "bg-amber-50 text-amber-600",
     actionLabel: "Open appointments",
-  },
-  INVENTORY: {
-    icon: Package2,
-    iconClass: "bg-orange-50 text-orange-600",
-    actionLabel: "Open inventory",
   },
   CALENDAR: {
     icon: CalendarClock,
@@ -248,7 +243,6 @@ function MainLayout({ children }) {
     if (path.includes("/patient/profile")) return "My Profile";
     if (path.includes("/admin/profile")) return "My Profile";
     if (path.includes("calendar")) return "Calendar";
-    if (path.includes("inventory")) return "Inventory";
     if (path.includes("messages")) return "Messages";
     if (path.includes("settings/notifications")) return "Notification Settings";
 
@@ -461,7 +455,6 @@ function MainLayout({ children }) {
       { label: "My Schedule", description: "Doctor weekly schedule", path: "/schedule", roles: ["DOCTOR"] },
       { label: "Departments", description: "Department management", path: "/departments", roles: ["ADMIN"] },
       { label: "Calendar", description: "Clinic events and schedule", path: "/calendar", roles: ["ADMIN", "DOCTOR"] },
-      { label: "Inventory", description: "Inventory management", path: "/inventory", roles: ["ADMIN"] },
       { label: "User Management", description: "Admin users", path: "/admin/users", roles: ["ADMIN"] },
       { label: "Audit Logs", description: "System audit trail", path: "/admin/audit-logs", roles: ["ADMIN"] },
       { label: "Analytics", description: "Clinic analytics", path: "/admin/analytics", roles: ["ADMIN"] },
@@ -569,7 +562,6 @@ function MainLayout({ children }) {
           {isPatient() && menuItem("/patient/health", "My Health", HeartPulse)}
           {isPatient() && menuItem("/patient/profile", "My Profile", UserCircle)}
           {(isAdmin() || isDoctor()) && menuItem("/calendar", "Calendar", Calendar)}
-          {isAdmin() && menuItem("/inventory", "Inventory", Package)}
           {(isDoctor() || isPatient()) && menuItem("/messages", "Messages", MessageCircle)}
           {isAdmin() && (
             <>
