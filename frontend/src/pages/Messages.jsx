@@ -10,14 +10,46 @@ import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
 
 const PAGE_SIZE = 100;
+const PENDING_MESSAGE_TIMEOUT_MS = 8000;
+const PENDING_MESSAGE_MATCH_WINDOW_MS = 15000;
+
+function getMessageKey(item) {
+  if (item?.id) return `server:${item.id}`;
+  if (item?.tempId) return `temp:${item.tempId}`;
+  return null;
+}
 
 function dedupeMessages(items) {
   const seen = new Set();
   return (Array.isArray(items) ? items : []).filter((item) => {
-    if (!item?.id || seen.has(item.id)) return false;
-    seen.add(item.id);
+    const key = getMessageKey(item);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
     return true;
   });
+}
+
+function createClientMessageId() {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return `temp-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function hasPersistedMatch(localMessage, persistedMessage) {
+  if (!localMessage?.tempId || !persistedMessage?.id) return false;
+
+  const localTime = Date.parse(localMessage.sent_at ?? "");
+  const persistedTime = Date.parse(persistedMessage.sent_at ?? "");
+
+  return (
+    localMessage.conversation_id === persistedMessage.conversation_id
+    && localMessage.sender_id === persistedMessage.sender_id
+    && localMessage.text === persistedMessage.text
+    && Number.isFinite(localTime)
+    && Number.isFinite(persistedTime)
+    && Math.abs(persistedTime - localTime) <= PENDING_MESSAGE_MATCH_WINDOW_MS
+  );
 }
 
 function getInitials(name) {
@@ -67,7 +99,6 @@ export default function Messages() {
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState("");
   const [sendError, setSendError] = useState("");
-  const [sending, setSending] = useState(false);
   const [contextInfo, setContextInfo] = useState("");
   const [activePatient, setActivePatient] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -87,6 +118,7 @@ export default function Messages() {
   const fetchMessagesRef = useRef(null);
   const markAsReadRef = useRef(null);
   const clearUnreadRef = useRef(null);
+  const pendingTimersRef = useRef({});
   const currentPageRef = useRef(1);
   const shouldScrollRef = useRef(true);
 
@@ -144,15 +176,107 @@ export default function Messages() {
     );
   }, []);
 
+  const clearPendingTimeout = useCallback((tempId) => {
+    const timerId = pendingTimersRef.current[tempId];
+    if (!timerId) return;
+    clearTimeout(timerId);
+    delete pendingTimersRef.current[tempId];
+  }, []);
+
+  const clearAllPendingTimeouts = useCallback(() => {
+    Object.values(pendingTimersRef.current).forEach((timerId) => clearTimeout(timerId));
+    pendingTimersRef.current = {};
+  }, []);
+
+  const sendSocketPayload = useCallback((payload) => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+
+    try {
+      ws.send(JSON.stringify(payload));
+      return true;
+    } catch (err) {
+      console.error("Failed to send chat WS payload:", err);
+      return false;
+    }
+  }, []);
+
   const markConversationAsRead = useCallback(async (convId) => {
     if (!convId) return;
+    clearUnreadForConversation(convId);
+
+    if (convId === activeConvIdRef.current && sendSocketPayload({ action: "read" })) {
+      return;
+    }
+
     try {
       await api.put(`/messages/conversations/${convId}/read`);
-      clearUnreadForConversation(convId);
     } catch (err) {
       console.error("Failed to mark conversation as read:", err);
     }
-  }, [clearUnreadForConversation]);
+  }, [clearUnreadForConversation, sendSocketPayload]);
+
+  const replacePendingMessage = useCallback((confirmedMessage, clientId = null) => {
+    if (clientId) {
+      clearPendingTimeout(clientId);
+    }
+
+    setMessages((prev) => {
+      const withoutPending = prev.filter((message) => {
+        if (clientId && message.tempId === clientId) return false;
+        return !hasPersistedMatch(message, confirmedMessage);
+      });
+
+      if (withoutPending.some((message) => message.id === confirmedMessage.id)) {
+        return withoutPending;
+      }
+
+      return dedupeMessages([...withoutPending, confirmedMessage]);
+    });
+  }, [clearPendingTimeout]);
+
+  const markPendingMessageFailed = useCallback((tempId, detail = "") => {
+    clearPendingTimeout(tempId);
+    setMessages((prev) =>
+      prev.map((message) => (
+        message.tempId === tempId ? { ...message, status: "error" } : message
+      )),
+    );
+    if (detail) {
+      setSendError(detail);
+    }
+  }, [clearPendingTimeout]);
+
+  const schedulePendingTimeout = useCallback((tempId) => {
+    clearPendingTimeout(tempId);
+    pendingTimersRef.current[tempId] = setTimeout(() => {
+      setMessages((prev) =>
+        prev.map((message) => (
+          message.tempId === tempId && message.status === "sending"
+            ? { ...message, status: "error" }
+            : message
+        )),
+      );
+    }, PENDING_MESSAGE_TIMEOUT_MS);
+  }, [clearPendingTimeout]);
+
+  const sendMessageWithFallback = useCallback(async (convId, text, tempId) => {
+    try {
+      const message = await api.post(`/messages/conversations/${convId}/messages`, { text });
+      replacePendingMessage(message, tempId);
+    } catch (err) {
+      markPendingMessageFailed(tempId, err.message || "Failed to send message");
+    }
+  }, [markPendingMessageFailed, replacePendingMessage]);
+
+  const deliverMessage = useCallback(async (convId, text, tempId) => {
+    if (sendSocketPayload({ text, client_id: tempId })) {
+      schedulePendingTimeout(tempId);
+      return;
+    }
+
+    await sendMessageWithFallback(convId, text, tempId);
+  }, [schedulePendingTimeout, sendMessageWithFallback, sendSocketPayload]);
 
   const fetchMessages = useCallback(async (convId, { silent = false } = {}) => {
     if (!convId) return;
@@ -167,16 +291,23 @@ export default function Messages() {
       currentPageRef.current = 1;
 
       setMessages((prev) => {
+        const currentMessages = prev.filter((message) => message.conversation_id === convId);
+        const localOnly = currentMessages.filter((message) => !fresh.some((entry) => (
+          message.id ? entry.id === message.id : hasPersistedMatch(message, entry)
+        )));
+        const visibleMessages = currentMessages.filter((message) => !(
+          message.tempId && fresh.some((entry) => hasPersistedMatch(message, entry))
+        ));
+
         if (silent) {
-          const newMsgs = fresh.filter((f) => !prev.find((p) => p.id === f.id));
-          if (newMsgs.length === 0) {
+          const newMsgs = fresh.filter((entry) => !currentMessages.some((message) => message.id === entry.id));
+          if (newMsgs.length === 0 && visibleMessages.length === currentMessages.length) {
             shouldScrollRef.current = false;
             return prev;
           }
-          return dedupeMessages([...prev.filter((m) => m.conversation_id === convId), ...newMsgs]);
+          return dedupeMessages([...visibleMessages, ...newMsgs]);
         }
-        const wsOnly = prev.filter((m) => m.conversation_id === convId && !fresh.find((f) => f.id === m.id));
-        return dedupeMessages([...fresh, ...wsOnly]);
+        return dedupeMessages([...fresh, ...localOnly]);
       });
 
       const hasUnreadFromOthers = (data || []).some(
@@ -228,9 +359,11 @@ export default function Messages() {
   useEffect(() => { fetchMessagesRef.current = fetchMessages; }, [fetchMessages]);
   useEffect(() => { markAsReadRef.current = markConversationAsRead; }, [markConversationAsRead]);
   useEffect(() => { clearUnreadRef.current = clearUnreadForConversation; }, [clearUnreadForConversation]);
+  useEffect(() => () => clearAllPendingTimeouts(), [clearAllPendingTimeouts]);
 
   useEffect(() => {
     if (!activeConvId) {
+      clearAllPendingTimeouts();
       setMessages([]);
       setHasMoreMessages(false);
       setMessagesError("");
@@ -249,6 +382,7 @@ export default function Messages() {
     setWsError(false);
     currentPageRef.current = 1;
     shouldScrollRef.current = true;
+    clearAllPendingTimeouts();
 
     clearUnreadRef.current?.(activeConvId);
     void markAsReadRef.current?.(activeConvId);
@@ -271,33 +405,50 @@ export default function Messages() {
       const ws = new WebSocket(api.getWebSocketUrl(`/messages/ws/${activeConvId}`, { token }));
       wsRef.current = ws;
 
-      ws.onopen = () => { setWsError(false); reconnectAttempts = 0; };
+      ws.onopen = () => {
+        if (wsRef.current !== ws) return;
+        const wasReconnecting = reconnectAttempts > 0;
+        setWsError(false);
+        reconnectAttempts = 0;
+        if (wasReconnecting) {
+          void fetchMessagesRef.current?.(activeConvIdRef.current, { silent: true });
+          void markAsReadRef.current?.(activeConvIdRef.current);
+        }
+      };
 
       ws.onmessage = (event) => {
+        if (wsRef.current !== ws) return;
+
         try {
           const data = JSON.parse(event.data);
           if (data.event === "new_message") {
             shouldScrollRef.current = true;
-            setMessages((prev) => {
-              if (prev.find((m) => m.id === data.id)) return prev;
-              return dedupeMessages([...prev, data]);
-            });
+            replacePendingMessage(data, data.client_id ?? null);
             setConversations((prev) =>
               prev.map((conv) =>
                 conv.id === activeConvIdRef.current ? { ...conv, last_message: data.text } : conv,
               ),
             );
+            if (data.sender_id !== user?.id) {
+              void markAsReadRef.current?.(activeConvIdRef.current);
+            }
           } else if (data.event === "messages_read") {
             clearUnreadRef.current?.(activeConvIdRef.current);
+          } else if (data.event === "error" && data.client_id) {
+            markPendingMessageFailed(data.client_id, data.detail || "Failed to send message");
           }
         } catch (err) {
           console.error("WS message parse error:", err);
         }
       };
 
-      ws.onerror = () => setWsError(true);
+      ws.onerror = () => {
+        if (wsRef.current !== ws) return;
+        setWsError(true);
+      };
 
       ws.onclose = () => {
+        if (wsRef.current !== ws) return;
         wsRef.current = null;
         if (reconnectAttempts < maxReconnectAttempts && activeConvIdRef.current) {
           reconnectTimerRef.current = setTimeout(() => {
@@ -313,11 +464,12 @@ export default function Messages() {
     connect();
 
     return () => {
+      clearAllPendingTimeouts();
       if (wsRef.current) { wsRef.current.close(); wsRef.current = null; }
       if (reconnectTimerRef.current) { clearTimeout(reconnectTimerRef.current); reconnectTimerRef.current = null; }
       if (pollIntervalRef.current) { clearInterval(pollIntervalRef.current); pollIntervalRef.current = null; }
     };
-  }, [activeConvId]);
+  }, [activeConvId, clearAllPendingTimeouts, markPendingMessageFailed, replacePendingMessage, user?.id]);
 
   useEffect(() => {
     if (shouldScrollRef.current) {
@@ -337,23 +489,48 @@ export default function Messages() {
   }, [activeConvId, conversations, user?.role]);
 
   const handleSend = async () => {
-    if (!input.trim() || !activeConvId || sending) return;
-    try {
-      setSending(true);
-      setSendError("");
-      const msg = await api.post(`/messages/conversations/${activeConvId}/messages`, { text: input.trim() });
-      shouldScrollRef.current = true;
-      setMessages((prev) => dedupeMessages([...prev, msg]));
-      setConversations((prev) =>
-        prev.map((conv) => (conv.id === activeConvId ? { ...conv, last_message: msg.text } : conv)),
-      );
-      setInput("");
-    } catch (err) {
-      setSendError(err.message || "Failed to send message");
-    } finally {
-      setSending(false);
-    }
+    const text = input.trim();
+    if (!text || !activeConvId) return;
+
+    const tempId = createClientMessageId();
+    const pendingMessage = {
+      tempId,
+      conversation_id: activeConvId,
+      sender_id: user?.id,
+      sender_name: user?.full_name || "",
+      text,
+      is_read: true,
+      sent_at: new Date().toISOString(),
+      status: "sending",
+    };
+
+    setSendError("");
+    shouldScrollRef.current = true;
+    setMessages((prev) => dedupeMessages([...prev, pendingMessage]));
+    setConversations((prev) =>
+      prev.map((conv) => (conv.id === activeConvId ? { ...conv, last_message: text } : conv)),
+    );
+    setInput("");
+
+    await deliverMessage(activeConvId, text, tempId);
   };
+
+  const retryMessage = useCallback(async (tempId) => {
+    const pendingMessage = messages.find((message) => message.tempId === tempId);
+    if (!pendingMessage) return;
+
+    setSendError("");
+    shouldScrollRef.current = true;
+    setMessages((prev) =>
+      prev.map((message) => (
+        message.tempId === tempId
+          ? { ...message, sent_at: new Date().toISOString(), status: "sending" }
+          : message
+      )),
+    );
+
+    await deliverMessage(pendingMessage.conversation_id, pendingMessage.text, tempId);
+  }, [deliverMessage, messages]);
 
   const handleCreateConversation = async () => {
     if (!selectedDoctorId) { setCreateError("Select a doctor to start a conversation"); return; }
@@ -616,14 +793,17 @@ export default function Messages() {
               ) : (
                 messages.map((msg) => (
                   <MessageBubble
-                    key={msg.id}
+                    key={msg.id ?? msg.tempId}
                     msg={{
                       fromMe: msg.sender_id === user?.id,
+                      tempId: msg.tempId,
                       text: msg.text,
+                      status: msg.status,
                       time: new Date(msg.sent_at).toLocaleTimeString("en-GB", {
                         hour: "2-digit", minute: "2-digit", timeZone: "Asia/Almaty",
                       }),
                     }}
+                    onRetry={retryMessage}
                   />
                 ))
               )}
@@ -640,7 +820,7 @@ export default function Messages() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey && !sending) {
+                  if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
                     void handleSend();
                   }
@@ -649,11 +829,11 @@ export default function Messages() {
                 placeholder="Type a message..."
               />
               <button
-                onClick={handleSend}
-                disabled={!input.trim() || sending}
+                onClick={() => void handleSend()}
+                disabled={!input.trim()}
                 className="min-w-[80px] sm:min-w-[94px] rounded-xl bg-teal-500 px-3 sm:px-5 text-sm font-medium text-white hover:bg-teal-600 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {sending ? "..." : "Send"}
+                Send
               </button>
             </div>
             <p className="mt-2 break-words text-xs text-gray-400">Press Enter to send.</p>

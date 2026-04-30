@@ -478,6 +478,14 @@ async def chat_websocket(
     try:
         while True:
             data = await websocket.receive_json()
+            client_id_raw = data.get("client_id")
+            client_id = (
+                str(client_id_raw).strip()
+                if client_id_raw is not None
+                else None
+            )
+            if client_id == "":
+                client_id = None
 
             if data.get("action") == "read":
                 await db.execute(
@@ -506,7 +514,10 @@ async def chat_websocket(
 
             text = data.get("text", "").strip()
             if not text:
-                await websocket.send_json({"event": "error", "detail": "Empty message"})
+                error_payload = {"event": "error", "detail": "Empty message"}
+                if client_id:
+                    error_payload["client_id"] = client_id
+                await websocket.send_json(error_payload)
                 continue
 
             msg = Message(
@@ -535,8 +546,11 @@ async def chat_websocket(
                 "is_read": msg.is_read,
                 "sent_at": msg.sent_at.isoformat(),
             }
+            sender_payload = dict(payload_out)
+            if client_id:
+                sender_payload["client_id"] = client_id
 
-            await websocket.send_json(payload_out)
+            await websocket.send_json(sender_payload)
 
             if recipient_user_id:
                 if manager.is_online(conv_id, recipient_user_id):
