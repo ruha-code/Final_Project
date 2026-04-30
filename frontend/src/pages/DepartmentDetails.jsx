@@ -297,11 +297,110 @@ export default function DepartmentDetails() {
         {/* PERFORMANCE */}
         <div className="bg-white rounded-2xl border p-4 md:p-5">
           <h3 className="font-semibold mb-4">Performance</h3>
+
+          {doctors.length === 0 ? (
+            <p className="text-xs text-gray-400">No doctors assigned yet.</p>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <div className="flex justify-between text-xs mb-1">
+                  <span className="text-gray-500">Availability</span>
+                  <span className="font-medium">
+                    {Math.round((doctors.filter((d) => d.is_available).length / doctors.length) * 100)}%
+                  </span>
+                </div>
+                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-teal-500 rounded-full transition-all"
+                    style={{
+                      width: `${(doctors.filter((d) => d.is_available).length / doctors.length) * 100}%`,
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex justify-between text-xs mb-1">
+                  <span className="text-gray-500">Avg Rating</span>
+                  <span className="font-medium">
+                    {doctors.some((d) => d.rating > 0)
+                      ? (doctors.reduce((sum, d) => sum + (d.rating || 0), 0) / doctors.filter((d) => d.rating > 0).length).toFixed(1)
+                      : "N/A"}
+                  </span>
+                </div>
+                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-amber-500 rounded-full"
+                    style={{
+                      width: doctors.some((d) => d.rating > 0)
+                        ? `${((doctors.reduce((sum, d) => sum + (d.rating || 0), 0) / doctors.filter((d) => d.rating > 0).length) / 5) * 100}%`
+                        : "0%",
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2 border-t space-y-2">
+                <div className="flex justify-between text-xs">
+                  <span className="text-gray-500">Available</span>
+                  <span className="font-medium text-teal-600">
+                    {doctors.filter((d) => d.is_available).length}
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-gray-500">Away</span>
+                  <span className="font-medium text-gray-400">
+                    {doctors.filter((d) => !d.is_available).length}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* STATS */}
         <div className="bg-white rounded-2xl border p-4 md:p-5">
           <h3 className="font-semibold mb-4">Department Stats</h3>
+
+          <div className="space-y-3">
+            <div className="rounded-xl bg-gray-50 p-3">
+              <p className="text-xs text-gray-400">Team Size</p>
+              <p className="mt-1 text-lg font-semibold">{doctors.length}</p>
+            </div>
+            <div className="rounded-xl bg-gray-50 p-3">
+              <p className="text-xs text-gray-400">Specialties</p>
+              <div className="mt-2 flex flex-wrap gap-1">
+                {[...new Set(doctors.map((d) => d.specialty).filter(Boolean))].slice(0, 4).map((s) => (
+                  <span key={s} className="rounded-md bg-teal-50 px-2 py-0.5 text-xs text-teal-700">
+                    {s}
+                  </span>
+                ))}
+                {[...new Set(doctors.map((d) => d.specialty).filter(Boolean))].length > 4 && (
+                  <span className="rounded-md bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
+                    +{[...new Set(doctors.map((d) => d.specialty).filter(Boolean))].length - 4}
+                  </span>
+                )}
+                {[...new Set(doctors.map((d) => d.specialty).filter(Boolean))].length === 0 && (
+                  <span className="text-xs text-gray-400">None listed</span>
+                )}
+              </div>
+            </div>
+            <div className="rounded-xl bg-gray-50 p-3">
+              <p className="text-xs text-gray-400">Location</p>
+              <p className="mt-1 text-sm font-medium">{department.location || "Not set"}</p>
+            </div>
+            <div className="rounded-xl bg-gray-50 p-3">
+              <p className="text-xs text-gray-400">Created</p>
+              <p className="mt-1 text-sm font-medium">
+                {department.created_at
+                  ? new Date(department.created_at).toLocaleDateString("en-GB", {
+                      month: "short",
+                      year: "numeric",
+                    })
+                  : "N/A"}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </div>

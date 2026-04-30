@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { Activity, HeartPulse, Mail, MapPin, MessageSquare, Phone, Stethoscope, UserRoundCheck } from "lucide-react";
+import { Activity, HeartPulse, Mail, MapPin, MessageSquare, Phone, Stethoscope, UserRoundCheck, Plus, Save, X } from "lucide-react";
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import Badge from "../components/Badge";
@@ -84,6 +84,8 @@ export default function PatientDetails() {
   const [loadError, setLoadError] = useState("");
   const [loadWarning, setLoadWarning] = useState("");
   const [notesError, setNotesError] = useState("");
+  const [notesSuccess, setNotesSuccess] = useState("");
+  const [vitalsSuccess, setVitalsSuccess] = useState("");
   const [appointmentActionLoading, setAppointmentActionLoading] = useState(false);
   const [appointmentActionError, setAppointmentActionError] = useState("");
 
@@ -192,6 +194,56 @@ export default function PatientDetails() {
       sugar: item.blood_sugar || 0,
     }));
 
+  const handleSaveNotes = async () => {
+    setNotesError("");
+    setNotesSuccess("");
+    const normalized = normalizeWhitespace(noteForm.notes);
+
+    if (!isMeaningfulDoctorNote(normalized)) {
+      setNotesError("Notes must contain at least 8 meaningful letters.");
+      return;
+    }
+
+    try {
+      setSavingProfile(true);
+      const updated = await api.put(`/patients/${id}/doctor-notes`, {
+        notes: normalized,
+        patient_status: noteForm.patient_status,
+      });
+      setPatient(updated);
+      setNotesSuccess("Notes updated successfully.");
+    } catch (err) {
+      setNotesError(toErrorMessage(err, "Failed to update notes."));
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handleAddVitals = async () => {
+    setVitalsSuccess("");
+    const payload = {};
+    if (vitalsForm.blood_sugar) payload.blood_sugar = Number(vitalsForm.blood_sugar);
+    if (vitalsForm.weight) payload.weight = Number(vitalsForm.weight);
+    if (vitalsForm.temperature) payload.temperature = Number(vitalsForm.temperature);
+    if (vitalsForm.systolic_bp) payload.systolic_bp = Number(vitalsForm.systolic_bp);
+    if (vitalsForm.diastolic_bp) payload.diastolic_bp = Number(vitalsForm.diastolic_bp);
+
+    if (Object.keys(payload).length === 0) return;
+
+    try {
+      setSavingVitals(true);
+      const newVital = await api.post(`/patients/${id}/vitals`, payload);
+      setVitals((prev) => [newVital, ...prev]);
+      setVitalsForm({ blood_sugar: "", weight: "", temperature: "", systolic_bp: "", diastolic_bp: "" });
+      setShowVitalsForm(false);
+      setVitalsSuccess("Vitals recorded successfully.");
+    } catch (err) {
+      setNotesError(toErrorMessage(err, "Failed to record vitals."));
+    } finally {
+      setSavingVitals(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -244,6 +296,9 @@ export default function PatientDetails() {
                   <span className="rounded-lg bg-gray-100 px-3 py-1 text-gray-600">
                     {patient.gender || "-"}
                   </span>
+                  <Badge className={`rounded-lg px-2 py-0.5 text-xs ${statusTone(patient.patient_status)}`}>
+                    {patient.patient_status || "Unknown"}
+                  </Badge>
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-3 sm:gap-4 text-sm text-gray-500">
@@ -253,15 +308,20 @@ export default function PatientDetails() {
                   <span className="flex items-center gap-2">
                     <Mail size={14} /> {patient.email}
                   </span>
+                  {patient.blood_type && (
+                    <span className="flex items-center gap-2">
+                      <HeartPulse size={14} /> {patient.blood_type}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
 
             <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
-              <MetricCard label="Sugar" value={latest.blood_sugar || "-"} />
-              <MetricCard label="Weight" value={latest.weight || "-"} />
-              <MetricCard label="Temp" value={latest.temperature || "-"} />
-              <MetricCard label="BP" value={latest.systolic_bp || "-"} />
+              <MetricCard label="Sugar" value={latest.blood_sugar || "-"} helper="mg/dL" />
+              <MetricCard label="Weight" value={latest.weight || "-"} helper="kg" />
+              <MetricCard label="Temp" value={latest.temperature || "-"} helper="°C" />
+              <MetricCard label="BP" value={latest.systolic_bp || "-"} helper="mmHg" />
             </div>
           </div>
 
@@ -285,6 +345,9 @@ export default function PatientDetails() {
                 <div className="text-sm opacity-80">
                   {focusedAppointment.reason}
                 </div>
+                <Badge className={`rounded-lg px-2 py-0.5 text-xs ${appointmentTone(focusedAppointment.status)}`}>
+                  {focusedAppointment.status}
+                </Badge>
               </div>
             )}
           </div>
@@ -294,7 +357,79 @@ export default function PatientDetails() {
       <div className="grid gap-6 lg:grid-cols-[1.45fr_0.95fr]">
         <div className="space-y-6">
           <div className="rounded-2xl border bg-white p-4 sm:p-6 shadow-sm">
-            <h2 className="text-sm font-semibold">Vitals</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold">Vitals History</h2>
+              <button
+                onClick={() => setShowVitalsForm(!showVitalsForm)}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-teal-50 px-3 py-1.5 text-xs font-medium text-teal-700 hover:bg-teal-100"
+              >
+                <Plus size={14} /> Add Vitals
+              </button>
+            </div>
+
+            {showVitalsForm && (
+              <div className="mt-4 rounded-xl border bg-gray-50 p-4 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <input
+                    type="number"
+                    placeholder="Blood Sugar"
+                    value={vitalsForm.blood_sugar}
+                    onChange={(e) => setVitalsForm({ ...vitalsForm, blood_sugar: e.target.value })}
+                    className="rounded-lg border bg-white px-3 py-2 text-sm"
+                  />
+                  <input
+                    type="number"
+                    placeholder="Weight (kg)"
+                    value={vitalsForm.weight}
+                    onChange={(e) => setVitalsForm({ ...vitalsForm, weight: e.target.value })}
+                    className="rounded-lg border bg-white px-3 py-2 text-sm"
+                  />
+                  <input
+                    type="number"
+                    step="0.1"
+                    placeholder="Temp (°C)"
+                    value={vitalsForm.temperature}
+                    onChange={(e) => setVitalsForm({ ...vitalsForm, temperature: e.target.value })}
+                    className="rounded-lg border bg-white px-3 py-2 text-sm"
+                  />
+                  <input
+                    type="number"
+                    placeholder="Systolic BP"
+                    value={vitalsForm.systolic_bp}
+                    onChange={(e) => setVitalsForm({ ...vitalsForm, systolic_bp: e.target.value })}
+                    className="rounded-lg border bg-white px-3 py-2 text-sm"
+                  />
+                  <input
+                    type="number"
+                    placeholder="Diastolic BP"
+                    value={vitalsForm.diastolic_bp}
+                    onChange={(e) => setVitalsForm({ ...vitalsForm, diastolic_bp: e.target.value })}
+                    className="rounded-lg border bg-white px-3 py-2 text-sm col-span-2"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleAddVitals}
+                    disabled={savingVitals}
+                    className="flex-1 rounded-lg bg-teal-500 text-white py-2 text-xs font-medium hover:bg-teal-600 disabled:opacity-60"
+                  >
+                    {savingVitals ? "Saving..." : "Record Vitals"}
+                  </button>
+                  <button
+                    onClick={() => setShowVitalsForm(false)}
+                    className="rounded-lg bg-gray-200 px-4 py-2 text-xs text-gray-600 hover:bg-gray-300"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {vitalsSuccess && (
+              <div className="mt-3 rounded-lg bg-green-50 px-3 py-2 text-xs text-green-700">
+                {vitalsSuccess}
+              </div>
+            )}
 
             <div className="h-56 sm:h-60 mt-4">
               <ResponsiveContainer width="100%" height="100%">
@@ -307,10 +442,129 @@ export default function PatientDetails() {
                 </LineChart>
               </ResponsiveContainer>
             </div>
+
+            {vitals.length > 0 && (
+              <div className="mt-4 space-y-2 max-h-48 overflow-y-auto">
+                {vitals.slice(0, 5).map((vital) => {
+                  const dt = formatDateTime(vital.recorded_at);
+                  return (
+                    <div key={vital.id} className="flex items-center justify-between text-xs border-b pb-2 last:border-0">
+                      <span className="text-gray-500">{dt.date} {dt.time}</span>
+                      <div className="flex gap-3">
+                        {vital.blood_sugar && <span className="text-gray-700">Sugar: {vital.blood_sugar}</span>}
+                        {vital.systolic_bp && <span className="text-gray-700">BP: {vital.systolic_bp}/{vital.diastolic_bp || "-"}</span>}
+                        {vital.temperature && <span className="text-gray-700">Temp: {vital.temperature}</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
-        <div className="space-y-6">{/* right panel unchanged */}</div>
+        <div className="space-y-6">
+          {/* Doctor Notes */}
+          <div className="rounded-2xl border bg-white p-4 sm:p-6 shadow-sm">
+            <h2 className="text-sm font-semibold flex items-center gap-2 mb-3">
+              <MessageSquare size={14} /> Doctor Notes
+            </h2>
+
+            {notesError && (
+              <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">
+                {notesError}
+              </div>
+            )}
+            {notesSuccess && (
+              <div className="mb-3 rounded-lg bg-green-50 px-3 py-2 text-xs text-green-700">
+                {notesSuccess}
+              </div>
+            )}
+
+            <textarea
+              value={noteForm.notes}
+              onChange={(e) => setNoteForm({ ...noteForm, notes: e.target.value })}
+              rows={4}
+              placeholder="Add clinical notes, observations, treatment plan..."
+              className="w-full rounded-xl border bg-gray-50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400 resize-none"
+            />
+
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <select
+                value={noteForm.patient_status}
+                onChange={(e) => setNoteForm({ ...noteForm, patient_status: e.target.value })}
+                className="rounded-lg border bg-white px-3 py-2 text-xs"
+              >
+                <option value="IN_TREATMENT">In Treatment</option>
+                <option value="ADMITTED">Admitted</option>
+                <option value="DISCHARGED">Discharged</option>
+              </select>
+
+              <button
+                onClick={handleSaveNotes}
+                disabled={savingProfile}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-teal-500 text-white px-3 py-2 text-xs font-medium hover:bg-teal-600 disabled:opacity-60"
+              >
+                <Save size={14} /> {savingProfile ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </div>
+
+          {/* Appointments */}
+          <div className="rounded-2xl border bg-white p-4 sm:p-6 shadow-sm">
+            <h2 className="text-sm font-semibold flex items-center gap-2 mb-3">
+              <Calendar size={14} /> Appointments
+            </h2>
+
+            {orderedAppointments.length === 0 ? (
+              <p className="text-xs text-gray-400">No appointments found.</p>
+            ) : (
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {orderedAppointments.slice(-5).reverse().map((apt) => {
+                  const dt = formatDateTime(apt.appointment_time);
+                  return (
+                    <div key={apt.id} className="rounded-xl border p-3 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-gray-700">{dt.date}</span>
+                        <Badge className={`rounded-lg px-2 py-0.5 ${appointmentTone(apt.status)}`}>
+                          {apt.status}
+                        </Badge>
+                      </div>
+                      <p className="mt-1 text-gray-500">{dt.time} — {apt.reason || "No reason"}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Quick Actions */}
+          <div className="rounded-2xl border bg-white p-4 sm:p-6 shadow-sm">
+            <h2 className="text-sm font-semibold flex items-center gap-2 mb-3">
+              <Stethoscope size={14} /> Quick Actions
+            </h2>
+            <div className="space-y-2">
+              <button
+                onClick={() => navigate("/appointments", { state: { bookDoctorId: null } })}
+                className="w-full rounded-xl bg-teal-50 text-teal-700 py-2.5 text-xs font-medium hover:bg-teal-100"
+              >
+                Schedule Appointment
+              </button>
+              <button
+                onClick={() => setShowVitalsForm(true)}
+                className="w-full rounded-xl bg-blue-50 text-blue-700 py-2.5 text-xs font-medium hover:bg-blue-100"
+              >
+                Record Vitals
+              </button>
+              <button
+                onClick={() => navigate(`/patients`)}
+                className="w-full rounded-xl bg-gray-50 text-gray-700 py-2.5 text-xs font-medium hover:bg-gray-100"
+              >
+                Back to Patients
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

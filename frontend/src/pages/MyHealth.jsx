@@ -82,6 +82,14 @@ function appointmentTone(status) {
   return "bg-gray-100 text-gray-500";
 }
 
+function statusLabel(status) {
+  if (!status) return "No status";
+  return status
+    .split("_")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
+}
+
 /* ================= PAGE ================= */
 
 export default function MyHealth() {
@@ -93,6 +101,7 @@ export default function MyHealth() {
   const [snapshotTime, setSnapshotTime] = useState(Date.now());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [profileError, setProfileError] = useState("");
 
   /* ================= FETCH ================= */
 
@@ -100,6 +109,7 @@ export default function MyHealth() {
     const fetchData = async () => {
       setLoading(true);
       setError("");
+      setProfileError("");
 
       const results = await Promise.allSettled([
         api.get("/patients/me"),
@@ -109,7 +119,12 @@ export default function MyHealth() {
 
       const [profileResult, vitalsResult, appointmentsResult] = results;
 
-      if (profileResult.status === "fulfilled") setProfile(profileResult.value);
+      if (profileResult.status === "fulfilled") {
+        setProfile(profileResult.value);
+        setProfileError("");
+      } else {
+        setProfileError("Failed to load profile. Some information may be unavailable.");
+      }
 
       setVitals(
         vitalsResult.status === "fulfilled" ? vitalsResult.value : []
@@ -120,6 +135,11 @@ export default function MyHealth() {
           ? appointmentsResult.value
           : []
       );
+
+      const failedResults = results.filter((r) => r.status === "rejected");
+      if (failedResults.length === results.length) {
+        setError("Failed to load health data. Please try again later.");
+      }
 
       setSnapshotTime(Date.now());
       setLoading(false);
@@ -204,11 +224,23 @@ export default function MyHealth() {
         </div>
       </div>
 
+      {profileError && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          {profileError}
+        </div>
+      )}
+
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+          {error}
+        </div>
+      )}
+
       {/* CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <SummaryCard
           title="Treatment Status"
-          value={profile?.patient_status || "No status"}
+          value={statusLabel(profile?.patient_status)}
           subtitle={profile?.condition || "No condition"}
           icon={Stethoscope}
         />
@@ -284,7 +316,7 @@ export default function MyHealth() {
 
                     <div>
                       <span className={`px-3 py-1 rounded-full text-xs ${appointmentTone(a.status)}`}>
-                        {a.status}
+                        {statusLabel(a.status)}
                       </span>
                     </div>
                   </div>
@@ -302,8 +334,16 @@ export default function MyHealth() {
             <h2 className="font-semibold mb-4">Care Summary</h2>
             <div className="space-y-3 text-sm">
               <div className="flex justify-between bg-gray-50 p-3 rounded-xl">
-                <span>Blood Type</span>
-                <span>{profile?.blood_type || "-"}</span>
+                <span className="text-gray-500">Blood Type</span>
+                <span className="font-medium">{profile?.blood_type || "-"}</span>
+              </div>
+              <div className="flex justify-between bg-gray-50 p-3 rounded-xl">
+                <span className="text-gray-500">Patient Type</span>
+                <span className="font-medium">{statusLabel(profile?.patient_type)}</span>
+              </div>
+              <div className="flex justify-between bg-gray-50 p-3 rounded-xl">
+                <span className="text-gray-500">Gender</span>
+                <span className="font-medium">{profile?.gender || "-"}</span>
               </div>
             </div>
           </div>
@@ -311,11 +351,22 @@ export default function MyHealth() {
           <div className="rounded-2xl border bg-white p-5 sm:p-6">
             <div className="flex gap-2 items-center mb-3">
               <ShieldAlert size={16} />
-              <h2 className="font-semibold">Emergency</h2>
+              <h2 className="font-semibold">Emergency Contact</h2>
             </div>
-            <p className="text-sm text-gray-600">
-              {profile?.emergency_contact_name || "-"}
-            </p>
+            {profile?.emergency_contact_name ? (
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-gray-800">
+                  {profile.emergency_contact_name}
+                </p>
+                {profile.emergency_contact_phone && (
+                  <p className="text-sm text-gray-500">
+                    {profile.emergency_contact_phone}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400">No emergency contact set</p>
+            )}
           </div>
 
           <div className="rounded-2xl border bg-white p-5 sm:p-6">

@@ -29,7 +29,7 @@ function getStatusClass(status) {
   if (status === "COMPLETED") return "bg-green-100 text-green-700";
   if (status === "SCHEDULED") return "bg-purple-100 text-purple-600";
   if (status === "ONGOING") return "bg-blue-100 text-blue-600";
-  return "bg-red-100 text-red-500";
+  return "bg-red-50 text-red-600";
 }
 
 function toTimestamp(value) {
@@ -612,7 +612,9 @@ function AdminDashboard({ stats, barData, lineData, recentAppointments, topDocto
                     className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${
                       doctor.is_available_now
                         ? "bg-green-100 text-green-700"
-                        : "bg-red-100 text-red-500"
+                        : doctor.is_available === false
+                        ? "bg-gray-100 text-gray-500"
+                        : "bg-amber-100 text-amber-600"
                     }`}
                   >
                     {doctor.availability_label}

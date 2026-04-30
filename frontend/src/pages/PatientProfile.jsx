@@ -296,8 +296,9 @@ export default function PatientProfile() {
               className={fieldClass(Boolean(fieldErrors.gender))}
             >
               <option value="">Select</option>
-              <option>MALE</option>
-              <option>FEMALE</option>
+              <option value="MALE">Male</option>
+              <option value="FEMALE">Female</option>
+              <option value="OTHER">Other</option>
             </select>
             <FieldError message={fieldErrors.gender} />
           </div>
@@ -316,23 +317,68 @@ export default function PatientProfile() {
 
         <div>
           <label className="text-sm text-gray-500">Address</label>
-          <input
-            name="address"
-            value={form.address}
-            onChange={handleChange}
-            className={fieldClass(Boolean(fieldErrors.address))}
-          />
+          <div className="flex items-center gap-3 mt-1">
+            <MapPin size={18} className="text-gray-400 shrink-0" />
+            <input
+              name="address"
+              value={form.address}
+              onChange={handleChange}
+              className={fieldClass(Boolean(fieldErrors.address))}
+              placeholder="Your home address"
+            />
+          </div>
+        </div>
+
+        <div className="pt-4 border-t">
+          <p className="text-sm font-medium text-gray-700 mb-3">Emergency Contact</p>
+          <div className="space-y-3">
+            <div>
+              <label className="text-sm text-gray-500">Contact Name</label>
+              <input
+                name="emergency_contact_name"
+                value={form.emergency_contact_name}
+                onChange={handleChange}
+                className={fieldClass(Boolean(fieldErrors.emergency_contact_name))}
+                placeholder="Full name"
+              />
+              <FieldError message={fieldErrors.emergency_contact_name} />
+            </div>
+            <div>
+              <label className="text-sm text-gray-500">Contact Phone</label>
+              <div className="flex items-center gap-3 mt-1">
+                <Phone size={18} className="text-gray-400 shrink-0" />
+                <input
+                  name="emergency_contact_phone"
+                  value={form.emergency_contact_phone}
+                  onChange={handleChange}
+                  className={fieldClass(Boolean(fieldErrors.emergency_contact_phone))}
+                  placeholder="+1234567890"
+                />
+              </div>
+              <FieldError message={fieldErrors.emergency_contact_phone} />
+            </div>
+          </div>
         </div>
 
         {/* BUTTON */}
         <button
           onClick={handleSave}
           disabled={saving}
-          className={`w-full rounded-xl py-3 text-white ${
+          className={`w-full rounded-xl py-3 text-white flex items-center justify-center gap-2 ${
             saved ? "bg-green-500" : "bg-teal-500 hover:bg-teal-600"
           }`}
         >
-          {saving ? "Saving..." : saved ? "Saved" : "Save Profile"}
+          {saving ? (
+            "Saving..."
+          ) : saved ? (
+            <>
+              <Check size={18} /> Saved
+            </>
+          ) : (
+            <>
+              <Save size={18} /> Save Profile
+            </>
+          )}
         </button>
       </div>
     </div>

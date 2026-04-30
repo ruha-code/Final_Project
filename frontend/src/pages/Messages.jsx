@@ -28,7 +28,7 @@ function getInitials(name) {
 function Avatar({ name, size = "md" }) {
   const sizes = { md: "h-10 w-10 text-sm", lg: "h-20 w-20 text-2xl" };
   return (
-    <div className={`flex shrink-0 items-center justify-center rounded-full bg-teal-100 font-semibold text-teal-600 ${sizes[size]}`}>
+    <div className={`flex shrink-0 items-center justify-center rounded-full bg-teal-100 font-semibold text-teal-600 mx-auto ${sizes[size]}`}>
       {getInitials(name)}
     </div>
   );
