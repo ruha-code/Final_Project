@@ -11,6 +11,7 @@ import 'package:hospital_app/features/presentation/screens/main_part/notificatio
 import 'package:hospital_app/features/presentation/screens/main_part/privacy_screen.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/help_center_screen.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/about_screen.dart';
+import 'package:hospital_app/features/presentation/screens/main_part/doctor_schedule_screen.dart';
 
 class MoreScreen extends StatelessWidget {
   const MoreScreen({super.key});
@@ -43,6 +44,14 @@ class MoreScreen extends StatelessWidget {
               const SizedBox(height: 16),
 
               // ── Menu Items ──
+              _buildMenuItem(
+                context,
+                icon: Icons.event_available_rounded,
+                label: 'My Schedule',
+                desc: 'Manage available slots',
+                bgColor: const Color(0xFFFCE7F3),
+                screen: const DoctorScheduleScreen(),
+              ),
               _buildMenuItem(
                 context,
                 icon: Icons.local_hospital_rounded,

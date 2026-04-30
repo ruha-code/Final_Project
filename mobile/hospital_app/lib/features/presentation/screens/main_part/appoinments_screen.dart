@@ -1,80 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hospital_app/features/presentation/bloc/appointment_bloc.dart';
+import 'package:hospital_app/features/data/models/appointment.dart';
+import 'package:hospital_app/features/data/repositories/appointment_repository.dart';
+import 'package:hospital_app/features/presentation/bloc/appointment/my_appointments_bloc.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/app_constant.dart';
-import 'package:hospital_app/features/presentation/screens/main_part/widgets/appointment_card.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/filter_tabs.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/section_header.dart';
-import 'package:hospital_app/features/presentation/screens/main_part/widgets/stat_card.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/top_nav_bar.dart';
 
+/// Записи доктора. Фильтры: Upcoming / Past / Cancelled.
+/// Действия: Confirm (если pending) и Cancel.
 class AppointmentsScreen extends StatelessWidget {
   const AppointmentsScreen({super.key});
 
-  static const _filters = ['All', 'Completed', 'Ongoing', 'Cancelled'];
+  static const _filters = ['Upcoming', 'Past', 'Cancelled'];
 
-  static const _appointments = [
-    AppointmentData(
-      name: 'Erica Smith',
-      phone: '7 777 123 4567',
-      initials: 'ES',
-      avatarColor: AppColors.primary,
-      status: 'Completed',
-      statusColor: AppColors.primary,
-      doctor: 'Dr. Ning',
-      type: 'Consultation',
-      date: '12 March',
-    ),
-    AppointmentData(
-      name: 'John Doe',
-      phone: '7 701 558 8998',
-      initials: 'JD',
-      avatarColor: AppColors.primary,
-      status: 'Ongoing',
-      statusColor: AppColors.orange,
-      doctor: 'Dr. Alex',
-      type: 'Follow-up',
-      date: '13 March',
-    ),
-    AppointmentData(
-      name: 'Petya Smith',
-      phone: '7 702 334 5566',
-      initials: 'PS',
-      avatarColor: AppColors.accent,
-      status: 'Cancelled',
-      statusColor: AppColors.red,
-      doctor: 'Dr. Amelia',
-      type: 'Check-up',
-      date: '14 March',
-    ),
-    AppointmentData(
-      name: 'Anna Lee',
-      phone: '7 707 112 2233',
-      initials: 'AL',
-      avatarColor: AppColors.pink,
-      status: 'Completed',
-      statusColor: AppColors.primary,
-      doctor: 'Dr. Daniel',
-      type: 'Consultation',
-      date: '14 March',
-    ),
+  static const _filterValues = [
+    MyAppointmentsFilter.upcoming,
+    MyAppointmentsFilter.past,
+    MyAppointmentsFilter.cancelled,
   ];
-
-  List<AppointmentData> _filtered(int selectedFilter) {
-    if (selectedFilter == 0) return _appointments;
-    return _appointments
-        .where((a) => a.status == _filters[selectedFilter])
-        .toList();
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: BlocBuilder<AppointmentBloc, AppointmentState>(
+        child: BlocBuilder<MyAppointmentsBloc, MyAppointmentsState>(
           builder: (context, state) {
-            final filtered = _filtered(state.selectedFilter);
+            final filtered = state.filtered;
+            final selectedIdx = _filterValues.indexOf(state.filter);
+
             return SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
@@ -85,30 +41,18 @@ class AppointmentsScreen extends StatelessWidget {
                   const SizedBox(height: 24),
                   const SectionHeader(
                     title: 'Appointments',
-                    subtitle: 'Manage all appointments',
-                  ),
-                  const SizedBox(height: 20),
-                  _buildStatsRow(),
-                  const SizedBox(height: 24),
-                  FilterTabs(
-                    labels: _filters,
-                    selectedIndex: state.selectedFilter,
-                    onTap: (i) => context
-                        .read<AppointmentBloc>()
-                        .add(AppointmentFilterChanged(i)),
+                    subtitle: 'Manage bookings with patients',
                   ),
                   const SizedBox(height: 16),
-                  ...filtered.map((a) => AppointmentCard(
-                        name: a.name,
-                        phone: a.phone,
-                        initials: a.initials,
-                        avatarColor: a.avatarColor,
-                        status: a.status,
-                        statusColor: a.statusColor,
-                        doctor: a.doctor,
-                        type: a.type,
-                        date: a.date,
-                      )),
+                  FilterTabs(
+                    labels: _filters,
+                    selectedIndex: selectedIdx >= 0 ? selectedIdx : 0,
+                    onTap: (i) => context.read<MyAppointmentsBloc>().add(
+                          MyAppointmentsFilterChanged(_filterValues[i]),
+                        ),
+                  ),
+                  const SizedBox(height: 16),
+                  _body(context, state, filtered),
                   const SizedBox(height: 24),
                 ],
               ),
@@ -119,80 +63,200 @@ class AppointmentsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildStatsRow() {
-    return Row(
-      children: [
-        Expanded(
-          child: IconStatCard(
-            value: '52',
-            label: 'Total',
-            change: '4%',
-            icon: Icons.bar_chart_rounded,
-            iconBgColor: const Color(0xFFEDE9FE),
-            iconColor: AppColors.accent,
+  Widget _body(BuildContext context, MyAppointmentsState state,
+      List<Appointment> filtered) {
+    if (state.status == MyAppointmentsStatus.initial) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 60),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (state.status == MyAppointmentsStatus.error) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 40),
+        child: Center(
+          child: Text(
+            state.errorMessage ?? 'Failed to load',
+            style: const TextStyle(color: AppColors.textSecondary),
           ),
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: IconStatCard(
-            value: '28',
-            label: 'Completed',
-            change: '12',
-            icon: Icons.check_circle_rounded,
-            iconBgColor: const Color(0xFFE8F5E9),
-            iconColor: AppColors.primary,
+      );
+    }
+    if (filtered.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 60),
+        child: Center(
+          child: Text(
+            'No appointments here.',
+            style: TextStyle(color: AppColors.textTertiary, fontSize: 13),
           ),
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: IconStatCard(
-            value: '18',
-            label: 'Ongoing',
-            change: '0',
-            icon: Icons.access_time_rounded,
-            iconBgColor: const Color(0xFFFFF3E0),
-            iconColor: AppColors.orange,
-            isSelected: true,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: IconStatCard(
-            value: '6',
-            label: 'Cancelled',
-            change: '2',
-            icon: Icons.cancel_rounded,
-            iconBgColor: const Color(0xFFFFE0E0),
-            iconColor: AppColors.red,
-          ),
-        ),
-      ],
+      );
+    }
+    return Column(
+      children: filtered
+          .map((a) => _DoctorApptCard(appt: a))
+          .toList(),
     );
   }
 }
 
-// ──────────── data class ────────────
+class _DoctorApptCard extends StatelessWidget {
+  final Appointment appt;
+  const _DoctorApptCard({required this.appt});
 
-class AppointmentData {
-  final String name;
-  final String phone;
-  final String initials;
-  final Color avatarColor;
-  final String status;
-  final Color statusColor;
-  final String doctor;
-  final String type;
-  final String date;
+  String _fmtDate(DateTime d) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return '${months[d.month - 1]} ${d.day}, ${_two(d.hour)}:${_two(d.minute)}';
+  }
 
-  const AppointmentData({
-    required this.name,
-    required this.phone,
-    required this.initials,
-    required this.avatarColor,
-    required this.status,
-    required this.statusColor,
-    required this.doctor,
-    required this.type,
-    required this.date,
-  });
+  String _two(int n) => n.toString().padLeft(2, '0');
+
+  @override
+  Widget build(BuildContext context) {
+    final canConfirm = appt.status == AppointmentStatus.pending;
+    final canCancel = appt.status == AppointmentStatus.pending ||
+        appt.status == AppointmentStatus.confirmed;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: AppDecorations.card,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  appt.patientName.isEmpty ? 'Unnamed' : appt.patientName,
+                  style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: appt.status.color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  appt.status.label,
+                  style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: appt.status.color),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              const Icon(Icons.access_time,
+                  size: 14, color: AppColors.textTertiary),
+              const SizedBox(width: 6),
+              Text(
+                _fmtDate(appt.startsAt),
+                style: const TextStyle(
+                    fontSize: 12, color: AppColors.textSecondary),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                '${appt.durationMinutes} min',
+                style: const TextStyle(
+                    fontSize: 12, color: AppColors.textTertiary),
+              ),
+            ],
+          ),
+          if (appt.reason.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Reason: ${appt.reason}',
+              style:
+                  const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+            ),
+          ],
+          if (canConfirm || canCancel) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                if (canConfirm)
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => _confirm(context),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        side:
+                            const BorderSide(color: AppColors.primary),
+                      ),
+                      child: const Text('Confirm'),
+                    ),
+                  ),
+                if (canConfirm && canCancel) const SizedBox(width: 8),
+                if (canCancel)
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => _cancel(context),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.red,
+                        side: const BorderSide(color: AppColors.red),
+                      ),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirm(BuildContext context) async {
+    try {
+      await context
+          .read<AppointmentRepository>()
+          .updateStatus(appt.id, AppointmentStatus.confirmed);
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Failed: $e'), backgroundColor: Colors.red));
+    }
+  }
+
+  Future<void> _cancel(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancel appointment?'),
+        content: Text(
+            'Cancel appointment with ${appt.patientName}? The slot will be released.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('No')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Yes, cancel',
+                style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    try {
+      await context.read<AppointmentRepository>().cancelAppointment(appt);
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Failed: $e'), backgroundColor: Colors.red));
+    }
+  }
 }

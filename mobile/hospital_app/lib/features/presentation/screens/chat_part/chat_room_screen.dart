@@ -4,52 +4,62 @@ import 'package:hospital_app/features/data/repositories/chat_repository.dart';
 import 'package:hospital_app/features/presentation/bloc/auth/auth_bloc.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/app_constant.dart';
 
-/// Общая комната chat_rooms/general/messages. Видна всем юзерам.
-/// Доктора и пациенты пишут в один и тот же поток.
-///
-/// Свои сообщения — справа, чужие — слева, у чужих над сообщением —
-/// имя автора и его роль (Doctor/Patient).
-class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key});
+/// Один диалог 1-на-1. Знает uid и имя собеседника — этого достаточно,
+/// chatId считается на лету из обоих uid.
+class ChatRoomScreen extends StatefulWidget {
+  final String otherUid;
+  final String otherName;
+  final String otherRole;
+
+  const ChatRoomScreen({
+    super.key,
+    required this.otherUid,
+    required this.otherName,
+    required this.otherRole,
+  });
 
   @override
-  State<ChatScreen> createState() => _ChatScreenState();
+  State<ChatRoomScreen> createState() => _ChatRoomScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
-  final _textController = TextEditingController();
+class _ChatRoomScreenState extends State<ChatRoomScreen> {
+  final _textCtrl = TextEditingController();
   bool _sending = false;
 
   @override
   void dispose() {
-    _textController.dispose();
+    _textCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _send(BuildContext context) async {
-    final text = _textController.text.trim();
+    final text = _textCtrl.text.trim();
     if (text.isEmpty) return;
-
     final auth = context.read<AuthBloc>().state;
-    final user = auth.user;
-    final profile = auth.profile;
-    if (user == null || profile == null) return;
+    final myUid = auth.user?.uid;
+    final myName = auth.profile?.displayName.isNotEmpty == true
+        ? auth.profile!.displayName
+        : (auth.user?.email ?? 'User');
+    final myRole = auth.profile?.role.asString ?? '';
+    if (myUid == null) return;
 
     setState(() => _sending = true);
     try {
       await context.read<ChatRepository>().sendMessage(
-            authorUid: user.uid,
-            authorName:
-                profile.displayName.isNotEmpty ? profile.displayName : 'User',
-            authorRole: profile.role.asString,
+            myUid: myUid,
+            myName: myName,
+            myRole: myRole,
+            otherUid: widget.otherUid,
+            otherName: widget.otherName,
+            otherRole: widget.otherRole,
             text: text,
           );
-      _textController.clear();
+      _textCtrl.clear();
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('Send failed: $e'),
-        backgroundColor: Colors.red.shade600,
+        backgroundColor: Colors.red,
       ));
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -59,17 +69,28 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     final myUid = context.select((AuthBloc b) => b.state.user?.uid) ?? '';
+    final chatId = ChatRepository.chatIdFor(myUid, widget.otherUid);
 
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: const Text('Chat',
-            style: TextStyle(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w700)),
         iconTheme: const IconThemeData(color: AppColors.textPrimary),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(widget.otherName,
+                style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary)),
+            if (widget.otherRole.isNotEmpty)
+              Text(_roleLabel(widget.otherRole),
+                  style: const TextStyle(
+                      fontSize: 11, color: AppColors.textTertiary)),
+          ],
+        ),
       ),
       body: SafeArea(
         top: false,
@@ -77,48 +98,42 @@ class _ChatScreenState extends State<ChatScreen> {
           children: [
             Expanded(
               child: StreamBuilder<List<ChatMessage>>(
-                stream: context.read<ChatRepository>().watchMessages(),
-                builder: (context, snap) {
+                stream: context.read<ChatRepository>().watchMessages(chatId),
+                builder: (ctx, snap) {
                   if (snap.connectionState == ConnectionState.waiting) {
-                    return const Center(
-                        child: CircularProgressIndicator());
+                    return const Center(child: CircularProgressIndicator());
                   }
-                  if (snap.hasError) {
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Text('Error: ${snap.error}',
-                            textAlign: TextAlign.center),
+                  // Игнорируем ошибки стрима (PERMISSION_DENIED при логауте).
+                  final messages = snap.hasError
+                      ? const <ChatMessage>[]
+                      : (snap.data ?? const []);
+                  if (messages.isEmpty) {
+                    return const Center(
+                      child: Text(
+                        'No messages yet. Say hi!',
+                        style: TextStyle(
+                            color: AppColors.textTertiary, fontSize: 13),
                       ),
                     );
                   }
-                  final messages = snap.data ?? const <ChatMessage>[];
-                  if (messages.isEmpty) {
-                    return const Center(
-                      child: Text('No messages yet. Start the conversation.',
-                          style: TextStyle(
-                              color: AppColors.textTertiary, fontSize: 13)),
-                    );
-                  }
-                  // Стрим уже отсортирован descending — новые сверху,
-                  // в реверс-листе они показываются снизу (как в обычном
-                  // мессенджере).
                   return ListView.builder(
                     reverse: true,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 8),
                     itemCount: messages.length,
                     itemBuilder: (ctx, i) {
                       final msg = messages[i];
-                      return _MessageBubble(
-                          msg: msg, isMine: msg.authorUid == myUid);
+                      return _Bubble(
+                        msg: msg,
+                        isMine: msg.authorUid == myUid,
+                      );
                     },
                   );
                 },
               ),
             ),
-            _MessageInput(
-              controller: _textController,
+            _Input(
+              controller: _textCtrl,
               sending: _sending,
               onSend: () => _send(context),
             ),
@@ -127,36 +142,37 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
     );
   }
+
+  String _roleLabel(String role) {
+    switch (role) {
+      case 'doctor':
+        return 'Doctor';
+      case 'patient':
+        return 'Patient';
+      default:
+        return '';
+    }
+  }
 }
 
-class _MessageBubble extends StatelessWidget {
+class _Bubble extends StatelessWidget {
   final ChatMessage msg;
   final bool isMine;
-  const _MessageBubble({required this.msg, required this.isMine});
+  const _Bubble({required this.msg, required this.isMine});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Column(
-        crossAxisAlignment:
-            isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      child: Row(
+        mainAxisAlignment:
+            isMine ? MainAxisAlignment.end : MainAxisAlignment.start,
         children: [
-          if (!isMine && msg.authorName.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(left: 12, bottom: 2),
-              child: Text(
-                '${msg.authorName} · ${_roleLabel(msg.authorRole)}',
-                style: const TextStyle(
-                    fontSize: 11,
-                    color: AppColors.textTertiary,
-                    fontWeight: FontWeight.w500),
-              ),
-            ),
           Container(
             constraints: BoxConstraints(
                 maxWidth: MediaQuery.of(context).size.width * 0.75),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               color: isMine ? AppColors.primary : AppColors.bgGrey,
               borderRadius: BorderRadius.only(
@@ -178,25 +194,14 @@ class _MessageBubble extends StatelessWidget {
       ),
     );
   }
-
-  String _roleLabel(String role) {
-    switch (role) {
-      case 'doctor':
-        return 'Doctor';
-      case 'patient':
-        return 'Patient';
-      default:
-        return '';
-    }
-  }
 }
 
-class _MessageInput extends StatelessWidget {
+class _Input extends StatelessWidget {
   final TextEditingController controller;
   final bool sending;
   final VoidCallback onSend;
 
-  const _MessageInput({
+  const _Input({
     required this.controller,
     required this.sending,
     required this.onSend,
@@ -209,13 +214,11 @@ class _MessageInput extends StatelessWidget {
         left: 12,
         right: 12,
         top: 8,
-        // Поднимаем поле ввода над клавиатурой/жестом home indicator.
         bottom: MediaQuery.of(context).padding.bottom + 8,
       ),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(
-            top: BorderSide(color: AppColors.border)),
+        border: Border(top: BorderSide(color: AppColors.border)),
       ),
       child: Row(
         children: [
