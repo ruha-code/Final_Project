@@ -26,7 +26,6 @@ Clinics often rely on paper-based or fragmented systems to manage patients, doct
 - **Smart Chatbot Assistant**: Automated patient support with FAQ and context-aware responses based on patient data
 =======
 - **Chatbot Assistant**: AI-powered patient support with FAQ and context-aware responses
->>>>>>> 8364b80c3834a04b708c3284269b8512dacbf467
 - **Role-Based Access**: Admin, Doctor, and Patient roles with different permissions
 - **Email Notifications**: Automated emails via Resend API
 - **Responsive UI**: Mobile-friendly interface built with React and Tailwind CSS
