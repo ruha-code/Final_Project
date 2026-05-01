@@ -35,16 +35,9 @@ class MyCardScreen extends StatelessWidget {
             if (snap.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
-            if (snap.hasError) {
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Text('Error: ${snap.error}',
-                      textAlign: TextAlign.center),
-                ),
-              );
-            }
-            final doc = snap.data;
+            // При логауте стрим может бросить PERMISSION_DENIED — показываем
+            // пустой экран вместо красного "Error: ...".
+            final doc = snap.hasError ? null : snap.data;
             if (doc == null || !doc.exists) {
               return const _EmptyCard();
             }

@@ -85,13 +85,31 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   void _onProfileChanged(
       AuthProfileChanged event, Emitter<AuthState> emit) {
     if (state.user == null) return; // юзер вышел, игнорируем
+
+    final user = state.user!;
+    final profile = event.profile;
+
+    // Если email НЕ подтверждён — отправляем юзера на отдельный экран
+    // верификации, независимо от того, есть профиль или нет. Это валидно
+    // только для пациентов: docter-аккаунты заводятся вручную в Firebase
+    // Console и считаются доверенными — для них пропускаем проверку.
+    final isPatient = profile?.role.asString == 'patient';
+    if (isPatient && !user.emailVerified) {
+      emit(AuthState(
+        status: AuthStatus.emailNotVerified,
+        user: user,
+        profile: profile,
+      ));
+      return;
+    }
+
     // Профиль пришёл (или подтверждено что его нет — null после таймаута).
     // В обоих случаях двигаемся в authenticated; роль внутри определяет UI:
     // valid role → нормальный экран, role.unknown → Profile not found.
     emit(AuthState(
       status: AuthStatus.authenticated,
-      user: state.user,
-      profile: event.profile,
+      user: user,
+      profile: profile,
     ));
   }
 

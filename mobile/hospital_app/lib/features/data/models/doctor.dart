@@ -2,8 +2,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:hospital_app/features/data/models/_avatar_style.dart';
 
+/// Допустимые значения availability — UI и форма работают с этим списком.
 const doctorAvailabilities = ['Available', 'Busy', 'Off duty'];
 
+/// Допустимые специальности (используются и для фильтра, и для формы).
 const doctorSpecialties = [
   'General',
   'Pediatrics',

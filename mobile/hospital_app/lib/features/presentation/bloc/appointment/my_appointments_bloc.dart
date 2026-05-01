@@ -40,6 +40,8 @@ class MyAppointmentsBloc
   UserRole? _currentRole;
 
   void _resubscribeIfNeeded() {
+    if (isClosed) return; // Bloc уже закрыт, не дёргаемся.
+
     final s = _authBloc.state;
     final uid = s.user?.uid;
     final role = s.role;
@@ -62,8 +64,12 @@ class MyAppointmentsBloc
         : _repository.watchAppointmentsForPatient(uid);
 
     _dataSub = stream.listen(
-      (list) => add(_ListUpdated(list)),
-      onError: (Object e) => add(_ListFailed(e.toString())),
+      (list) {
+        if (!isClosed) add(_ListUpdated(list));
+      },
+      onError: (Object e) {
+        if (!isClosed) add(_ListFailed(e.toString()));
+      },
     );
   }
 

@@ -14,7 +14,7 @@ class Patient {
   final String gender;
   final String diagnosis;
   final String status;
-  final String ward; 
+  final String ward; // Inpatient / Outpatient
   final String? room;
   final String assignedDoctor;
   final String phone;
