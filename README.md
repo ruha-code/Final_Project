@@ -22,6 +22,7 @@ Clinics often rely on paper-based or fragmented systems to manage patients, doct
 - **Audit Logging**: Track all system actions for compliance
 - **Search**: Global search across patients, doctors, and appointments
 - **Notifications**: In-app notification system
+- **Chatbot Assistant**: AI-powered patient support with FAQ and context-aware responses
 - **Role-Based Access**: Admin, Doctor, and Patient roles with different permissions
 - **Email Notifications**: Automated emails via Resend API
 - **Responsive UI**: Mobile-friendly interface built with React and Tailwind CSS
