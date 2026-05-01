@@ -282,8 +282,8 @@ function ChatBot() {
       {/* Chat Window */}
       {isOpen && (
         <div
-          className="fixed inset-0 sm:inset-auto sm:bottom-20 sm:right-5 sm:w-80 md:w-96 bg-white sm:rounded-2xl shadow-2xl border sm:border-gray-100 z-[70] flex flex-col overflow-hidden"
-          style={{ height: "100%" }}
+          className="fixed bottom-20 right-4 left-4 sm:bottom-24 sm:right-5 sm:left-auto sm:w-80 md:w-96 bg-white rounded-2xl shadow-2xl border border-gray-100 z-[70] flex flex-col overflow-hidden"
+          style={{ maxHeight: "70vh", height: "auto" }}
         >
           {/* Header */}
           <div className="bg-gradient-to-r from-teal-500 to-teal-600 px-4 py-3 flex items-center justify-between shrink-0">
@@ -380,22 +380,11 @@ function ChatBot() {
         </div>
       )}
 
-      {/* Toggle Button - Hidden on mobile when sidebar or modal is open */}
+      {/* Toggle Button */}
       {!isOpen && !isModalOpen && (
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="fixed bottom-5 right-5 sm:z-[65] z-[45] w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 bg-teal-500 hover:bg-teal-600 hover:scale-110 md:hidden"
-          style={{ zIndex: 45 }}
-        >
-          <MessageSquare size={22} className="text-white" />
-        </button>
-      )}
-
-      {/* Desktop Toggle Button */}
-      {!isOpen && !isModalOpen && (
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          className="hidden md:flex fixed bottom-5 right-5 z-[65] w-14 h-14 rounded-full shadow-lg items-center justify-center transition-all duration-300 bg-teal-500 hover:bg-teal-600 hover:scale-110"
+          className="fixed bottom-5 right-5 z-[65] w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 bg-teal-500 hover:bg-teal-600 hover:scale-110"
         >
           <MessageSquare size={22} className="text-white" />
         </button>
