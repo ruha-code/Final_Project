@@ -282,8 +282,8 @@ function ChatBot() {
       {/* Chat Window */}
       {isOpen && (
         <div
-          className="fixed bottom-20 right-4 left-4 sm:bottom-24 sm:right-5 sm:left-auto sm:w-80 md:w-96 bg-white rounded-2xl shadow-2xl border border-gray-100 z-[70] flex flex-col overflow-hidden"
-          style={{ maxHeight: "70vh", height: "auto" }}
+          className="fixed bottom-24 right-5 w-80 md:w-96 bg-white rounded-2xl shadow-2xl border border-gray-100 z-[70] flex flex-col overflow-hidden"
+          style={{ height: "420px", maxHeight: "80vh" }}
         >
           {/* Header */}
           <div className="bg-gradient-to-r from-teal-500 to-teal-600 px-4 py-3 flex items-center justify-between shrink-0">
