@@ -1,9 +1,15 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { MoreVertical, X } from "lucide-react";
 import Badge from "../components/Badge";
 import { api } from "../services/api";
 import { useAuth } from "../context/AuthContext";
+import {
+  isValidDoctorPhone,
+  isValidDoctorSpecialty,
+  normalizeDoctorPhone,
+  normalizeWhitespace,
+} from "../utils/doctorValidation";
 
 function parseIntegerInput(value, fallback) {
   if (value === "" || value === null || value === undefined) return fallback;
@@ -14,12 +20,7 @@ function parseIntegerInput(value, fallback) {
 const FULL_NAME_REGEX = /^(?=.{2,100}$)\p{L}+(?:[ .'-]\p{L}+)*$/u;
 const USERNAME_REGEX = /^[A-Za-z0-9._-]{3,30}$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_REGEX = /^\+?[0-9()\-\s]{7,20}$/;
 const STRONG_PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,128}$/;
-
-function normalizeName(value) {
-  return value.trim().replace(/\s+/g, " ");
-}
 
 function StatusBadge({ isAvailable }) {
   return (
@@ -65,10 +66,11 @@ function AddDoctorModal({ onClose, onCreated }) {
   const handleSubmit = async () => {
     setError("");
 
-    const normalizedName = normalizeName(form.full_name);
+    const normalizedName = normalizeWhitespace(form.full_name);
     const normalizedUsername = form.username.trim();
     const normalizedEmail = form.email.trim().toLowerCase();
-    const normalizedPhone = form.phone.trim();
+    const normalizedPhone = normalizeDoctorPhone(form.phone);
+    const normalizedSpecialty = normalizeWhitespace(form.specialty);
 
     if (
       !normalizedName ||
@@ -91,9 +93,14 @@ function AddDoctorModal({ onClose, onCreated }) {
     if (!EMAIL_REGEX.test(normalizedEmail)) {
       return setError("Please enter a valid email address.");
     }
-    if (normalizedPhone && !PHONE_REGEX.test(normalizedPhone)) {
+    if (form.phone.trim() && !isValidDoctorPhone(normalizedPhone)) {
       return setError(
-        "Phone must be 7-20 characters and contain only digits or +-() symbols.",
+        "Phone must use international format, e.g. +15550123456.",
+      );
+    }
+    if (normalizedSpecialty && !isValidDoctorSpecialty(normalizedSpecialty)) {
+      return setError(
+        "Specialty must contain meaningful text, e.g. Cardiologist.",
       );
     }
     if (!STRONG_PASSWORD_REGEX.test(form.password)) {
@@ -111,7 +118,7 @@ function AddDoctorModal({ onClose, onCreated }) {
         password: form.password,
         phone: normalizedPhone || null,
         department_id: form.department_id ? Number(form.department_id) : null,
-        specialty: form.specialty.trim() || null,
+        specialty: normalizedSpecialty || null,
         license_number: form.license_number.trim() || null,
         license_status: form.license_status,
         rating: parseFloat(form.rating) || 0,
@@ -332,12 +339,16 @@ function AddDoctorModal({ onClose, onCreated }) {
 
 export default function Doctors() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { isAdmin, isPatient } = useAuth();
+  const selectedDepartmentId = searchParams.get("department_id");
 
   const [doctors, setDoctors] = useState([]);
   const [departmentOptions, setDepartmentOptions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("All");
+  const [activeDepartmentId, setActiveDepartmentId] = useState(
+    selectedDepartmentId || "All"
+  );
   const [statusFilter, setStatusFilter] = useState("All");
   const [openMenu, setOpenMenu] = useState(null);
   const [openModal, setOpenModal] = useState(false);
@@ -364,10 +375,26 @@ export default function Doctors() {
   }, []);
 
   useEffect(() => {
+    setActiveDepartmentId(selectedDepartmentId || "All");
+  }, [selectedDepartmentId]);
+
+  useEffect(() => {
     api.get("/departments")
       .then((data) => setDepartmentOptions(Array.isArray(data) ? data : []))
       .catch(() => setDepartmentOptions([]));
   }, []);
+
+  const handleDepartmentTabChange = (departmentId) => {
+    setActiveDepartmentId(departmentId);
+
+    const nextParams = new URLSearchParams(searchParams);
+    if (departmentId === "All") {
+      nextParams.delete("department_id");
+    } else {
+      nextParams.set("department_id", departmentId);
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
 
   const handleDelete = async (id, e) => {
     e.stopPropagation();
@@ -424,13 +451,28 @@ export default function Doctors() {
     }
   };
 
-  const departments = [
-    "All",
-    ...new Set(doctors.map((d) => d.department_name).filter(Boolean)),
+  const doctorDepartmentTabs = Array.from(
+    new Map(
+      doctors
+        .filter((doctor) => doctor.department_id && doctor.department_name)
+        .map((doctor) => [String(doctor.department_id), doctor.department_name])
+    ).entries()
+  ).map(([id, name]) => ({ id, name }));
+
+  const departmentTabs = [
+    { id: "All", name: "All" },
+    ...(departmentOptions.length > 0
+      ? departmentOptions.map((department) => ({
+          id: String(department.id),
+          name: department.name,
+        }))
+      : doctorDepartmentTabs),
   ];
 
   const filteredDoctors = doctors.filter((doc) => {
-    const depMatch = activeTab === "All" || doc.department_name === activeTab;
+    const depMatch =
+      activeDepartmentId === "All" ||
+      String(doc.department_id) === activeDepartmentId;
     const statusMatch =
       statusFilter === "All" ||
       (statusFilter === "Available" && doc.is_available) ||
@@ -488,17 +530,17 @@ export default function Doctors() {
 
         {/* TABS */}
         <div className="flex gap-6 text-sm border-b pb-2 overflow-x-auto">
-          {departments.map((dep) => (
+          {departmentTabs.map((dep) => (
             <button
-              key={dep}
-              onClick={() => setActiveTab(dep)}
+              key={dep.id}
+              onClick={() => handleDepartmentTabChange(dep.id)}
               className={`pb-2 whitespace-nowrap ${
-                activeTab === dep
+                activeDepartmentId === dep.id
                   ? "text-teal-600 border-b-2 border-teal-500"
                   : "text-gray-400"
               }`}
             >
-              {dep}
+              {dep.name}
             </button>
           ))}
         </div>

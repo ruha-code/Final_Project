@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from sqlalchemy.orm import selectinload
  
 from app.core.database import get_db
 from app.core.dependencies import RoleChecker
@@ -14,6 +13,10 @@ from app.modules.departments.schemas import DepartmentCreate, DepartmentUpdate, 
 router = APIRouter()
  
  
+def _same_department_name(name: str):
+    return func.lower(func.trim(Department.name)) == name.lower()
+
+
 async def _compute_department_metrics(department_id: int, db: AsyncSession) -> tuple[float, float, float]:
     result = await db.execute(
         select(
@@ -81,7 +84,7 @@ async def get_department(department_id: int, db: AsyncSession = Depends(get_db))
              summary="Create department (Admin only)",
              dependencies=[Depends(RoleChecker(["ADMIN"]))])
 async def create_department(dto: DepartmentCreate, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Department).where(Department.name == dto.name))
+    result = await db.execute(select(Department).where(_same_department_name(dto.name)))
     if result.scalar_one_or_none():
         raise ConflictException(f"Department '{dto.name}' already exists")
  
@@ -104,7 +107,7 @@ async def update_department(department_id: int, dto: DepartmentUpdate, db: Async
     if dto.name is not None:
         duplicate = await db.execute(
             select(Department).where(
-                Department.name == dto.name,
+                _same_department_name(dto.name),
                 Department.id != department_id,
             )
         )

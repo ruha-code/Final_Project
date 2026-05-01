@@ -58,6 +58,11 @@ const STATUS_STYLES = {
   ADMITTED: "bg-blue-100 text-blue-600",
 };
 
+const ADMIN_PATIENT_GRID =
+  "grid-cols-[40px_1.65fr_0.6fr_1fr_0.75fr_0.85fr_1fr_0.85fr_1.85fr]";
+const ACTION_BUTTON_CLASS =
+  "inline-flex min-w-[88px] items-center justify-center gap-1 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-xs";
+
 function Status({ status }) {
   return (
     <Badge className={`justify-self-start rounded-full px-3 py-1 text-xs font-medium ${STATUS_STYLES[status] || "bg-gray-100 text-gray-400"}`}>
@@ -341,7 +346,7 @@ export default function Patients() {
             </>
           ) : (
             <>
-              <div className="grid grid-cols-[40px_1.65fr_0.6fr_1fr_0.75fr_0.85fr_1fr_0.85fr_1.55fr] bg-gray-50 px-6 py-3 text-xs text-gray-400">
+              <div className={`grid ${ADMIN_PATIENT_GRID} bg-gray-50 px-6 py-3 text-xs text-gray-400`}>
                 <span className="flex items-center"><input type="checkbox" checked={allVisibleSelected} onChange={toggleSelectVisible} /></span>
                 <span>Name</span><span>Age</span><span>Condition</span><span>Blood Type</span><span>Type</span><span>Admission Date</span><span>Status</span><span>Actions</span>
               </div>
@@ -349,7 +354,7 @@ export default function Patients() {
                 const admissionCell = formatAdmissionCell(p);
                 const hint = getConsistencyHint(p);
                 return (
-                  <div key={p.id} onClick={() => navigate(`/patients/${p.id}`)} className={`grid cursor-pointer grid-cols-[40px_1.65fr_0.6fr_1fr_0.75fr_0.85fr_1fr_0.85fr_1.55fr] items-center border-t px-6 py-4 hover:bg-gray-50 ${selected.includes(p.id) ? "bg-teal-50" : ""}`}>
+                  <div key={p.id} onClick={() => navigate(`/patients/${p.id}`)} className={`grid ${ADMIN_PATIENT_GRID} cursor-pointer items-center border-t px-6 py-4 hover:bg-gray-50 ${selected.includes(p.id) ? "bg-teal-50" : ""}`}>
                     <input type="checkbox" checked={selected.includes(p.id)} onClick={e => e.stopPropagation()} onChange={() => toggleSelect(p.id)} />
                     <div className="flex items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-teal-100 text-sm font-semibold text-teal-600">{getInitials(p.full_name)}</div>
@@ -361,11 +366,11 @@ export default function Patients() {
                     <span className="text-sm text-gray-500">{formatPatientType(p.patient_type)}</span>
                     <div><span className={`text-sm ${admissionCell.className}`}>{admissionCell.text}</span>{hint && <p className="text-xs text-amber-600">{hint}</p>}</div>
                     <Status status={p.patient_status} />
-                    <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap" onClick={e => e.stopPropagation()}>
-                      <button onClick={() => navigate(`/patients/${p.id}`)} className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg bg-gray-100 px-2.5 py-1.5 text-xs text-gray-700 hover:bg-gray-200"><Eye size={13} /><span>View</span></button>
-                      <button onClick={e => openEdit(p, e)} className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg bg-teal-50 px-2.5 py-1.5 text-xs text-teal-700 hover:bg-teal-100"><Edit size={13} /><span>Edit</span></button>
+                    <div className="flex min-w-0 flex-nowrap items-center gap-2 whitespace-nowrap" onClick={e => e.stopPropagation()}>
+                      <button onClick={() => navigate(`/patients/${p.id}`)} className={`${ACTION_BUTTON_CLASS} bg-gray-100 text-gray-700 hover:bg-gray-200`}><Eye size={13} /><span>View</span></button>
+                      <button onClick={e => openEdit(p, e)} className={`${ACTION_BUTTON_CLASS} bg-teal-50 text-teal-700 hover:bg-teal-100`}><Edit size={13} /><span>Edit</span></button>
                       {p.patient_status !== "DISCHARGED" && (
-                        <button onClick={async e => { e.stopPropagation(); await api.put(`/patients/${p.id}`, { patient_status: "DISCHARGED" }); void fetchPatients(); }} className="inline-flex items-center whitespace-nowrap rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs text-amber-700 hover:bg-amber-100">Discharge</button>
+                        <button onClick={async e => { e.stopPropagation(); await api.put(`/patients/${p.id}`, { patient_status: "DISCHARGED" }); void fetchPatients(); }} className={`${ACTION_BUTTON_CLASS} bg-amber-50 text-amber-700 hover:bg-amber-100`}><span>Discharge</span></button>
                       )}
                     </div>
                   </div>

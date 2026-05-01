@@ -14,6 +14,12 @@ import {
 
 import { api } from "../services/api";
 import { useAuth } from "../context/AuthContext";
+import {
+  isValidDoctorPhone,
+  isValidDoctorSpecialty,
+  normalizeDoctorPhone,
+  normalizeWhitespace,
+} from "../utils/doctorValidation";
 
 const ROLE_STYLES = {
   ADMIN: "bg-purple-100 text-purple-600",
@@ -24,7 +30,6 @@ const ROLE_STYLES = {
 const FULL_NAME_REGEX = /^(?=.{2,100}$)\p{L}+(?:[ .'-]\p{L}+)*$/u;
 const USERNAME_REGEX = /^[A-Za-z0-9._-]{3,30}$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_REGEX = /^\+?[0-9()\-\s]{7,20}$/;
 const STRONG_PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,128}$/;
 
 function normalizeName(value) {
@@ -65,6 +70,7 @@ function validateEditUserForm(form) {
   const username = form.username.trim();
   const email = form.email.trim();
   const phone = form.phone.trim();
+  const normalizedPhone = normalizeDoctorPhone(form.phone);
 
   if (!fullName || !username || !email) {
     return "Full name, username, and email are required.";
@@ -82,8 +88,24 @@ function validateEditUserForm(form) {
     return "Please enter a valid email address.";
   }
 
-  if (phone && !PHONE_REGEX.test(phone)) {
-    return "Phone must be 7-20 characters and contain only digits or +-() symbols.";
+  if (phone && !isValidDoctorPhone(normalizedPhone)) {
+    return "Phone must use international format, e.g. +15550123456.";
+  }
+
+  return "";
+}
+
+function validateDoctorCreateForm(form) {
+  const phone = form.phone.trim();
+  const normalizedPhone = normalizeDoctorPhone(form.phone);
+  const specialty = normalizeWhitespace(form.specialty);
+
+  if (phone && !isValidDoctorPhone(normalizedPhone)) {
+    return "Phone must use international format, e.g. +15550123456.";
+  }
+
+  if (specialty && !isValidDoctorSpecialty(specialty)) {
+    return "Specialty must contain meaningful text, e.g. Cardiologist.";
   }
 
   return "";
@@ -186,6 +208,16 @@ function CreateUserModal({ onClose, onCreated, role }) {
       setError(validationError);
       return;
     }
+    if (role === "DOCTOR") {
+      const doctorValidationError = validateDoctorCreateForm(form);
+      if (doctorValidationError) {
+        setError(doctorValidationError);
+        return;
+      }
+    }
+
+    const normalizedPhone = normalizeDoctorPhone(form.phone);
+    const normalizedSpecialty = normalizeWhitespace(form.specialty);
 
     setLoading(true);
     try {
@@ -198,11 +230,11 @@ function CreateUserModal({ onClose, onCreated, role }) {
         username: form.username.trim(),
         email: form.email.trim().toLowerCase(),
         password: form.password,
-        phone: form.phone.trim() || null,
+        phone: normalizedPhone || null,
         ...(role === "DOCTOR"
           ? {
               department_id: form.department_id ? Number(form.department_id) : null,
-              specialty: form.specialty.trim() || null,
+              specialty: normalizedSpecialty || null,
               license_number: form.license_number.trim() || null,
               license_status: form.license_status,
               rating: parseFloat(form.rating) || 0,
@@ -468,7 +500,7 @@ function EditUserModal({ user, onClose, onSaved, canChangeRole }) {
         full_name: normalizeName(form.full_name),
         username: form.username.trim(),
         email: form.email.trim().toLowerCase(),
-        phone: form.phone.trim() || null,
+        phone: normalizeDoctorPhone(form.phone) || null,
         role: form.role,
       });
       await onSaved(updatedUser, "User updated successfully.");

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Building2, MapPin, Users, Plus, Search, Edit2, Trash2, X } from "lucide-react";
-import Badge from "../components/Badge";
 import { api } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
@@ -16,6 +15,7 @@ export default function Departments() {
   const [doctors, setDoctors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState("");
+  const [doctorRosterWarning, setDoctorRosterWarning] = useState("");
   const [search, setSearch] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(null);
@@ -33,6 +33,7 @@ export default function Departments() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     setPageError("");
+    setDoctorRosterWarning("");
 
     const [deptResult, doctorsResult] = await Promise.allSettled([
       api.get("/departments"),
@@ -41,6 +42,7 @@ export default function Departments() {
 
     if (deptResult.status === "rejected") {
       setDepartments([]);
+      setDoctors([]);
       setPageError(deptResult.reason?.message || "Failed to load departments");
       setLoading(false);
       return;
@@ -50,8 +52,13 @@ export default function Departments() {
 
     if (doctorsResult.status === "fulfilled" && Array.isArray(doctorsResult.value)) {
       setDoctors(doctorsResult.value);
+      setDoctorRosterWarning("");
     } else {
       setDoctors([]);
+      setDoctorRosterWarning(
+        doctorsResult.reason?.message ||
+          "Doctor roster could not be loaded. Showing saved staff counts only."
+      );
     }
 
     setLoading(false);
@@ -61,8 +68,26 @@ export default function Departments() {
     void fetchData();
   }, [fetchData]);
 
-  const getDoctorCount = (deptId) =>
-    doctors.filter((d) => Number(d.department_id) === Number(deptId)).length;
+  const totalStaffCount = departments.reduce(
+    (sum, dept) => sum + Number(dept.staff_count || 0),
+    0
+  );
+  const totalDoctors = doctorRosterWarning ? totalStaffCount : doctors.length;
+  const availableDoctors = doctorRosterWarning
+    ? null
+    : doctors.filter((d) => d.is_available).length;
+
+  const getDoctorCount = (dept) => {
+    if (doctorRosterWarning) return Number(dept.staff_count || 0);
+    return doctors.filter((d) => Number(d.department_id) === Number(dept.id)).length;
+  };
+
+  const getAvailableCount = (deptId) => {
+    if (doctorRosterWarning) return null;
+    return doctors.filter(
+      (d) => Number(d.department_id) === Number(deptId) && d.is_available
+    ).length;
+  };
 
   const filtered = departments.filter((dept) => {
     const value = search.trim().toLowerCase();
@@ -99,11 +124,18 @@ export default function Departments() {
     setFeedback(null);
 
     try {
+      const payload = {
+        name: form.name.trim(),
+        description: form.description.trim() || null,
+        location: form.location.trim() || null,
+        image_url: form.image_url.trim() || null,
+      };
+
       if (showEditModal) {
-        await api.put(`/departments/${showEditModal.id}`, form);
+        await api.put(`/departments/${showEditModal.id}`, payload);
         setFeedback({ tone: "success", message: "Department updated successfully" });
       } else {
-        await api.post("/departments", form);
+        await api.post("/departments", payload);
         setFeedback({ tone: "success", message: "Department created successfully" });
       }
       setShowCreateModal(false);
@@ -182,6 +214,12 @@ export default function Departments() {
         </div>
       )}
 
+      {doctorRosterWarning && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          {doctorRosterWarning}
+        </div>
+      )}
+
       {feedback && (
         <div
           className={`flex items-center justify-between rounded-xl border px-4 py-3 text-sm ${
@@ -209,7 +247,7 @@ export default function Departments() {
         <div className="rounded-2xl border bg-white p-4 sm:p-5 shadow-sm">
           <p className="text-xs uppercase tracking-wide text-gray-400">Total</p>
           <p className="mt-2 text-xl sm:text-2xl font-semibold text-gray-900">
-            {doctors.length}
+            {totalDoctors}
           </p>
           <p className="mt-1 text-xs sm:text-sm text-gray-500">Doctors</p>
         </div>
@@ -217,7 +255,7 @@ export default function Departments() {
           <p className="text-xs uppercase tracking-wide text-gray-400">Avg</p>
           <p className="mt-2 text-xl sm:text-2xl font-semibold text-gray-900">
             {departments.length > 0
-              ? (doctors.length / departments.length).toFixed(1)
+              ? (totalDoctors / departments.length).toFixed(1)
               : "0"}
           </p>
           <p className="mt-1 text-xs sm:text-sm text-gray-500">Doctors per dept</p>
@@ -225,7 +263,7 @@ export default function Departments() {
         <div className="rounded-2xl border bg-white p-4 sm:p-5 shadow-sm">
           <p className="text-xs uppercase tracking-wide text-gray-400">Available</p>
           <p className="mt-2 text-xl sm:text-2xl font-semibold text-gray-900">
-            {doctors.filter((d) => d.is_available).length}
+            {availableDoctors ?? "N/A"}
           </p>
           <p className="mt-1 text-xs sm:text-sm text-gray-500">Doctors available</p>
         </div>
@@ -243,10 +281,8 @@ export default function Departments() {
       ) : (
         <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((dept) => {
-            const doctorCount = getDoctorCount(dept.id);
-            const availableCount = doctors.filter(
-              (d) => Number(d.department_id) === Number(dept.id) && d.is_available
-            ).length;
+            const doctorCount = getDoctorCount(dept);
+            const availableCount = getAvailableCount(dept.id);
 
             return (
               <div
@@ -297,7 +333,8 @@ export default function Departments() {
                       </p>
                     )}
                     <p className="flex items-center gap-2">
-                      <Users size={14} /> {doctorCount} doctors ({availableCount} available)
+                      <Users size={14} /> {doctorCount} doctors
+                      {availableCount !== null && ` (${availableCount} available)`}
                     </p>
                   </div>
 
@@ -310,9 +347,7 @@ export default function Departments() {
                     </button>
                     {doctorCount > 0 && (
                       <button
-                        onClick={() =>
-                          navigate("/doctors", { state: { departmentFilter: dept.id } })
-                        }
+                        onClick={() => navigate(`/doctors?department_id=${dept.id}`)}
                         className="rounded-xl bg-gray-100 px-3 py-2 text-xs sm:text-sm text-gray-600 hover:bg-gray-200"
                       >
                         Team
@@ -425,7 +460,7 @@ export default function Departments() {
               <div className="rounded-2xl bg-gray-50 p-4 text-sm">
                 <p className="font-medium text-gray-800">{showDeleteModal.name}</p>
                 <p className="mt-1 text-gray-500">
-                  {getDoctorCount(showDeleteModal.id)} doctor(s) assigned
+                  {getDoctorCount(showDeleteModal)} doctor(s) assigned
                 </p>
               </div>
 

@@ -9,8 +9,35 @@ FULL_NAME_PATTERN = re.compile(
     re.UNICODE,
 )
 USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9._-]{3,30}$")
-PHONE_PATTERN = re.compile(r"^\+?[0-9()\-\s]{7,20}$")
+PHONE_E164_PATTERN = re.compile(r"^\+[1-9]\d{9,14}$")
 STRONG_PASSWORD_PATTERN = re.compile(r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,128}$")
+SPECIALTY_ALLOWED_CHARS = {" ", "-", "'", ".", "/", "&", "(", ")"}
+
+
+def normalize_whitespace(value: str) -> str:
+    return re.sub(r"\s+", " ", value).strip()
+
+
+def validate_phone_number(value: str) -> str:
+    cleaned = re.sub(r"[^\d+]", "", value)
+    if cleaned.count("+") > 1 or ("+" in cleaned and not cleaned.startswith("+")):
+        raise ValueError("Phone format is invalid")
+    if not PHONE_E164_PATTERN.fullmatch(cleaned):
+        raise ValueError("Phone must be in international format, e.g. +15550123456")
+    return cleaned
+
+
+def validate_specialty(value: str) -> str:
+    cleaned = normalize_whitespace(value)
+    if len(cleaned) < 3:
+        raise ValueError("Specialty must be at least 3 characters")
+    if len(cleaned) > 100:
+        raise ValueError("Specialty must be at most 100 characters")
+    if sum(1 for ch in cleaned if ch.isalpha()) < 3:
+        raise ValueError("Specialty must contain letters, not only numbers")
+    if any(not (ch.isalpha() or ch in SPECIALTY_ALLOWED_CHARS) for ch in cleaned):
+        raise ValueError("Specialty contains invalid characters")
+    return cleaned
 
 
 class UserRole(str, Enum):
@@ -53,7 +80,7 @@ class RegisterSchema(BaseModel):
     @field_validator("full_name")
     @classmethod
     def full_name_validate(cls, v: str) -> str:
-        cleaned = " ".join(v.strip().split())
+        cleaned = normalize_whitespace(v)
         if not FULL_NAME_PATTERN.fullmatch(cleaned):
             raise ValueError(
                 "Full name must contain letters and may include spaces, apostrophes, periods, or hyphens"
@@ -66,7 +93,9 @@ class RegisterSchema(BaseModel):
         if v is None:
             return None
         cleaned = v.strip()
-        return cleaned or None
+        if not cleaned:
+            return None
+        return validate_phone_number(cleaned)
 
 
 class AdminDoctorCreateSchema(RegisterSchema):
@@ -85,6 +114,13 @@ class AdminDoctorCreateSchema(RegisterSchema):
             return None
         cleaned = v.strip()
         return cleaned or None
+
+    @field_validator("specialty")
+    @classmethod
+    def validate_specialty_value(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        return validate_specialty(v)
 
     @field_validator("years_of_experience")
     @classmethod
@@ -150,6 +186,16 @@ class UserUpdateSchema(BaseModel):
     phone: Optional[str] = None
     avatar_url: Optional[str] = None
 
+    @field_validator("phone")
+    @classmethod
+    def phone_validate(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        cleaned = v.strip()
+        if not cleaned:
+            return None
+        return validate_phone_number(cleaned)
+
 
 class AdminUserUpdateSchema(BaseModel):
     full_name: Optional[str] = None
@@ -163,7 +209,7 @@ class AdminUserUpdateSchema(BaseModel):
     def full_name_validate(cls, v: Optional[str]) -> Optional[str]:
         if v is None:
             return None
-        cleaned = " ".join(v.strip().split())
+        cleaned = normalize_whitespace(v)
         if not FULL_NAME_PATTERN.fullmatch(cleaned):
             raise ValueError(
                 "Full name must contain letters and may include spaces, apostrophes, periods, or hyphens"
@@ -190,9 +236,7 @@ class AdminUserUpdateSchema(BaseModel):
         cleaned = v.strip()
         if not cleaned:
             return None
-        if not PHONE_PATTERN.fullmatch(cleaned):
-            raise ValueError("Phone must be 7-20 characters and contain only digits or +-() symbols")
-        return cleaned
+        return validate_phone_number(cleaned)
 
 
 class VerifyCodeSchema(BaseModel):
