@@ -12,22 +12,50 @@ Clinics often rely on paper-based or fragmented systems to manage patients, doct
 
 ## Features
 
-- Patient record management (create, view, update)
-- Doctor profile and schedule management
-- Appointment booking and tracking
-- Role-based access (admin, doctor, staff)
-- REST API backend
-- Responsive web interface
-- Cross-platform mobile support
+- **Patient Management**: Create, view, update patient records with health vitals tracking
+- **Doctor Management**: Doctor profiles, specialties, schedules, and availability
+- **Appointment System**: Book, track, and manage appointments with status updates
+- **Department Management**: Organize clinic departments with statistics
+- **Messaging**: Real-time chat between patients and doctors
+- **Calendar Events**: Clinic-wide event scheduling and management
+- **Analytics Dashboard**: Visual statistics and insights for administrators
+- **Audit Logging**: Track all system actions for compliance
+- **Search**: Global search across patients, doctors, and appointments
+- **Notifications**: In-app notification system
+- **Role-Based Access**: Admin, Doctor, and Patient roles with different permissions
+- **Email Notifications**: Automated emails via Resend API
+- **Responsive UI**: Mobile-friendly interface built with React and Tailwind CSS
 
 ---
 
 ## Tech Stack
 
-- Frontend: React, Tailwind CSS, Vite
-- Backend: FastAPI, PostgreSQL, Alembic
-- Mobile: Flutter
-- Infrastructure: Docker, Docker Compose
+### Frontend
+
+- React 18 with Vite
+- Tailwind CSS for styling
+- React Router for navigation
+- Axios for API requests
+
+### Backend
+
+- FastAPI (Python 3.11+)
+- PostgreSQL 16 with asyncpg
+- Redis 7 for caching
+- Alembic for database migrations
+- Pydantic for data validation
+- JWT authentication
+
+### Email Service
+
+- Resend API for transactional emails
+
+### Infrastructure
+
+- Docker & Docker Compose for local development
+- Railway for backend hosting (PostgreSQL + Redis + API)
+- Vercel for frontend hosting
+- Cloudflare for DNS management
 
 ---
 
@@ -41,71 +69,183 @@ Clinics often rely on paper-based or fragmented systems to manage patients, doct
 
 ### Run with Docker
 
+```bash
 git clone https://github.com/ruha-code/Final_Project.git
 cd Final_Project
 cp backend/.env.example backend/.env
+# Edit backend/.env with your settings
 docker compose up --build
+```
+
 The app will be available at:
-- Frontend: http://localhost:5173
-- Backend API: http://localhost:8000
-- API Docs: http://localhost:8000/docs
-- Mailpit inbox (dev emails): http://localhost:8025
 
-### Test Real Email with Gmail SMTP
+- **Frontend**: http://localhost:5173
+- **Backend API**: http://localhost:8000
+- **API Docs**: http://localhost:8000/docs
 
-1. In your Google account, enable 2-Step Verification.
-2. Create an App Password (Mail).
-3. Set these values in `backend/.env`:
+### Configure Email (Resend)
 
-```
+1. Get API key from [resend.com](https://resend.com)
+2. Set in `backend/.env`:
+
+```env
 EMAILS_ENABLED=True
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_STARTTLS=True
-SMTP_USERNAME=your-gmail@gmail.com
-SMTP_PASSWORD=your-16-char-app-password
-EMAILS_FROM=your-gmail@gmail.com
+RESEND_API_KEY=re_your_api_key_here
+EMAILS_FROM=noreply@yourdomain.com
 ```
 
-4. Restart the API container:
+3. Restart the API container:
 
-```
+```bash
 docker compose up -d --build api
 ```
 
-Notes:
-- `SMTP_PASSWORD` must be the Google App Password, not your normal Gmail login password.
-- For better deliverability, keep `EMAILS_FROM` the same as `SMTP_USERNAME`.
+### Run Locally (without Docker)
 
-### Run locally (without Docker)
+**Backend:**
 
-Backend:
+```bash
 cd backend
 python -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
+.venv\Scripts\activate   # Windows
+# source .venv/bin/activate  # Linux/Mac
 pip install -r requirements.txt
 alembic upgrade head
 uvicorn app.main:app --reload
-Frontend:
+```
+
+**Frontend:**
+
+```bash
 cd frontend
 npm install
 npm run dev
+```
+
 ---
 
 ## Usage
 
+### Default Credentials (after seeding)
+
+Run `python seed.py` with `ALLOW_SEED=true` to populate test data:
+
+**Admin:**
+
+- Email: `admin@clinic.com`
+
+**Doctors:**
+
+- `jwilson@clinic.com` (General Medicine)
+- `schen@clinic.com` (Pediatrics)
+- `mtorres@clinic.com` (Cardiology)
+- `epark@clinic.com` (Orthopedics)
+- `arivera@clinic.com` (Dermatology)
+- `lnguyen@clinic.com` (Neurology)
+- `rkim@clinic.com` (Radiology)
+- `msantos@clinic.com` (Maternity)
+
+**Patients:**
+
+- `sjohnson@email.com`, `jdoe@email.com`, `ewilliams@email.com`, etc.
+
+⚠️ Passwords are generated randomly during seeding. Check Railway Deploy Logs after running seed script.
+
+### Workflow
+
 1. Open the web app at http://localhost:5173
-2. Log in with your credentials (admin / doctor / staff)
-3. Navigate to Patients to manage patient records
-4. Navigate to Appointments to book or view appointments
-5. Doctors can view their schedule under My Schedule
-6. Admins have access to user management and system settings
+2. Log in with your credentials
+3. **Admin**: Manage users, view analytics, audit logs
+4. **Doctor**: View schedule, manage appointments, chat with patients
+5. **Patient**: Book appointments, view medical records, message doctors
+
+---
+
+## Project Structure
+
+```
+Final_Project/
+├── backend/              # FastAPI backend
+│   ├── app/
+│   │   ├── core/        # Config, database, security, middleware
+│   │   └── modules/     # Feature modules (auth, patients, doctors, etc.)
+│   ├── migrations/      # Alembic migrations
+│   ├── Dockerfile
+│   ├── requirements.txt
+│   └── seed.py          # Test data seeder
+├── frontend/            # React frontend
+│   ├── src/
+│   │   ├── components/  # Reusable UI components
+│   │   ├── pages/       # Page components
+│   │   ├── layouts/     # Layout components
+│   │   └── services/    # API services
+│   ├── Dockerfile
+│   ── package.json
+├── mobile/              # Flutter mobile app
+├── Dockerfile           # Root Dockerfile for Railway
+├── railway.json         # Railway configuration
+├── compose.yaml         # Docker Compose for local dev
+└── compose.prod.yaml    # Docker Compose for production
+```
+
+---
+
+## Deployment
+
+### Production URLs
+
+- **Frontend**: https://medlinks.uk
+- **Backend API**: https://api.medlinks.uk
+- **API Docs**: https://api.medlinks.uk/docs
+
+### Railway (Backend + Database)
+
+1. Connect GitHub repository to Railway
+2. Add services: PostgreSQL, Redis
+3. Set environment variables (see `backend/.env.example`)
+4. Deploy backend service with root Dockerfile
+5. Add custom domain `api.medlinks.uk` in Railway settings
+6. Run seed script once via Railway Console: `python seed.py` (set `ALLOW_SEED=true` temporarily, then set back to `false`)
+
+**Required Environment Variables:**
+
+```env
+SECRET_KEY=<generate-with-openssl-rand-hex-32>
+DATABASE_URL=postgresql+asyncpg://postgres:<password>@postgres.railway.internal:5432/railway
+REDIS_URL=redis://redis.railway.internal:6379
+RESEND_API_KEY=re_your_api_key_here
+EMAILS_FROM=noreply@medlinks.uk
+FRONTEND_URL=https://medlinks.uk
+ALLOW_SEED=false
+```
+
+### Vercel (Frontend)
+
+1. Connect GitHub repository to Vercel
+2. Set environment variable: `VITE_API_URL=https://api.medlinks.uk`
+3. Deploy and add custom domain `medlinks.uk`
+
+### DNS Configuration (Cloudflare)
+
+| Type  | Name                 | Content                    | Proxy    |
+| ----- | -------------------- | -------------------------- | -------- |
+| A     | @                    | 76.76.21.21                | DNS only |
+| CNAME | api                  | `<railway-backend-domain>` | DNS only |
+| TXT   | \_railway-verify.api | `railway-verify=...`       | DNS only |
+
+️ **Important**: CNAME record for `api` must be set to "DNS only" (gray cloud) for Railway verification.
 
 ---
 
 ## Team Members
 
-- Seiitkhan Zhannur – Backend Developer
-- Ruslan Usen – Frontend Developer
-- Askhat Yeleubay – Frontend Developer
-- Margulan Baizhigit – Mobile Developer
+- **Seiitkhan Zhannur** – Backend Developer
+- **Ruslan Usen** – Frontend Developer
+- **Askhat Yeleubay** – Frontend Developer
+- **Margulan Baizhigit** – Mobile Developer
+
+---
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
