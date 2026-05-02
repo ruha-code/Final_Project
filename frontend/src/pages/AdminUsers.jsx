@@ -30,7 +30,8 @@ const ROLE_STYLES = {
 };
 
 const FULL_NAME_REGEX = /^(?=.{2,100}$)\p{L}+(?:[ .'-]\p{L}+)*$/u;
-const USERNAME_REGEX = /^[A-Za-z0-9._-]{3,30}$/;
+const USERNAME_REGEX =
+  /^(?=.{3,30}$)(?=.*[A-Za-z])[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const STRONG_PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,128}$/;
 
@@ -53,7 +54,7 @@ function validateCreateUserForm(form) {
   }
 
   if (!USERNAME_REGEX.test(username)) {
-    return "Username must be 3-30 characters and can include letters, numbers, dots, underscores, or hyphens.";
+    return "Username must be 3-30 characters, include a letter, and start/end with a letter or number.";
   }
 
   if (!EMAIL_REGEX.test(email)) {
@@ -83,7 +84,7 @@ function validateEditUserForm(form) {
   }
 
   if (!USERNAME_REGEX.test(username)) {
-    return "Username must be 3-30 characters and can include letters, numbers, dots, underscores, or hyphens.";
+    return "Username must be 3-30 characters, include a letter, and start/end with a letter or number.";
   }
 
   if (!EMAIL_REGEX.test(email)) {
@@ -111,6 +112,12 @@ function validateDoctorCreateForm(form) {
   }
 
   return "";
+}
+
+function getUsernameLabel(username) {
+  const value = String(username || "").trim();
+  if (!value) return "@unknown";
+  return value.startsWith("@") ? value : `@${value}`;
 }
 
 function ConfirmationModal({
@@ -302,7 +309,7 @@ function CreateUserModal({ onClose, onCreated, role }) {
               className="w-full rounded-xl bg-gray-100 px-3 sm:px-4 py-2 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-teal-400"
             />
             <p className="mt-1 text-xs text-gray-400">
-              3-30 chars: letters, numbers, dot, underscore, hyphen.
+              3-30 chars with at least one letter. Use letters, numbers, dot, underscore, or hyphen.
             </p>
           </div>
 
@@ -520,7 +527,7 @@ function EditUserModal({ user, onClose, onSaved, canChangeRole }) {
         <div className="sticky top-0 flex items-center justify-between border-b bg-blue-50 px-4 sm:px-6 py-4">
           <div>
             <h2 className="font-semibold text-sm sm:text-base">Edit User</h2>
-            <p className="text-xs text-gray-400">@{user.username}</p>
+            <p className="text-xs text-gray-400">{getUsernameLabel(user.username)}</p>
           </div>
           <button
             type="button"
@@ -636,7 +643,9 @@ function UserCard({ u, isCurrentUser, actionLoading, onEdit, onToggle, onDelete 
           </div>
           <div className="min-w-0">
             <p className="text-sm font-medium truncate">{u.full_name}</p>
-            <p className="text-xs text-gray-400">@{u.username}</p>
+            <p className="truncate text-xs text-gray-400" title={getUsernameLabel(u.username)}>
+              {getUsernameLabel(u.username)}
+            </p>
             {isCurrentUser && (
               <p className="text-xs text-gray-400">Current account</p>
             )}
@@ -651,7 +660,7 @@ function UserCard({ u, isCurrentUser, actionLoading, onEdit, onToggle, onDelete 
         </span>
       </div>
 
-      <p className="truncate text-xs text-gray-500">{u.email}</p>
+      <p className="truncate text-xs text-gray-500" title={u.email}>{u.email}</p>
 
       <div className="flex flex-wrap gap-1">
         <span
@@ -993,122 +1002,133 @@ export default function AdminUsers() {
           <div className="overflow-hidden rounded-2xl border bg-white shadow-sm">
 
             {/* Таблица — только md+ */}
-            <div className="hidden md:block">
-              <div className="grid grid-cols-6 border-b bg-gray-50 px-6 py-3 text-xs text-gray-400">
-                <span>Name</span>
-                <span>Username</span>
-                <span>Email</span>
-                <span>Role</span>
-                <span>Status</span>
-                <span>Actions</span>
-              </div>
+            <div className="hidden overflow-x-auto md:block">
+              <div className="min-w-[1120px]">
+                <div className="grid grid-cols-[minmax(220px,1.35fr)_minmax(150px,0.85fr)_minmax(230px,1.25fr)_minmax(100px,0.55fr)_minmax(190px,0.95fr)_minmax(220px,1.1fr)] gap-4 border-b bg-gray-50 px-6 py-3 text-xs text-gray-400">
+                  <span>Name</span>
+                  <span>Username</span>
+                  <span>Email</span>
+                  <span>Role</span>
+                  <span>Status</span>
+                  <span>Actions</span>
+                </div>
 
-              {users.length === 0 ? (
-                <div className="py-10 text-center text-sm text-gray-400">No users found</div>
-              ) : (
-                users.map((u) => {
-                  const isCurrentUser = currentUser?.id === u.id;
+                {users.length === 0 ? (
+                  <div className="py-10 text-center text-sm text-gray-400">No users found</div>
+                ) : (
+                  users.map((u) => {
+                    const isCurrentUser = currentUser?.id === u.id;
 
-                  return (
-                    <div
-                      key={u.id}
-                      className="grid grid-cols-6 items-center border-b px-6 py-4 last:border-none hover:bg-gray-50"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-teal-100 text-sm font-semibold text-teal-600">
-                          {u.full_name
-                            ?.split(" ")
-                            .map((n) => n[0])
-                            .join("")
-                            .slice(0, 2)}
+                    return (
+                      <div
+                        key={u.id}
+                        className="grid grid-cols-[minmax(220px,1.35fr)_minmax(150px,0.85fr)_minmax(230px,1.25fr)_minmax(100px,0.55fr)_minmax(190px,0.95fr)_minmax(220px,1.1fr)] items-center gap-4 border-b px-6 py-4 last:border-none hover:bg-gray-50"
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-teal-100 text-sm font-semibold text-teal-600">
+                            {u.full_name
+                              ?.split(" ")
+                              .map((n) => n[0])
+                              .join("")
+                              .slice(0, 2)}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium" title={u.full_name}>
+                              {u.full_name}
+                            </p>
+                            {isCurrentUser && (
+                              <p className="text-xs text-gray-400">Current account</p>
+                            )}
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-sm font-medium">{u.full_name}</p>
-                          {isCurrentUser && (
-                            <p className="text-xs text-gray-400">Current account</p>
+
+                        <span
+                          className="min-w-0 truncate text-sm text-gray-500"
+                          title={getUsernameLabel(u.username)}
+                        >
+                          {getUsernameLabel(u.username)}
+                        </span>
+                        <span className="min-w-0 truncate text-sm text-gray-500" title={u.email}>
+                          {u.email}
+                        </span>
+
+                        <span
+                          className={`w-fit rounded-md px-2.5 py-1 text-xs font-medium ${
+                            ROLE_STYLES[u.role] || "bg-gray-100 text-gray-500"
+                          }`}
+                        >
+                          {u.role}
+                        </span>
+
+                        <div className="flex flex-wrap gap-1">
+                          <span
+                            className={`w-fit rounded-md px-2.5 py-1 text-xs font-medium ${
+                              u.is_active
+                                ? "bg-green-50 text-green-600"
+                                : "bg-red-50 text-red-500"
+                            }`}
+                          >
+                            {u.is_active ? "Active" : "Inactive"}
+                          </span>
+                          <span
+                            className={`w-fit rounded-md px-2.5 py-1 text-xs font-medium ${
+                              u.is_verified
+                                ? "bg-blue-50 text-blue-600"
+                                : "bg-amber-50 text-amber-700"
+                            }`}
+                          >
+                            {u.is_verified ? "Verified" : "Unverified"}
+                          </span>
+                        </div>
+
+                        <div className="flex min-w-0 flex-wrap gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setEditUser(u)}
+                            disabled={actionLoading === u.id}
+                            className="flex w-fit items-center gap-1 rounded-lg bg-blue-50 px-3 py-1.5 text-xs text-blue-500 transition hover:bg-blue-100 disabled:opacity-50"
+                            aria-label="Edit user"
+                          >
+                            <Pencil size={12} />
+                          </button>
+
+                          {!isCurrentUser && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => openToggleConfirmation(u)}
+                                disabled={actionLoading === u.id}
+                                className={`flex w-fit items-center gap-1 rounded-lg px-3 py-1.5 text-xs transition disabled:opacity-50 ${
+                                  u.is_active
+                                    ? "bg-red-50 text-red-500 hover:bg-red-100"
+                                    : "bg-green-50 text-green-600 hover:bg-green-100"
+                                }`}
+                                aria-label={u.is_active ? "Deactivate user" : "Activate user"}
+                              >
+                                {u.is_active ? (
+                                  <><UserX size={12} /> Deactivate</>
+                                ) : (
+                                  <><UserCheck size={12} /> Activate</>
+                                )}
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => openDeleteConfirmation(u)}
+                                disabled={actionLoading === u.id}
+                                className="flex w-fit items-center gap-1 rounded-lg bg-gray-100 px-3 py-1.5 text-xs text-gray-500 transition hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
+                                aria-label="Delete user"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </>
                           )}
                         </div>
                       </div>
-
-                      <span className="text-sm text-gray-500">@{u.username}</span>
-                      <span className="truncate text-sm text-gray-500">{u.email}</span>
-
-                      <span
-                        className={`w-fit rounded-md px-2.5 py-1 text-xs font-medium ${
-                          ROLE_STYLES[u.role] || "bg-gray-100 text-gray-500"
-                        }`}
-                      >
-                        {u.role}
-                      </span>
-
-                      <div className="flex flex-wrap gap-1">
-                        <span
-                          className={`w-fit rounded-md px-2.5 py-1 text-xs font-medium ${
-                            u.is_active
-                              ? "bg-green-50 text-green-600"
-                              : "bg-red-50 text-red-500"
-                          }`}
-                        >
-                          {u.is_active ? "Active" : "Inactive"}
-                        </span>
-                        <span
-                          className={`w-fit rounded-md px-2.5 py-1 text-xs font-medium ${
-                            u.is_verified
-                              ? "bg-blue-50 text-blue-600"
-                              : "bg-amber-50 text-amber-700"
-                          }`}
-                        >
-                          {u.is_verified ? "Verified" : "Unverified"}
-                        </span>
-                      </div>
-
-                      <div className="flex gap-1">
-                        <button
-                          type="button"
-                          onClick={() => setEditUser(u)}
-                          disabled={actionLoading === u.id}
-                          className="flex w-fit items-center gap-1 rounded-lg bg-blue-50 px-3 py-1.5 text-xs text-blue-500 transition hover:bg-blue-100 disabled:opacity-50"
-                          aria-label="Edit user"
-                        >
-                          <Pencil size={12} />
-                        </button>
-
-                        {!isCurrentUser && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => openToggleConfirmation(u)}
-                              disabled={actionLoading === u.id}
-                              className={`flex w-fit items-center gap-1 rounded-lg px-3 py-1.5 text-xs transition disabled:opacity-50 ${
-                                u.is_active
-                                  ? "bg-red-50 text-red-500 hover:bg-red-100"
-                                  : "bg-green-50 text-green-600 hover:bg-green-100"
-                              }`}
-                              aria-label={u.is_active ? "Deactivate user" : "Activate user"}
-                            >
-                              {u.is_active ? (
-                                <><UserX size={12} /> Deactivate</>
-                              ) : (
-                                <><UserCheck size={12} /> Activate</>
-                              )}
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => openDeleteConfirmation(u)}
-                              disabled={actionLoading === u.id}
-                              className="flex w-fit items-center gap-1 rounded-lg bg-gray-100 px-3 py-1.5 text-xs text-gray-500 transition hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
-                              aria-label="Delete user"
-                            >
-                              <Trash2 size={12} />
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
+                    );
+                  })
+                )}
+              </div>
             </div>
 
             {/* Карточки — только до md */}

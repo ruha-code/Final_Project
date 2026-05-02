@@ -50,7 +50,9 @@ FULL_NAME_PATTERN = re.compile(
     r"^(?=.{2,100}$)[^\W\d_]+(?:[ .'-][^\W\d_]+)*$",
     re.UNICODE,
 )
-USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9._-]{3,30}$")
+USERNAME_PATTERN = re.compile(
+    r"^(?=.{3,30}$)(?=.*[A-Za-z])[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$"
+)
 
 
 class RefreshRequest(BaseModel):
@@ -70,7 +72,7 @@ def _validate_admin_managed_user_payload(
 
     if not USERNAME_PATTERN.fullmatch(normalized_username):
         raise ValidationException(
-            "Username must be 3-30 characters and use only letters, numbers, dots, underscores, or hyphens"
+            "Username must be 3-30 characters, include a letter, and start/end with a letter or number"
         )
 
     try:

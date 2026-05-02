@@ -27,6 +27,10 @@ function Register() {
 
   const validateEmail = (value) =>
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+  const validateUsername = (value) =>
+    /^(?=.{3,30}$)(?=.*[A-Za-z])[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$/.test(
+      value.trim(),
+    );
 
   const handleEmailBlur = () => {
     if (form.email && !validateEmail(form.email)) {
@@ -43,8 +47,9 @@ function Register() {
 
     if (!form.name.trim()) nextErrors.name = "Full name is required";
 
-    if (form.username.length < 3)
-      nextErrors.username = "Username must be at least 3 characters";
+    if (!validateUsername(form.username))
+      nextErrors.username =
+        "Username must be 3-30 characters, include a letter, and start/end with a letter or number";
 
     if (!validateEmail(form.email))
       nextErrors.email = "Please enter a valid email address";
@@ -177,7 +182,7 @@ function Register() {
               />
               {fieldErrors.username
                 ? <p className="mt-1 text-xs text-red-500">{fieldErrors.username}</p>
-                : <p className="text-xs text-gray-400 mt-1">Minimum 3 characters</p>
+        : <p className="text-xs text-gray-400 mt-1">3-30 chars with at least one letter</p>
               }
             </div>
 

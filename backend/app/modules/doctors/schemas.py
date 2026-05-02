@@ -156,7 +156,7 @@ class DoctorProfileUpdate(BaseModel):
         if v is None:
             return None
         if not v.strip():
-            raise ValueError("Specialty cannot be empty")
+            return None
         return _validate_specialty(v)
 
     @field_validator("bio")

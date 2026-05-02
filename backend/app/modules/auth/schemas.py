@@ -8,7 +8,9 @@ FULL_NAME_PATTERN = re.compile(
     r"^(?=.{2,100}$)[^\W\d_]+(?:[ .'-][^\W\d_]+)*$",
     re.UNICODE,
 )
-USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9._-]{3,30}$")
+USERNAME_PATTERN = re.compile(
+    r"^(?=.{3,30}$)(?=.*[A-Za-z])[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$"
+)
 PHONE_E164_PATTERN = re.compile(r"^\+[1-9]\d{9,14}$")
 STRONG_PASSWORD_PATTERN = re.compile(r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,128}$")
 SPECIALTY_ALLOWED_CHARS = {" ", "-", "'", ".", "/", "&", "(", ")"}
@@ -72,10 +74,13 @@ class RegisterSchema(BaseModel):
 
     @field_validator("username")
     @classmethod
-    def username_length(cls, v: str) -> str:
-        if len(v.strip()) < 3:
-            raise ValueError("Username must be at least 3 characters")
-        return v.strip()
+    def username_validate(cls, v: str) -> str:
+        cleaned = v.strip()
+        if not USERNAME_PATTERN.fullmatch(cleaned):
+            raise ValueError(
+                "Username must be 3-30 characters, include a letter, and start/end with a letter or number"
+            )
+        return cleaned
 
     @field_validator("full_name")
     @classmethod
@@ -224,7 +229,7 @@ class AdminUserUpdateSchema(BaseModel):
         cleaned = v.strip()
         if not USERNAME_PATTERN.fullmatch(cleaned):
             raise ValueError(
-                "Username must be 3-30 characters and use only letters, numbers, dots, underscores, or hyphens"
+                "Username must be 3-30 characters, include a letter, and start/end with a letter or number"
             )
         return cleaned
 

@@ -20,7 +20,8 @@ function parseIntegerInput(value, fallback) {
 }
 
 const FULL_NAME_REGEX = /^(?=.{2,100}$)\p{L}+(?:[ .'-]\p{L}+)*$/u;
-const USERNAME_REGEX = /^[A-Za-z0-9._-]{3,30}$/;
+const USERNAME_REGEX =
+  /^(?=.{3,30}$)(?=.*[A-Za-z])[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const STRONG_PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,128}$/;
 
@@ -89,7 +90,7 @@ function AddDoctorModal({ onClose, onCreated }) {
     }
     if (!USERNAME_REGEX.test(normalizedUsername)) {
       return setError(
-        "Username must be 3-30 characters and can include letters, numbers.",
+        "Username must be 3-30 characters, include a letter, and start/end with a letter or number.",
       );
     }
     if (!EMAIL_REGEX.test(normalizedEmail)) {
@@ -356,6 +357,7 @@ export default function Doctors() {
   const [openModal, setOpenModal] = useState(false);
   const [editDoctor, setEditDoctor] = useState(null);
   const [editForm, setEditForm] = useState({});
+  const [editError, setEditError] = useState("");
   const [saving, setSaving] = useState(false);
   const [pageError, setPageError] = useState("");
 
@@ -445,6 +447,7 @@ export default function Doctors() {
 
   const handleEdit = (doc, e) => {
     e.stopPropagation();
+    setEditError("");
     setEditDoctor(doc);
     setEditForm({
       specialty: doc.specialty || "",
@@ -464,24 +467,58 @@ export default function Doctors() {
   };
 
   const handleSaveEdit = async () => {
+    const normalizedSpecialty = normalizeWhitespace(editForm.specialty || "");
+    const normalizedBio = normalizeWhitespace(editForm.bio || "");
+    const normalizedLicenseNumber = normalizeWhitespace(editForm.license_number || "");
+    const rating =
+      editForm.rating === "" || editForm.rating === null || editForm.rating === undefined
+        ? 0
+        : Number.parseFloat(editForm.rating);
+    const yearsOfExperience = parseIntegerInput(editForm.years_of_experience, 0);
+    const consultationDuration = parseIntegerInput(
+      editForm.consultation_duration_minutes,
+      30,
+    );
+
+    setEditError("");
+
+    if (normalizedSpecialty && !isValidDoctorSpecialty(normalizedSpecialty)) {
+      setEditError("Specialty must contain meaningful text, e.g. Cardiologist.");
+      return;
+    }
+    if (!Number.isFinite(rating) || rating < 0 || rating > 5) {
+      setEditError("Rating must be between 0 and 5.");
+      return;
+    }
+    if (yearsOfExperience < 0 || yearsOfExperience > 50) {
+      setEditError("Years of experience must be between 0 and 50.");
+      return;
+    }
+    if (consultationDuration < 10 || consultationDuration > 120) {
+      setEditError("Consultation duration must be between 10 and 120 minutes.");
+      return;
+    }
+
     setSaving(true);
     try {
-      await api.put(`/doctors/${editDoctor.id}`, {
-        ...editForm,
+      const updatedDoctor = await api.put(`/doctors/${editDoctor.id}`, {
         department_id: editForm.department_id ? Number(editForm.department_id) : null,
-        license_number: editForm.license_number?.trim() || null,
+        specialty: normalizedSpecialty || null,
+        license_number: normalizedLicenseNumber || null,
         license_status: editForm.license_status || "PENDING",
-        rating: parseFloat(editForm.rating) || 0,
-        years_of_experience: parseIntegerInput(editForm.years_of_experience, 0),
-        consultation_duration_minutes: parseIntegerInput(
-          editForm.consultation_duration_minutes,
-          30,
-        ),
+        rating,
+        years_of_experience: yearsOfExperience,
+        consultation_duration_minutes: consultationDuration,
+        bio: normalizedBio || null,
+        is_available: Boolean(editForm.is_available),
       });
+      setDoctors((current) =>
+        current.map((doctor) => (doctor.id === updatedDoctor.id ? updatedDoctor : doctor)),
+      );
       setEditDoctor(null);
-      fetchDoctors();
+      await fetchDoctors();
     } catch (err) {
-      setPageError(err.message || "Failed to update doctor");
+      setEditError(err.message || "Failed to update doctor");
     } finally {
       setSaving(false);
     }
@@ -737,6 +774,11 @@ export default function Doctors() {
               </button>
             </div>
             <div className="p-4 sm:p-6 space-y-4">
+              {editError && (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+                  {editError}
+                </div>
+              )}
               <div>
                 <label className="text-sm text-gray-500 mb-1 block">
                   Specialty
