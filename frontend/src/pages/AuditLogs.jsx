@@ -11,6 +11,7 @@ import {
 import { api } from "../services/api";
 
 const DEFAULT_PAGE_SIZE = 25;
+const AUTO_REFRESH_INTERVAL_MS = 10000;
 
 const ACTION_META = {
   REGISTER: { icon: User, color: "bg-green-100 text-green-700", label: "Registered" },
@@ -215,8 +216,12 @@ export default function AuditLogs() {
   }, [searchInput]);
 
   useEffect(() => {
-    const fetchLogs = async () => {
-      setLoading(true);
+    let cancelled = false;
+
+    const fetchLogs = async ({ silent = false } = {}) => {
+      if (!silent) {
+        setLoading(true);
+      }
       setError("");
 
       try {
@@ -233,22 +238,36 @@ export default function AuditLogs() {
         if (search) params.set("q", search);
 
         const data = await api.get(`/audit/audit-logs?${params.toString()}`);
+        if (cancelled) return;
         setLogs(Array.isArray(data?.items) ? data.items : []);
         setTotal(Number.isFinite(data?.total) ? data.total : 0);
         setPages(
           Number.isFinite(data?.pages) && data.pages > 0 ? data.pages : 1,
         );
       } catch (err) {
+        if (cancelled) return;
         setError(err.message || "Failed to fetch audit logs");
-        setLogs([]);
-        setTotal(0);
-        setPages(1);
+        if (!silent) {
+          setLogs([]);
+          setTotal(0);
+          setPages(1);
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled && !silent) {
+          setLoading(false);
+        }
       }
     };
 
     void fetchLogs();
+    const intervalId = setInterval(() => {
+      void fetchLogs({ silent: true });
+    }, AUTO_REFRESH_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
   }, [page, actionFilter, startDate, endDate, search]);
 
   useEffect(() => {

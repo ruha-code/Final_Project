@@ -26,6 +26,8 @@ import {
 } from "../components/appointments/appointmentUtils";
 import { getTodayLocalDate } from "../utils/dateTime";
 
+const AUTO_REFRESH_INTERVAL_MS = 15000;
+
 async function fetchAllAdminAppointments() {
   const data = await api.get("/appointments/admin/all?all=true");
   return sanitizeAppointments(Array.isArray(data?.items) ? data.items : []);
@@ -73,26 +75,47 @@ export default function Appointments() {
   }, [location.pathname, location.state, navigate]);
 
   useEffect(() => {
-    const fetchAppointments = async () => {
+    let cancelled = false;
+
+    const fetchAppointments = async ({ silent = false } = {}) => {
       try {
-        setLoading(true);
-        setPageError("");
+        if (!silent) {
+          setLoading(true);
+        }
+        if (!silent) {
+          setPageError("");
+        }
         if (isAdmin()) {
           const data = await fetchAllAdminAppointments();
+          if (cancelled) return;
           setAppointments(data);
           return;
         }
         const data = await api.get("/appointments/my");
+        if (cancelled) return;
         setAppointments(
           sanitizeAppointments(Array.isArray(data) ? data : []),
         );
       } catch (err) {
-        setPageError(err.message || "Failed to load appointments");
+        if (!cancelled) {
+          setPageError(err.message || "Failed to load appointments");
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled && !silent) {
+          setLoading(false);
+        }
       }
     };
+
     void fetchAppointments();
+    const intervalId = setInterval(() => {
+      void fetchAppointments({ silent: true });
+    }, AUTO_REFRESH_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
   }, [isAdmin, reloadKey]);
 
   const handleCancel = async (appointmentId) => {

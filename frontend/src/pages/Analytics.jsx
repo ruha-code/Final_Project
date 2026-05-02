@@ -12,6 +12,8 @@ import { Search } from "lucide-react";
 
 import { api } from "../services/api";
 
+const AUTO_REFRESH_INTERVAL_MS = 30000;
+
 const DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
   month: "short",
   day: "numeric",
@@ -267,9 +269,13 @@ export default function Analytics() {
     };
 
     void fetchAnalytics();
+    const intervalId = setInterval(() => {
+      void fetchAnalytics();
+    }, AUTO_REFRESH_INTERVAL_MS);
 
     return () => {
       cancelled = true;
+      clearInterval(intervalId);
     };
   }, [dateRangeInvalid, dateRangeMissing, endDate, startDate]);
 

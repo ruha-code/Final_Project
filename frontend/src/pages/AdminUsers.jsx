@@ -21,6 +21,8 @@ import {
   normalizeWhitespace,
 } from "../utils/doctorValidation";
 
+const AUTO_REFRESH_INTERVAL_MS = 15000;
+
 const ROLE_STYLES = {
   ADMIN: "bg-purple-100 text-purple-600",
   DOCTOR: "bg-teal-100 text-teal-600",
@@ -755,10 +757,14 @@ export default function AdminUsers() {
   }, [searchInput]);
 
   useEffect(() => {
-    const fetchUsers = async () => {
+    let cancelled = false;
+
+    const fetchUsers = async ({ silent = false } = {}) => {
       try {
-        setLoading(true);
-        setLoadError("");
+        if (!silent) {
+          setLoading(true);
+          setLoadError("");
+        }
         const params = new URLSearchParams();
         params.set("page", String(page));
         params.set("page_size", "10");
@@ -766,6 +772,7 @@ export default function AdminUsers() {
         if (search) params.set("search", search);
 
         const data = await api.get(`/auth/admin/users?${params.toString()}`);
+        if (cancelled) return;
         const nextTotalPages = data.pages || 1;
         if (page > nextTotalPages) {
           setTotalPages(nextTotalPages);
@@ -776,18 +783,32 @@ export default function AdminUsers() {
         setUsers(data.items || []);
         setTotalPages(nextTotalPages);
       } catch (err) {
-        setLoadError(err.message || "Failed to load users.");
-        setToast({
-          id: Date.now(),
-          type: "error",
-          message: err.message || "Failed to load users.",
-        });
+        if (!cancelled) {
+          setLoadError(err.message || "Failed to load users.");
+          if (!silent) {
+            setToast({
+              id: Date.now(),
+              type: "error",
+              message: err.message || "Failed to load users.",
+            });
+          }
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled && !silent) {
+          setLoading(false);
+        }
       }
     };
 
     void fetchUsers();
+    const intervalId = setInterval(() => {
+      void fetchUsers({ silent: true });
+    }, AUTO_REFRESH_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
   }, [page, roleFilter, search, reloadKey]);
 
   const showToast = (type, message) => {

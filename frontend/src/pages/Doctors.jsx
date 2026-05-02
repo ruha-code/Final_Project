@@ -11,6 +11,8 @@ import {
   normalizeWhitespace,
 } from "../utils/doctorValidation";
 
+const AUTO_REFRESH_INTERVAL_MS = 15000;
+
 function parseIntegerInput(value, fallback) {
   if (value === "" || value === null || value === undefined) return fallback;
   const parsed = parseInt(value, 10);
@@ -357,21 +359,55 @@ export default function Doctors() {
   const [saving, setSaving] = useState(false);
   const [pageError, setPageError] = useState("");
 
-  const fetchDoctors = async () => {
+  const fetchDoctors = async ({ silent = false } = {}) => {
     try {
-      setLoading(true);
-      setPageError("");
+      if (!silent) {
+        setLoading(true);
+        setPageError("");
+      }
       const data = await api.get("/doctors");
       setDoctors(Array.isArray(data) ? data : data?.items || []);
     } catch (err) {
       setPageError(err.message || "Failed to fetch doctors");
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    fetchDoctors();
+    let cancelled = false;
+
+    const loadDoctors = async ({ silent = false } = {}) => {
+      try {
+        if (!silent) {
+          setLoading(true);
+          setPageError("");
+        }
+        const data = await api.get("/doctors");
+        if (cancelled) return;
+        setDoctors(Array.isArray(data) ? data : data?.items || []);
+      } catch (err) {
+        if (!cancelled) {
+          setPageError(err.message || "Failed to fetch doctors");
+        }
+      } finally {
+        if (!cancelled && !silent) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadDoctors();
+    const intervalId = setInterval(() => {
+      void loadDoctors({ silent: true });
+    }, AUTO_REFRESH_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
   }, []);
 
   useEffect(() => {

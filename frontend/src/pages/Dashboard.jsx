@@ -20,6 +20,8 @@ import Badge from "../components/Badge";
 import { api } from "../services/api";
 import { ROLES, useAuth } from "../context/AuthContext";
 
+const AUTO_REFRESH_INTERVAL_MS = 30000;
+
 function formatDateTime(value) {
   if (!value) return { date: "-", time: "-" };
   const date = new Date(value);
@@ -986,9 +988,13 @@ export default function Dashboard() {
   const isDoctorRole = role === ROLES.DOCTOR;
 
   useEffect(() => {
-    const fetchAll = async () => {
+    let cancelled = false;
+
+    const fetchAll = async ({ silent = false } = {}) => {
       try {
-        setLoading(true);
+        if (!silent) {
+          setLoading(true);
+        }
         setError(null);
         setProfileSetupNeeded(false);
         setSnapshotTime(Date.now());
@@ -1008,6 +1014,7 @@ export default function Dashboard() {
               `Failed to load admin dashboard data: ${failedSources.join(", ")}`,
             );
           }
+          if (cancelled) return;
           const patientList =
             patients.status === "fulfilled" ? patients.value : [];
           const doctorList =
@@ -1047,6 +1054,7 @@ export default function Dashboard() {
               `Failed to load dashboard data: ${failedSources.join(", ")}`,
             );
           }
+          if (cancelled) return;
           const appointmentList =
             appointments.status === "fulfilled" &&
             Array.isArray(appointments.value)
@@ -1079,12 +1087,14 @@ export default function Dashboard() {
           if (appointmentResult.status === "rejected") {
             const message = appointmentResult.reason?.message || "";
             if (message.toLowerCase().includes("patient profile")) {
+              if (cancelled) return;
               setProfileSetupNeeded(true);
             } else {
               throw new Error(message || "Failed to load dashboard data");
             }
           }
 
+          if (cancelled) return;
           const appointmentList =
             appointmentResult.status === "fulfilled" &&
             Array.isArray(appointmentResult.value)
@@ -1107,12 +1117,24 @@ export default function Dashboard() {
           setDoctorPatients([]);
         }
       } catch (err) {
-        setError(err.message || "Failed to load dashboard data");
+        if (!cancelled) {
+          setError(err.message || "Failed to load dashboard data");
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled && !silent) {
+          setLoading(false);
+        }
       }
     };
     void fetchAll();
+    const intervalId = setInterval(() => {
+      void fetchAll({ silent: true });
+    }, AUTO_REFRESH_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
   }, [role]);
 
   if (loading)

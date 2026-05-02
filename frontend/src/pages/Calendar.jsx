@@ -5,6 +5,8 @@ import { Pencil, Trash2, X, ChevronDown, ChevronUp } from "lucide-react";
 import { api } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
+const AUTO_REFRESH_INTERVAL_MS = 15000;
+
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
@@ -256,11 +258,16 @@ export default function Calendar() {
   const firstDayOfWeek = new Date(currentYear, currentMonth - 1, 1).getDay();
 
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
+    let cancelled = false;
+
+    const fetchData = async ({ silent = false } = {}) => {
+      if (!silent) {
+        setLoading(true);
+      }
       try {
         if (isDoctor()) {
           const appointments = await api.get("/appointments/my");
+          if (cancelled) return;
           const doctorEvents = (appointments || [])
             .map((item) => {
               const value = new Date(item.appointment_time);
@@ -290,6 +297,7 @@ export default function Calendar() {
         }
 
         const data = await api.get(`/calendar?month=${currentMonth}&year=${currentYear}`);
+        if (cancelled) return;
         const normalized = (data || [])
           .map((item) => {
             const parsed = parseIsoDate(item.event_date);
@@ -307,13 +315,24 @@ export default function Calendar() {
         setEvents(normalized);
         setError(null);
       } catch (err) {
+        if (cancelled) return;
         console.error("Failed to load calendar data:", err);
         setError("Failed to load calendar data");
       } finally {
-        setLoading(false);
+        if (!cancelled && !silent) {
+          setLoading(false);
+        }
       }
     };
     void fetchData();
+    const intervalId = setInterval(() => {
+      void fetchData({ silent: true });
+    }, AUTO_REFRESH_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
   }, [currentMonth, currentYear, isDoctor, reloadKey]);
 
   const filteredMonthCount = useMemo(
