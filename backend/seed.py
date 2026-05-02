@@ -352,7 +352,8 @@ async def seed_departments(session) -> dict[str, Department]:
 
 async def seed_admin(session) -> User:
     print("Seeding admin user...")
-    admin_password = secrets.token_urlsafe(12)
+    import os
+    admin_password = os.getenv("ADMIN_PASSWORD") or secrets.token_urlsafe(12)
     admin = User(
         full_name="Admin User",
         username="admin",
