@@ -802,7 +802,8 @@ function MainLayout({ children }) {
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg p-2 z-50">
                     <p
                       onClick={() => { navigate("/admin/users"); setOpen(null); }}
-                      className="px-3 py-2 hover:bg-gray-100 rounded-lg cursor-pointer text-sm"
+                      className="px-3 py-2 hover:
+                      bg-gray-100 rounded-lg cursor-pointer text-sm"
                     >
                       User Management
                     </p>
