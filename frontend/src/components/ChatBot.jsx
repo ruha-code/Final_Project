@@ -8,63 +8,63 @@ const BOT_REPLY_DELAY_MS = 900;
 
 const FAQ_DATA = [
   {
-    keywords: ["appointment", "book", "schedule", "записаться", "запись"],
+    keywords: ["appointment", "book", "schedule"],
     answer: "You can book an appointment by going to the **Appointments** page in the sidebar. Click 'New Appointment', select a doctor, date and time, then confirm.",
   },
   {
-    keywords: ["cancel", "reschedule", "отменить", "перенести"],
+    keywords: ["cancel", "reschedule"],
     answer: "To cancel or reschedule, go to **Appointments**, find your appointment, and click the cancel or reschedule button. Please cancel at least 24 hours in advance.",
   },
   {
-    keywords: ["doctor", "врач", "specialist", "specialty"],
+    keywords: ["doctor", "specialist", "specialty"],
     answer: "You can browse available doctors in the **Doctors** section. Each doctor's profile shows their specialty, availability, and patient reviews.",
   },
   {
-    keywords: ["prescription", "medicine", "drug", "рецепт", "лекарство"],
+    keywords: ["prescription", "medicine", "drug"],
     answer: "Prescriptions are managed by your doctor. After your appointment, you can view prescribed medications in your **My Health** section under 'Prescriptions'.",
   },
   {
-    keywords: ["test", "result", "lab", "analysis", "анализ", "результат"],
+    keywords: ["test", "result", "lab", "analysis"],
     answer: "Lab results are available in your **My Health** section. Results typically appear within 24-48 hours after your test. Your doctor will also be notified.",
   },
   {
-    keywords: ["insurance", "payment", "bill", "cost", "страховка", "оплата"],
+    keywords: ["insurance", "payment", "bill", "cost"],
     answer: "For billing questions, please contact our front desk. Payment information and insurance details can be updated in your **Profile** settings.",
   },
   {
-    keywords: ["hours", "open", "close", "time", "working", "часы", "время"],
+    keywords: ["hours", "open", "close", "time", "working"],
     answer: "Our clinic is open **Monday-Friday: 8:00 AM - 8:00 PM** and **Saturday: 9:00 AM - 5:00 PM**. We are closed on Sundays and public holidays.",
   },
   {
-    keywords: ["emergency", "urgent", "срочно", "экстренный"],
+    keywords: ["emergency", "urgent"],
     answer: "For emergencies, please call **911** or go to the nearest emergency room. For urgent but non-emergency issues, call us at **+1 (555) 123-4567**.",
   },
   {
-    keywords: ["password", "reset", "forgot", "сброс", "пароль", "login"],
+    keywords: ["password", "reset", "forgot", "login"],
     answer: "To reset your password, click 'Forgot password?' on the login page. You'll receive an email with a reset link valid for 30 minutes.",
   },
   {
-    keywords: ["profile", "update", "change", "edit", "профиль", "изменить"],
+    keywords: ["profile", "update", "change", "edit"],
     answer: "You can update your personal information, phone number, and preferences in your **Profile** section. Click on your name in the top-right corner.",
   },
   {
-    keywords: ["hello", "hi", "hey", "привет", "здравствуйте"],
+    keywords: ["hello", "hi", "hey"],
     answer: "Hello! 👋 I'm the Medlink assistant. I can help you with appointments, prescriptions, test results, billing, and more. What would you like to know?",
   },
   {
-    keywords: ["help", "помощь", "support", "assist"],
+    keywords: ["help", "support", "assist"],
     answer: "I can help with:\n• **Appointments** — booking, canceling, rescheduling\n• **Doctors** — finding specialists\n• **Prescriptions** — viewing medications\n• **Test Results** — checking lab results\n• **Billing** — payment and insurance\n• **Hours** — clinic working hours\n\nJust ask me anything!",
   },
   {
-    keywords: ["thank", "thanks", "спасибо"],
+    keywords: ["thank", "thanks"],
     answer: "You're welcome! 😊 If you have any other questions, feel free to ask. Have a great day!",
   },
   {
-    keywords: ["location", "address", "where", "адрес", "где"],
+    keywords: ["location", "address", "where"],
     answer: "Our clinic is located at **123 Medical Center Drive, Suite 100**. Free parking is available in the basement garage. Enter through the main entrance.",
   },
   {
-    keywords: ["visit", "checkup", "examination", "осмотр"],
+    keywords: ["visit", "checkup", "examination"],
     answer: "For a general checkup, book a **General Consultation** appointment. Arrive 10 minutes early and bring your insurance card and ID.",
   },
 ];
@@ -102,20 +102,20 @@ function findContextAnswer(message, context) {
   const vitals = context.vitals || [];
   const profile = context.profile;
 
-  if (lower.includes("next") || lower.includes("upcoming") || lower.includes("ближай")) {
+  if (lower.includes("next") || lower.includes("upcoming")) {
     const next = getNextAppointment(appointments);
     if (!next) return "You do not have an upcoming appointment right now. You can book one from **Appointments** or **Doctors**.";
     return `Your next appointment is with **Dr. ${next.doctor_name}** on **${formatDateTime(next.appointment_time)}**. Status: **${next.status.toLowerCase()}**.`;
   }
 
-  if (lower.includes("appointment") || lower.includes("запис")) {
+  if (lower.includes("appointment")) {
     const active = appointments.filter((item) => item.status !== "CANCELLED");
     return active.length
       ? `I found **${active.length} active appointment(s)** in your account. Open **Appointments** to view, cancel, or book another visit.`
       : "I do not see active appointments in your account. You can book one from **Appointments**.";
   }
 
-  if (lower.includes("doctor") || lower.includes("врач")) {
+  if (lower.includes("doctor")) {
     const doctorNames = [...new Set(appointments.filter((item) => item.status !== "CANCELLED").map((item) => item.doctor_name).filter(Boolean))];
     if (doctorNames.length > 0) {
       return `Doctors connected to your appointments: **${doctorNames.slice(0, 3).join(", ")}**. You can also browse all doctors from **Doctors**.`;
@@ -123,13 +123,13 @@ function findContextAnswer(message, context) {
     return `There are **${context.doctors.length} doctors** available to browse. Open **Doctors** to choose a specialist.`;
   }
 
-  if (lower.includes("vital") || lower.includes("blood pressure") || lower.includes("bp") || lower.includes("давлен")) {
+  if (lower.includes("vital") || lower.includes("blood pressure") || lower.includes("bp")) {
     const latest = vitals[0];
     if (!latest) return "I do not see vitals in your record yet. They will appear in **My Health** after a doctor records them.";
     return `Latest vitals: BP **${formatBloodPressure(latest)}**, pulse **${latest.heart_rate || "-"}**, SpO2 **${latest.oxygen_saturation || "-"}**, temperature **${latest.temperature || "-"}**, weight **${latest.weight || "-"}**, sugar **${latest.blood_sugar || "-"}**.`;
   }
 
-  if (lower.includes("profile") || lower.includes("профил")) {
+  if (lower.includes("profile")) {
     if (!profile) return "Your patient profile is not complete yet. Open **My Profile** to finish it.";
     return `Your profile is saved for **${profile.full_name}**. Phone: **${profile.phone || "not set"}**. Emergency contact: **${profile.emergency_contact_name || "not set"}**.`;
   }

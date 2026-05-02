@@ -106,7 +106,7 @@ export default function Messages() {
   const [messagesError, setMessagesError] = useState("");
   const [wsError, setWsError] = useState(false);
 
-  // Мобильная навигация: "list" | "chat" | "info"
+  // Mobile navigation
   const [mobilePanel, setMobilePanel] = useState("list");
 
   const bottomRef = useRef(null);
@@ -613,7 +613,7 @@ export default function Messages() {
     );
   }
 
-  // Список разговоров
+  // Conversation list
   const conversationsList = (
     <div className="flex min-h-0 flex-col rounded-2xl border bg-white p-4 shadow-sm h-full">
       <div className="relative mb-4">
@@ -700,14 +700,14 @@ export default function Messages() {
     </div>
   );
 
-  // Чат
+  // Chat panel
   const chatArea = (
     <div className="flex min-h-0 min-w-0 flex-col rounded-2xl border bg-white shadow-sm h-full">
       {activeConv ? (
         <>
           <div className="border-b p-3.5">
             <div className="flex items-center gap-3">
-              {/* Кнопка назад — только на мобиле */}
+            {/* Back button on mobile only */}
               <button
                 onClick={() => setMobilePanel("list")}
                 className="shrink-0 rounded-lg p-1 text-gray-400 hover:bg-gray-100 2xl:hidden"
@@ -725,7 +725,7 @@ export default function Messages() {
                 <p>{messageCount} messages</p>
                 <p className="mt-1 break-words leading-4">Live updates</p>
               </div>
-              {/* Кнопка инфо — только на мобиле/планшете */}
+            {/* Info button for mobile and tablet only */}
               {activeConv && (
                 <button
                   onClick={() => setMobilePanel("info")}
@@ -871,10 +871,10 @@ export default function Messages() {
     </div>
   );
 
-  // Инфо панель
+  // Info panel
   const infoPanel = (
     <div className="rounded-2xl border bg-white p-4 shadow-sm h-full overflow-y-auto">
-      {/* Кнопка назад — только на мобиле */}
+            {/* Back button on mobile only */}
       <div className="mb-4 flex items-center gap-2 2xl:hidden">
         <button
           onClick={() => setMobilePanel("chat")}
@@ -967,14 +967,14 @@ export default function Messages() {
 
   return (
     <>
-      {/* Мобильный вид — только одна панель за раз */}
+      {/* Mobile view shows one panel at a time */}
       <div className="flex h-full flex-col 2xl:hidden">
         {mobilePanel === "list" && conversationsList}
         {mobilePanel === "chat" && chatArea}
         {mobilePanel === "info" && infoPanel}
       </div>
 
-      {/* Десктоп вид — все 3 колонки */}
+      {/* Desktop view shows all 3 columns */}
       <div className="hidden h-full min-h-0 gap-5 2xl:grid 2xl:grid-cols-[300px_minmax(0,1fr)_280px]">
         {conversationsList}
         {chatArea}

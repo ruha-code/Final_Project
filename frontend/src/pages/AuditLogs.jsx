@@ -139,7 +139,7 @@ function formatDateTime(value) {
   };
 }
 
-// Мобильная карточка лога
+  // Mobile log card
 function LogCard({ log }) {
   const effectiveAction = log.action_key || log.action;
   const Icon = ACTION_META[effectiveAction]?.icon || Activity;
@@ -159,7 +159,7 @@ function LogCard({ log }) {
 
   return (
     <div className="flex flex-col gap-2 border-b p-4 last:border-none hover:bg-gray-50">
-      {/* Действие + время */}
+      {/* Action and time */}
       <div className="flex items-start justify-between gap-2">
         <span
           className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium ${color}`}
@@ -173,7 +173,7 @@ function LogCard({ log }) {
         </div>
       </div>
 
-      {/* Детали в сетке */}
+      {/* Details grid */}
       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
         <div>
           <p className="text-gray-400">Actor</p>
@@ -304,7 +304,7 @@ export default function AuditLogs() {
   return (
     <div className="space-y-4 sm:space-y-5 md:space-y-6">
 
-      {/* Заголовок + счётчик */}
+      {/* Header and counter */}
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
         <div>
           <h2 className="text-xl sm:text-2xl font-semibold">Audit Logs</h2>
@@ -317,10 +317,7 @@ export default function AuditLogs() {
           <span className="font-semibold text-gray-800">{total}</span>
         </div>
       </div>
-
-      {/* Фильтры: колонка → 2 колонки → 5 колонок */}
       <div className="flex flex-col gap-2 sm:grid sm:grid-cols-2 md:grid-cols-5">
-        {/* Поиск — на sm col-span-2, на md col-span-2 из 5 */}
         <div className="relative sm:col-span-2">
           <Search size={16} className="absolute left-3 top-2.5 text-gray-400" />
           <input
@@ -381,7 +378,7 @@ export default function AuditLogs() {
         </button>
       </div>
 
-      {/* Контент */}
+      {/* Content */}
       {loading ? (
         <div className="flex h-64 items-center justify-center">
           <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-teal-500" />
@@ -397,7 +394,7 @@ export default function AuditLogs() {
       ) : (
         <div className="overflow-hidden rounded-xl border bg-white">
 
-          {/* Таблица — только md+ */}
+        {/* Table view */}
           <div className="hidden md:block overflow-x-auto">
             <table className="min-w-full">
               <thead className="border-b bg-gray-50">
@@ -476,7 +473,7 @@ export default function AuditLogs() {
             </table>
           </div>
 
-          {/* Карточки — только до md */}
+        {/* Card view below */}
           <div className="md:hidden">
             {logs.map((log) => (
               <LogCard key={log.id} log={log} />
@@ -485,7 +482,7 @@ export default function AuditLogs() {
         </div>
       )}
 
-      {/* Пагинация */}
+        {/* Pagination */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs sm:text-sm text-gray-500">
           Page {page} of {pages}

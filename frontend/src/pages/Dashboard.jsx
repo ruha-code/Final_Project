@@ -188,7 +188,7 @@ function PatientDashboard({
         </div>
       )}
 
-      {/* SummaryCards: 1 колонка → 3 колонки */}
+      {/* Summary cards */}
       <div className="grid gap-3 sm:gap-5 grid-cols-1 sm:grid-cols-3">
         <SummaryCard
           title="Upcoming Appointment"
@@ -542,9 +542,9 @@ function AdminDashboard({
 
   return (
     <div className="flex flex-col gap-4 sm:gap-6 xl:flex-row xl:gap-6">
-      {/* Левая основная часть */}
+      {/* Main content column */}
       <div className="flex-1 space-y-4 sm:space-y-6 min-w-0">
-        {/* SummaryCards: 1 колонка → 3 колонки */}
+        {/* Summary cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-5">
           <SummaryCard
             title="Total Patients"
@@ -604,7 +604,7 @@ function AdminDashboard({
           </div>
         </div>
 
-        {/* Графики: 1 колонка → 2 колонки */}
+        {/* Charts */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
           <div className="rounded-2xl border border-gray-100 bg-white p-4 sm:p-6 shadow-sm">
             <h2 className="mb-3 sm:mb-4 text-xs sm:text-sm font-semibold">
@@ -656,7 +656,7 @@ function AdminDashboard({
             Recent Appointments (Latest 5)
           </h2>
 
-          {/* Таблица — только md+ */}
+          {/* Table view*/}
           <div className="hidden md:block">
             <div className="mb-2 grid grid-cols-5 px-4 text-xs text-gray-400">
               <span>Patient</span>
@@ -700,7 +700,7 @@ function AdminDashboard({
             )}
           </div>
 
-          {/* Карточки — только до md */}
+          {/* Card view below */}
           <div className="md:hidden space-y-3">
             {recentAppointments.length === 0 ? (
               <p className="text-sm text-gray-400">No appointments yet</p>
@@ -739,7 +739,7 @@ function AdminDashboard({
         </div>
       </div>
 
-      {/* Правая боковая панель: под контентом на мобиле, сбоку на xl */}
+      {/* Right sidebar */}
       <div className="xl:w-80 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-4 sm:gap-6 xl:space-y-0">
         <MiniCalendarWidget appointments={appointments} nowTimestamp={nowTimestamp} />
 

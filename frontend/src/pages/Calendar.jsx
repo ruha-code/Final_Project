@@ -248,9 +248,9 @@ export default function Calendar() {
   const [deleting, setDeleting] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
 
-  // Мобильный аккордеон для боковой панели
+  // Mobile accordion for the sidebar
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  // Мобильная панель деталей
+  // Mobile details panel
   const [detailsOpen, setDetailsOpen] = useState(false);
 
   const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
@@ -436,7 +436,7 @@ export default function Calendar() {
     }
   };
 
-  // Панель деталей (переиспользуется и на мобиле, и на десктопе)
+  // Details panel
   const detailsPanel = (
     <div className="space-y-3">
       {loading ? (
@@ -522,7 +522,7 @@ export default function Calendar() {
         </div>
       )}
 
-      {/* Мобильная шапка: навигация по месяцу + кнопки */}
+      {/* Mobile header: month navigation and actions */}
       <div className="mb-3 flex items-center justify-between lg:hidden">
         <div className="flex items-center gap-3">
           <button onClick={prevMonth} className="text-lg text-gray-400 hover:text-teal-500">
@@ -544,7 +544,7 @@ export default function Calendar() {
               + New Event
             </button>
           )}
-          {/* Аккордеон фильтров на мобиле */}
+      {/* Mobile filter accordion trigger */}
           <button
             onClick={() => setSidebarOpen((o) => !o)}
             className="flex items-center gap-1 rounded-xl border bg-white px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
@@ -554,7 +554,7 @@ export default function Calendar() {
         </div>
       </div>
 
-      {/* Мобильный аккордеон фильтров */}
+      {/* Mobile filter accordion */}
       {sidebarOpen && (
         <div className="mb-3 rounded-2xl border bg-white p-4 lg:hidden">
           <div className="flex flex-wrap gap-2 text-sm">
@@ -585,10 +585,10 @@ export default function Calendar() {
         </div>
       )}
 
-      {/* Основной layout */}
+      {/* Main layout */}
       <div className="flex flex-col gap-4 md:grid md:grid-cols-[1fr_210px] md:gap-5 lg:grid-cols-[minmax(160px,200px)_1fr_210px] lg:gap-6">
 
-        {/* Левая боковая панель — только lg+ */}
+        {/* Left sidebar */}
         <div className="hidden lg:block space-y-5 rounded-2xl border bg-white p-5">
           <div className="flex items-center justify-between">
             <button onClick={prevMonth} className="text-lg text-gray-400 hover:text-teal-500">
@@ -644,7 +644,7 @@ export default function Calendar() {
           )}
         </div>
 
-        {/* Календарная сетка */}
+        {/* Calendar grid */}
         <div className="rounded-2xl border bg-white p-3 sm:p-5">
           {!loading && filteredMonthCount === 0 && (
             <div className="mb-3 rounded-xl border border-dashed bg-gray-50 px-3 py-2 text-xs text-gray-500">
@@ -652,7 +652,6 @@ export default function Calendar() {
             </div>
           )}
           <div className="mb-2 grid grid-cols-7 px-1 sm:px-2 text-xs text-gray-400">
-            {/* Полные названия на sm+, сокращённые на мобиле */}
             {[
               { full: "Sun", short: "Su" },
               { full: "Mon", short: "Mo" },
@@ -708,7 +707,7 @@ export default function Calendar() {
                     >
                       {day}
                     </p>
-                    {/* События: скрываем на самых маленьких экранах */}
+                    {/* Events are hidden on the smallest screens */}
                     <div className="mt-1 hidden sm:block space-y-1">
                       {previewEvents.map((event) => (
                         <div
@@ -731,7 +730,7 @@ export default function Calendar() {
                         </p>
                       )}
                     </div>
-                    {/* На мобиле — только точки если есть события */}
+                    {/* On mobile, show dots only when events exist */}
                     {dayEvents.length > 0 && (
                       <div className="mt-1 flex gap-0.5 sm:hidden">
                         {dayEvents.slice(0, 3).map((event) => (
@@ -752,7 +751,7 @@ export default function Calendar() {
           )}
         </div>
 
-        {/* Правая панель деталей — только lg+ */}
+        {/* Right details panel */}
         <div className="hidden lg:block rounded-2xl border bg-white p-5">
           <h3 className="mb-4 font-medium">
             {isDoctor() ? "Appointments" : "Schedule Details"}
@@ -761,7 +760,7 @@ export default function Calendar() {
         </div>
       </div>
 
-      {/* Мобильная панель деталей — появляется снизу при выборе дня */}
+      {/* Mobile details panel appears from the bottom when a day is selected */}
       {detailsOpen && (selectedDay || selectedEvent) && (
         <div className="mt-3 lg:hidden rounded-2xl border bg-white p-4">
           <div className="mb-3 flex items-center justify-between">

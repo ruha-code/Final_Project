@@ -135,7 +135,7 @@ function ConfirmationModal({
       : "bg-red-500 text-white hover:bg-red-600";
 
   return (
-    // items-end на мобиле (снизу), items-center на sm+
+      // items-end on mobile
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm px-4 pb-4 sm:pb-0">
       <div className="w-full max-w-md rounded-2xl bg-white shadow-xl">
         <div className="flex items-center justify-between border-b bg-red-50 px-4 sm:px-6 py-4">
@@ -628,7 +628,7 @@ function EditUserModal({ user, onClose, onSaved, canChangeRole }) {
   );
 }
 
-// Мобильная карточка пользователя (вместо строки таблицы)
+  // Mobile user card
 function UserCard({ u, isCurrentUser, actionLoading, onEdit, onToggle, onDelete }) {
   return (
     <div className="flex flex-col gap-3 border-b p-4 last:border-none hover:bg-gray-50">
@@ -932,7 +932,7 @@ export default function AdminUsers() {
     <>
       <div className="space-y-4 sm:space-y-5 md:space-y-6">
 
-        {/* Заголовок + кнопки */}
+      {/* Header and actions */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-xl sm:text-2xl font-semibold">User Management</h2>
@@ -957,7 +957,7 @@ export default function AdminUsers() {
           </div>
         </div>
 
-        {/* Поиск + фильтр */}
+      {/* Search and filter */}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <div className="relative flex-1 sm:max-w-xs md:max-w-sm">
             <Search size={16} className="absolute left-3 top-2.5 text-gray-400" />
@@ -1001,7 +1001,7 @@ export default function AdminUsers() {
         ) : (
           <div className="overflow-hidden rounded-2xl border bg-white shadow-sm">
 
-            {/* Таблица — только md+ */}
+        {/* Table view */}
             <div className="hidden overflow-x-auto md:block">
               <div className="min-w-[1120px]">
                 <div className="grid grid-cols-[minmax(220px,1.35fr)_minmax(150px,0.85fr)_minmax(230px,1.25fr)_minmax(100px,0.55fr)_minmax(190px,0.95fr)_minmax(220px,1.1fr)] gap-4 border-b bg-gray-50 px-6 py-3 text-xs text-gray-400">
@@ -1131,7 +1131,7 @@ export default function AdminUsers() {
               </div>
             </div>
 
-            {/* Карточки — только до md */}
+        {/* Card view below */}
             <div className="md:hidden">
               {users.length === 0 ? (
                 <div className="py-10 text-center text-sm text-gray-400">No users found</div>
@@ -1152,7 +1152,7 @@ export default function AdminUsers() {
           </div>
         )}
 
-        {/* Пагинация */}
+        {/* Pagination */}
         {totalPages > 1 && (
           <div className="flex items-center justify-center gap-2">
             <button

@@ -94,7 +94,7 @@ export default function AdminProfile() {
       mx-auto
       space-y-4 sm:space-y-5 md:space-y-6
     ">
-      {/* Заголовок */}
+          {/* Header */}
       <div>
         <h2 className="text-lg sm:text-xl md:text-2xl xl:text-3xl font-semibold">
           My Profile
@@ -120,7 +120,7 @@ export default function AdminProfile() {
           pb-4 sm:pb-5 md:pb-6
           border-b border-gray-100
         ">
-          {/* Аватар: маленький на мобиле, больше на планшете/десктопе */}
+            {/* Avatar: compact on mobile, larger on tablet and desktop */}
           <div className="
             w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 xl:w-24 xl:h-24
             shrink-0
@@ -138,7 +138,7 @@ export default function AdminProfile() {
           </div>
         </div>
 
-        {/* Поля: одна колонка на мобиле, две на планшете+ */}
+            {/* Fields: one column on mobile, two on tablet and up */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 md:gap-6">
 
           {/* Full Name */}
@@ -186,7 +186,7 @@ export default function AdminProfile() {
             </div>
           </div>
 
-          {/* Phone — на планшете занимает всю строку */}
+              {/* Phone spans the full row on tablet and up */}
           <div className="md:col-span-2">
             <label className="text-xs sm:text-sm text-gray-500 mb-1 block">
               Phone
@@ -211,7 +211,7 @@ export default function AdminProfile() {
           </div>
         </div>
 
-        {/* Кнопка: full-width на мобиле, авто на планшете+ */}
+            {/* Button: full width on mobile, auto width on tablet and up */}
         <div className="pt-1 sm:pt-2 flex justify-center sm:justify-end">
           <button
             onClick={handleSave}
