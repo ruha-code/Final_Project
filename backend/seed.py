@@ -1,7 +1,11 @@
 import asyncio
 from datetime import date, time, datetime, timezone, timedelta
+import os
 import random
 import secrets
+
+from dotenv import load_dotenv
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '.env'))
 
 from sqlalchemy import text
 from app.core.database import engine, async_session_factory, Base, init_db
