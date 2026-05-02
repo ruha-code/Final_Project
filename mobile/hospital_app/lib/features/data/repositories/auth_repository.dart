@@ -155,6 +155,10 @@ class AuthRepository {
       }
 
       await batch.commit();
+      // Отправляем письмо для подтверждения email. Без await — это фон,
+      // если упадёт (например, нет интернета), регистрация всё равно
+      // успешна, юзер сможет нажать "Resend" на экране верификации.
+      user.sendEmailVerification().catchError((_) {});
       await user.reload();
     } catch (e) {
       // Откат: чтобы не остался Auth-юзер без записей в Firestore.
@@ -166,4 +170,19 @@ class AuthRepository {
   }
 
   Future<void> signOut() => _firebaseAuth.signOut();
+
+  /// Повторно отправить письмо подтверждения email. Используется на
+  /// экране "Verify your email", если первое письмо не пришло.
+  Future<void> sendEmailVerification() async {
+    final user = _firebaseAuth.currentUser;
+    if (user == null || user.emailVerified) return;
+    await user.sendEmailVerification();
+  }
+
+  /// Перечитать состояние юзера из Firebase. Используется на экране
+  /// верификации: после клика "I verified" мы вызываем этот метод и
+  /// проверяем, обновилось ли поле emailVerified.
+  Future<void> reloadUser() async {
+    await _firebaseAuth.currentUser?.reload();
+  }
 }

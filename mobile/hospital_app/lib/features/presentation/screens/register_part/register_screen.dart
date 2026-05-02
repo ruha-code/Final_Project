@@ -6,14 +6,23 @@ import 'package:hospital_app/features/presentation/bloc/register/register_bloc.d
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/app_constant.dart';
 import 'package:hospital_app/features/presentation/screens/register_part/widgets/build_text_field.dart';
 
+/// Регистрация пациента. Роль фиксирована = patient (сразу выставляем
+/// при создании Bloc), пользователь её не выбирает. Доктора создаются
+/// вручную в Firestore Console.
 class RegisterScreen extends StatelessWidget {
   const RegisterScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (ctx) =>
-          RegisterBloc(authRepository: ctx.read<AuthRepository>()),
+      create: (ctx) {
+        final bloc = RegisterBloc(
+          authRepository: ctx.read<AuthRepository>(),
+        );
+        // Жёстко выставляем роль patient — пользователь её не меняет.
+        bloc.add(const RegisterRoleChanged(UserRole.patient));
+        return bloc;
+      },
       child: const _RegisterView(),
     );
   }
@@ -86,19 +95,10 @@ class _RegisterViewState extends State<_RegisterView> {
                     ),
                     const SizedBox(height: 6),
                     const Text(
-                      'Choose your role and register',
-                      style:
-                          TextStyle(fontSize: 13, color: Colors.black45),
+                      'Sign up to manage your health',
+                      style: TextStyle(fontSize: 13, color: Colors.black45),
                     ),
-                    const SizedBox(height: 20),
-                    // ── Role selector ──
-                    _RoleSelector(
-                      role: state.role,
-                      onChanged: (r) => context
-                          .read<RegisterBloc>()
-                          .add(RegisterRoleChanged(r)),
-                    ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
                     BuildTextField(
                         controller: _nameController, hint: 'Full name'),
                     const SizedBox(height: 12),
@@ -239,87 +239,6 @@ class _RegisterViewState extends State<_RegisterView> {
               },
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Две карточки выбора роли. Подсвечивается выбранная.
-class _RoleSelector extends StatelessWidget {
-  final UserRole role;
-  final ValueChanged<UserRole> onChanged;
-
-  const _RoleSelector({required this.role, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _RoleTile(
-            label: 'Doctor',
-            icon: Icons.medical_services_outlined,
-            selected: role == UserRole.doctor,
-            onTap: () => onChanged(UserRole.doctor),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _RoleTile(
-            label: 'Patient',
-            icon: Icons.person_outline,
-            selected: role == UserRole.patient,
-            onTap: () => onChanged(UserRole.patient),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _RoleTile extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _RoleTile({
-    required this.label,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.primary : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: selected ? AppColors.primary : const Color(0xFFE0E0E0),
-            width: 1.5,
-          ),
-        ),
-        child: Column(
-          children: [
-            Icon(icon,
-                size: 28,
-                color: selected ? Colors.white : AppColors.textPrimary),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: selected ? Colors.white : AppColors.textPrimary,
-              ),
-            ),
-          ],
         ),
       ),
     );

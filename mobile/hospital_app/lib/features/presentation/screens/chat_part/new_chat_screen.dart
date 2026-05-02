@@ -6,9 +6,6 @@ import 'package:hospital_app/features/presentation/bloc/auth/auth_bloc.dart';
 import 'package:hospital_app/features/presentation/screens/chat_part/chat_room_screen.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/app_constant.dart';
 
-/// Кого можно выбрать как собеседника:
-///   доктор → всех (доктора + пациенты), кроме самого себя
-///   пациент → только докторов
 class NewChatScreen extends StatelessWidget {
   const NewChatScreen({super.key});
 
@@ -32,7 +29,6 @@ class NewChatScreen extends StatelessWidget {
       body: myUid == null
           ? const Center(child: Text('Not signed in'))
           : StreamBuilder<List<UserProfile>>(
-              // Доктор видит всех, пациент — только докторов.
               stream: myRole == UserRole.patient
                   ? context
                       .read<AuthRepository>()
@@ -72,8 +68,6 @@ class NewChatScreen extends StatelessWidget {
                         : '?';
                     return ListTile(
                       onTap: () {
-                        // Pop списка + open чата. pushReplacement, чтобы
-                        // back из чата вёл сразу в список диалогов.
                         Navigator.of(context).pushReplacement(
                           MaterialPageRoute(
                             builder: (_) => ChatRoomScreen(

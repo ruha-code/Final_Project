@@ -36,6 +36,9 @@ class AuthWrapper extends StatelessWidget {
           case AuthStatus.unauthenticated:
             return const LoginScreen();
 
+          case AuthStatus.emailNotVerified:
+            return const _EmailNotVerifiedScreen();
+
           case AuthStatus.authenticated:
             switch (state.role) {
               case UserRole.doctor:
@@ -106,6 +109,85 @@ class _RoleErrorScreen extends StatelessWidget {
                       .read<AuthBloc>()
                       .add(const AuthSignOutRequested()),
                   child: const Text('Sign out'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Юзер залогинен, но email не подтверждён по ссылке из письма.
+/// Сценарий: после регистрации Firebase сразу даёт user-объект, но
+/// emailVerified=false. Юзер должен открыть почту, кликнуть на ссылку
+/// и потом снова войти в app.
+class _EmailNotVerifiedScreen extends StatelessWidget {
+  const _EmailNotVerifiedScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    final email =
+        context.select<AuthBloc, String?>((b) => b.state.user?.email);
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.mark_email_read_outlined,
+                    size: 56, color: AppColors.primary),
+                const SizedBox(height: 16),
+                const Text(
+                  'Verify your email',
+                  style: TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'We sent a verification link to:',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontSize: 13, color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  email ?? '',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Open your inbox, click the link, then sign in again.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontSize: 13, color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: () => context
+                        .read<AuthBloc>()
+                        .add(const AuthSignOutRequested()),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                    ),
+                    child: const Text('Sign out'),
+                  ),
                 ),
               ],
             ),

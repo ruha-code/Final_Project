@@ -87,7 +87,9 @@ class _StatsRow extends StatelessWidget {
                   .read<AppointmentRepository>()
                   .watchTodaysAppointmentsForDoctor(myUid),
               builder: (ctx, snap) {
-                final n = snap.data?.length ?? 0;
+                // Игнорируем ошибки стрима (например, PERMISSION_DENIED
+                // в момент логаута) — просто показываем 0.
+                final n = (snap.hasError) ? 0 : (snap.data?.length ?? 0);
                 return StatCard(
                   title: "Today's appts",
                   value: n.toString(),
@@ -123,7 +125,10 @@ class _TodaysAppointmentsCard extends StatelessWidget {
           .read<AppointmentRepository>()
           .watchTodaysAppointmentsForDoctor(myUid),
       builder: (ctx, snap) {
-        final list = snap.data ?? const <Appointment>[];
+        // При логауте стрим выкидывает PERMISSION_DENIED — это норм,
+        // считаем что данных просто нет и не пугаем юзера красным.
+        final list =
+            snap.hasError ? const <Appointment>[] : (snap.data ?? const <Appointment>[]);
         return Container(
           padding: const EdgeInsets.all(16),
           decoration: AppDecorations.card,

@@ -7,6 +7,9 @@ import 'package:hospital_app/features/presentation/bloc/auth/auth_bloc.dart';
 import 'package:hospital_app/features/presentation/bloc/doctor/doctor_bloc.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/app_constant.dart';
 
+/// Двухуровневый экран:
+///   1) если doctor == null — показать список докторов, выбрать → перейти к слотам
+///   2) если doctor != null — показать его свободные слоты, можно забронировать
 class PatientBookingScreen extends StatelessWidget {
   final Doctor? doctor;
   const PatientBookingScreen({super.key, this.doctor});

@@ -3,13 +3,15 @@ import 'package:hospital_app/features/presentation/screens/chat_part/chat_list_s
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/app_constant.dart';
 import 'package:hospital_app/features/presentation/screens/patient_part/my_card_screen.dart';
 import 'package:hospital_app/features/presentation/screens/patient_part/patient_appointments_screen.dart';
+import 'package:hospital_app/features/presentation/screens/patient_part/patient_dashboard_screen.dart';
 import 'package:hospital_app/features/presentation/screens/patient_part/patient_doctors_screen.dart';
 
-/// 4 таба для роли Patient:
-///   1. My Card     — patients/{uid}
-///   2. Appointments — свои бронирования + кнопка Book
-///   3. Doctors      — список врачей (read-only, тап → бронирование)
-///   4. Chat         — общий чат
+/// 5 табов:
+///   1. Home   — Patient Dashboard со статистикой
+///   2. Appts  — список своих записей + Book
+///   3. Doctors — список врачей
+///   4. Chats  — диалоги
+///   5. Profile — своя медкарта (бывший таб My Card)
 class PatientMainScreen extends StatefulWidget {
   const PatientMainScreen({super.key});
 
@@ -21,10 +23,11 @@ class _PatientMainScreenState extends State<PatientMainScreen> {
   int _index = 0;
 
   static const _tabs = <Widget>[
-    MyCardScreen(),
+    PatientDashboardScreen(),
     PatientAppointmentsScreen(),
     PatientDoctorsScreen(),
     ChatListScreen(),
+    MyCardScreen(),
   ];
 
   @override
@@ -38,9 +41,9 @@ class _PatientMainScreenState extends State<PatientMainScreen> {
         indicatorColor: AppColors.primary.withValues(alpha: 0.15),
         destinations: const [
           NavigationDestination(
-            icon: Icon(Icons.badge_outlined),
-            selectedIcon: Icon(Icons.badge, color: AppColors.primary),
-            label: 'My Card',
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home, color: AppColors.primary),
+            label: 'Home',
           ),
           NavigationDestination(
             icon: Icon(Icons.event_note_outlined),
@@ -57,7 +60,12 @@ class _PatientMainScreenState extends State<PatientMainScreen> {
             icon: Icon(Icons.chat_bubble_outline),
             selectedIcon:
                 Icon(Icons.chat_bubble, color: AppColors.primary),
-            label: 'Chat',
+            label: 'Chats',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person, color: AppColors.primary),
+            label: 'Profile',
           ),
         ],
       ),

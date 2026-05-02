@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hospital_app/features/presentation/bloc/auth/auth_bloc.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/search_screen.dart';
 import 'package:hospital_app/features/presentation/screens/main_part/widgets/app_constant.dart';
 
@@ -8,12 +6,16 @@ class TopNavBar extends StatelessWidget {
   final List<Widget> actions;
   final String? subtitle;
   final VoidCallback? onBack;
+  /// Если actions пуст и showSearch=true (по умолчанию) — показываем лупу
+  /// и переход на SearchScreen. Для пациентского UI обычно false.
+  final bool showSearch;
 
   const TopNavBar({
     super.key,
     this.actions = const [],
     this.subtitle,
     this.onBack,
+    this.showSearch = true,
   });
 
   @override
@@ -68,7 +70,7 @@ class TopNavBar extends StatelessWidget {
         Row(
           children: [
             ...actions,
-            if (actions.isEmpty) ...[
+            if (actions.isEmpty && showSearch)
               _CircleIconButton(
                 icon: Icons.search,
                 onTap: () => Navigator.push(
@@ -76,9 +78,6 @@ class TopNavBar extends StatelessWidget {
                   MaterialPageRoute(builder: (_) => const SearchScreen()),
                 ),
               ),
-              const SizedBox(width: 10),
-            ],
-            const _LiveAvatarCircle(),
           ],
         ),
       ],
@@ -153,46 +152,6 @@ class _CircleIconButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(18),
         ),
         child: Icon(icon, size: 18, color: Colors.black54),
-      ),
-    );
-  }
-}
-
-/// Аватарка-инициал текущего юзера. Реагирует на смену юзера/имени.
-class _LiveAvatarCircle extends StatelessWidget {
-  const _LiveAvatarCircle();
-
-  @override
-  Widget build(BuildContext context) {
-    final letter = context.select<AuthBloc, String>((b) {
-      final s = b.state;
-      final name = s.user?.displayName?.trim();
-      if (name != null && name.isNotEmpty) {
-        return name.characters.first.toUpperCase();
-      }
-      final email = s.user?.email;
-      if (email != null && email.isNotEmpty) {
-        return email.characters.first.toUpperCase();
-      }
-      return '?';
-    });
-
-    return Container(
-      width: 36,
-      height: 36,
-      decoration: BoxDecoration(
-        color: AppColors.primary,
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Center(
-        child: Text(
-          letter,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
-            fontSize: 15,
-          ),
-        ),
       ),
     );
   }

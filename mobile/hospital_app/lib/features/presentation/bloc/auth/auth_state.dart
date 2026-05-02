@@ -11,6 +11,10 @@ enum AuthStatus {
   /// Показывать сплэш в этом состоянии.
   authenticatedNoProfile,
 
+  /// User залогинен, но email ещё не подтверждён через ссылку из письма.
+  /// Показываем экран "Verify your email".
+  emailNotVerified,
+
   /// User + профиль готовы — можно показывать UI по роли.
   authenticated,
 }

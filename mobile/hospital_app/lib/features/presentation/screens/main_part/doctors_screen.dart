@@ -69,7 +69,6 @@ class DoctorsScreen extends StatelessWidget {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        heroTag: 'doctors_fab',
         onPressed: () => Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const DoctorEditScreen()),
