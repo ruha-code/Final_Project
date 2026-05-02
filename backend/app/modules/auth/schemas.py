@@ -9,7 +9,7 @@ FULL_NAME_PATTERN = re.compile(
     re.UNICODE,
 )
 USERNAME_PATTERN = re.compile(
-    r"^(?=.{3,30}$)(?=.*[A-Za-z])[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$"
+    r"^(?=.{3,15}$)(?=.*[A-Za-z])[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$"
 )
 PHONE_E164_PATTERN = re.compile(r"^\+[1-9]\d{9,14}$")
 STRONG_PASSWORD_PATTERN = re.compile(r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,128}$")
@@ -78,7 +78,7 @@ class RegisterSchema(BaseModel):
         cleaned = v.strip()
         if not USERNAME_PATTERN.fullmatch(cleaned):
             raise ValueError(
-                "Username must be 3-30 characters, include a letter, and start/end with a letter or number"
+                "Username must be 3-15 characters, include a letter, and start/end with a letter or number"
             )
         return cleaned
 
@@ -229,7 +229,7 @@ class AdminUserUpdateSchema(BaseModel):
         cleaned = v.strip()
         if not USERNAME_PATTERN.fullmatch(cleaned):
             raise ValueError(
-                "Username must be 3-30 characters, include a letter, and start/end with a letter or number"
+                "Username must be 3-15 characters, include a letter, and start/end with a letter or number"
             )
         return cleaned
 

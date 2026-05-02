@@ -145,6 +145,7 @@ class CacheKeys:
 class RateLimitKeys:
     LOGIN = "ratelimit:login"
     REGISTER = "ratelimit:register"
+    FORGOT_PASSWORD = "ratelimit:forgot-password"
 
     @staticmethod
     def login_ip(ip: str) -> str:
@@ -153,6 +154,15 @@ class RateLimitKeys:
     @staticmethod
     def register_ip(ip: str) -> str:
         return f"{RateLimitKeys.REGISTER}:{ip}"
+
+    @staticmethod
+    def forgot_password_ip(ip: str) -> str:
+        return f"{RateLimitKeys.FORGOT_PASSWORD}:ip:{ip}"
+
+    @staticmethod
+    def forgot_password_email(email: str) -> str:
+        normalized_email = email.strip().lower()
+        return f"{RateLimitKeys.FORGOT_PASSWORD}:email:{normalized_email}"
 
 
 async def check_rate_limit(key: str, max_requests: int, window_seconds: int) -> tuple[bool, int]:

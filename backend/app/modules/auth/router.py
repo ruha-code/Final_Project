@@ -51,12 +51,32 @@ FULL_NAME_PATTERN = re.compile(
     re.UNICODE,
 )
 USERNAME_PATTERN = re.compile(
-    r"^(?=.{3,30}$)(?=.*[A-Za-z])[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$"
+    r"^(?=.{3,15}$)(?=.*[A-Za-z])[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$"
 )
 
 
 class RefreshRequest(BaseModel):
     refresh_token: str
+
+
+def _get_client_ip(request: Request) -> str:
+    forwarded_for = request.headers.get("x-forwarded-for")
+    if forwarded_for:
+        first_ip = forwarded_for.split(",")[0].strip()
+        if first_ip:
+            return first_ip
+
+    for header_name in ("cf-connecting-ip", "x-real-ip"):
+        header_value = request.headers.get(header_name)
+        if header_value:
+            normalized = header_value.strip()
+            if normalized:
+                return normalized
+
+    if request.client and request.client.host:
+        return request.client.host
+
+    return "unknown"
 
 
 def _validate_admin_managed_user_payload(
@@ -72,7 +92,7 @@ def _validate_admin_managed_user_payload(
 
     if not USERNAME_PATTERN.fullmatch(normalized_username):
         raise ValidationException(
-            "Username must be 3-30 characters, include a letter, and start/end with a letter or number"
+            "Username must be 3-15 characters, include a letter, and start/end with a letter or number"
         )
 
     try:
@@ -96,7 +116,7 @@ async def register(
     db: AsyncSession = Depends(get_db),
     auth_service: AuthService = Depends(get_auth_service),
 ):
-    client_ip = request.client.host if request.client else "unknown"
+    client_ip = _get_client_ip(request)
     allowed, _ = await check_rate_limit(
         RateLimitKeys.register_ip(client_ip),
         max_requests=5,
@@ -126,7 +146,7 @@ async def login(
     db: AsyncSession = Depends(get_db),
     auth_service: AuthService = Depends(get_auth_service),
 ):
-    client_ip = request.client.host if request.client else "unknown"
+    client_ip = _get_client_ip(request)
     allowed, _ = await check_rate_limit(
         RateLimitKeys.login_ip(client_ip),
         max_requests=10,
@@ -154,7 +174,7 @@ async def verify_email(
     db: AsyncSession = Depends(get_db),
     auth_service: AuthService = Depends(get_auth_service),
 ):
-    client_ip = request.client.host if request.client else "unknown"
+    client_ip = _get_client_ip(request)
     allowed, _ = await check_rate_limit(
         RateLimitKeys.register_ip(client_ip),
         max_requests=5,
@@ -188,7 +208,7 @@ async def resend_verification(
     db: AsyncSession = Depends(get_db),
     auth_service: AuthService = Depends(get_auth_service),
 ):
-    client_ip = request.client.host if request.client else "unknown"
+    client_ip = _get_client_ip(request)
     allowed, _ = await check_rate_limit(
         RateLimitKeys.register_ip(client_ip),
         max_requests=3,
@@ -208,14 +228,22 @@ async def forgot_password(
     db: AsyncSession = Depends(get_db),
     auth_service: AuthService = Depends(get_auth_service),
 ):
-    client_ip = request.client.host if request.client else "unknown"
-    allowed, _ = await check_rate_limit(
-        RateLimitKeys.login_ip(client_ip),
+    client_ip = _get_client_ip(request)
+    allowed_ip, _ = await check_rate_limit(
+        RateLimitKeys.forgot_password_ip(client_ip),
+        max_requests=10,
+        window_seconds=300,
+    )
+    if not allowed_ip:
+        raise RateLimitException("Too many requests. Please try again later.")
+
+    allowed_email, _ = await check_rate_limit(
+        RateLimitKeys.forgot_password_email(dto.email),
         max_requests=3,
         window_seconds=300,
     )
-    if not allowed:
-        raise RateLimitException("Too many requests. Please try again later.")
+    if not allowed_email:
+        raise RateLimitException("Too many reset requests for this email. Please try again later.")
 
     result = await auth_service.forgot_password(dto.email)
     return result
@@ -245,7 +273,7 @@ async def refresh_access_token(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    client_ip = request.client.host if request.client else "unknown"
+    client_ip = _get_client_ip(request)
     allowed, _ = await check_rate_limit(
         f"ratelimit:refresh:{client_ip}",
         max_requests=30,
