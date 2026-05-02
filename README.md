@@ -74,8 +74,16 @@ Clinics often rely on paper-based or fragmented systems to manage patients, doct
 ```bash
 git clone https://github.com/ruha-code/Final_Project.git
 cd Final_Project
+
+# Quick setup (creates .env files, starts services, runs seed)
+.\init.ps1        # Windows
+# or
+./init.sh         # Linux/Mac
+
+# Or manual setup:
 cp backend/.env.example backend/.env
-# Edit backend/.env with your settings
+cp .env.example .env
+# Edit .env files with your settings
 docker compose up --build
 ```
 
@@ -130,11 +138,21 @@ npm run dev
 
 ### Default Credentials (after seeding)
 
-Run `python seed.py` with `ALLOW_SEED=true` to populate test data:
+Run seed script to populate test data:
+
+```bash
+# Via Docker (recommended)
+docker compose exec api python seed.py
+
+# Or via init script
+.\init.ps1        # Windows
+./init.sh         # Linux/Mac
+```
 
 **Admin:**
 
 - Email: `admin@clinic.com`
+- Password: Set `ADMIN_PASSWORD` in `.env` (default: `Admin123!`)
 
 **Doctors:**
 
@@ -151,7 +169,7 @@ Run `python seed.py` with `ALLOW_SEED=true` to populate test data:
 
 - `sjohnson@email.com`, `jdoe@email.com`, `ewilliams@email.com`, etc.
 
-⚠️ Passwords are generated randomly during seeding. Check Railway Deploy Logs after running seed script.
+⚠️ If `ADMIN_PASSWORD` is not set in `.env`, passwords are generated randomly during seeding. Check the seed script output for generated passwords.
 
 ### Workflow
 
