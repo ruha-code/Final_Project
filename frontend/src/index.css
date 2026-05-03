@@ -5,6 +5,53 @@
 body {
   font-family: "Poppins", sans-serif;
 }
+
+:root {
+  --motion-fast: 160ms;
+  --motion-medium: 240ms;
+  --motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+button,
+a,
+input,
+select,
+textarea,
+[role="button"],
+.input {
+  transition:
+    background-color var(--motion-fast) ease,
+    border-color var(--motion-fast) ease,
+    color var(--motion-fast) ease,
+    opacity var(--motion-fast) ease,
+    box-shadow var(--motion-fast) ease,
+    transform var(--motion-fast) ease;
+}
+
+button:active,
+[role="button"]:active {
+  transform: scale(0.98);
+}
+
+.page-motion {
+  animation: page-fade-up var(--motion-medium) var(--motion-ease);
+}
+
+@keyframes page-fade-up {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
 .input {
   @apply bg-gray-100 px-4 py-2 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400 w-full;
 }
@@ -40,8 +87,23 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 1ms !important;
+  }
+
   .toast-enter,
-  .toast-exit {
+  .toast-exit,
+  .page-motion {
     animation: none;
+  }
+
+  button:active,
+  [role="button"]:active {
+    transform: none;
   }
 }

@@ -80,6 +80,10 @@ function formatDateTime(value) {
   });
 }
 
+function isCompletedVisit(appointment) {
+  return appointment?.status === "COMPLETED";
+}
+
 export default function Messages() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -105,6 +109,7 @@ export default function Messages() {
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [messagesError, setMessagesError] = useState("");
   const [wsError, setWsError] = useState(false);
+  const [contactOnline, setContactOnline] = useState(false);
 
   // Mobile navigation
   const [mobilePanel, setMobilePanel] = useState("list");
@@ -113,6 +118,7 @@ export default function Messages() {
   const messageListRef = useRef(null);
   const wsRef = useRef(null);
   const activeConvIdRef = useRef(null);
+  const contactUserIdRef = useRef(null);
   const reconnectTimerRef = useRef(null);
   const pollIntervalRef = useRef(null);
   const fetchMessagesRef = useRef(null);
@@ -368,6 +374,7 @@ export default function Messages() {
       setHasMoreMessages(false);
       setMessagesError("");
       setWsError(false);
+      setContactOnline(false);
       currentPageRef.current = 1;
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
@@ -380,6 +387,7 @@ export default function Messages() {
     setHasMoreMessages(false);
     setMessagesError("");
     setWsError(false);
+    setContactOnline(false);
     currentPageRef.current = 1;
     shouldScrollRef.current = true;
     clearAllPendingTimeouts();
@@ -434,6 +442,13 @@ export default function Messages() {
             }
           } else if (data.event === "messages_read") {
             clearUnreadRef.current?.(activeConvIdRef.current);
+          } else if (data.event === "presence_state") {
+            const onlineIds = Array.isArray(data.online_user_ids) ? data.online_user_ids : [];
+            setContactOnline(onlineIds.includes(contactUserIdRef.current));
+          } else if (data.event === "presence_changed") {
+            if (data.user_id === contactUserIdRef.current) {
+              setContactOnline(Boolean(data.is_online));
+            }
           } else if (data.event === "error" && data.client_id) {
             markPendingMessageFailed(data.client_id, data.detail || "Failed to send message");
           }
@@ -556,6 +571,15 @@ export default function Messages() {
   const contactName = activeConv
     ? (user?.role === "PATIENT" ? activeConv.doctor_name : activeConv.patient_name)
     : "";
+  const contactUserId = activeConv
+    ? (user?.role === "PATIENT" ? activeConv.doctor_user_id : activeConv.patient_user_id)
+    : null;
+
+  useEffect(() => {
+    contactUserIdRef.current = contactUserId;
+    setContactOnline(false);
+  }, [contactUserId]);
+
   const filteredConversations = conversations.filter((conv) => {
     const name = user?.role === "PATIENT" ? conv.doctor_name : conv.patient_name;
     return name?.toLowerCase().includes(search.toLowerCase());
@@ -576,7 +600,9 @@ export default function Messages() {
         .filter((a) => a.doctor_id === activeConv.doctor_id)
         .sort((a, b) => new Date(b.appointment_time) - new Date(a.appointment_time))
     : [];
-  const lastVisit = activePatientAppointments.find((a) => new Date(a.appointment_time) < Date.now());
+  const lastVisit = activePatientAppointments.find((a) => (
+    isCompletedVisit(a) && new Date(a.appointment_time) < Date.now()
+  ));
   const patientLastVisitLabel = lastVisit ? formatShortDate(lastVisit.appointment_time) : "-";
   const patientAge = activePatient?.date_of_birth
     ? Math.floor((Date.now() - new Date(activePatient.date_of_birth)) / (1000 * 60 * 60 * 24 * 365.25))
@@ -585,7 +611,7 @@ export default function Messages() {
     .reverse()
     .find((a) => a.status !== "CANCELLED" && new Date(a.appointment_time) >= Date.now());
   const lastVisitWithDoctor = activeDoctorAppointments.find(
-    (a) => new Date(a.appointment_time) < Date.now(),
+    (a) => isCompletedVisit(a) && new Date(a.appointment_time) < Date.now(),
   );
   const messageCount = messages.length;
 
@@ -717,9 +743,15 @@ export default function Messages() {
               <Avatar name={contactName} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-base font-semibold text-gray-900">{contactName}</p>
-                <p className="text-xs text-gray-400">
-                  {user?.role === "PATIENT" ? (activeDoctor?.specialty || "Doctor") : "Patient conversation"}
-                </p>
+                <div className="mt-0.5 flex items-center gap-2 text-xs">
+                  <span className={contactOnline ? "text-teal-600" : "text-gray-400"}>
+                    {contactOnline ? "Online" : "Offline"}
+                  </span>
+                  <span className="h-1 w-1 rounded-full bg-gray-300" />
+                  <span className="truncate text-gray-400">
+                    {user?.role === "PATIENT" ? (activeDoctor?.specialty || "Doctor") : "Patient conversation"}
+                  </span>
+                </div>
               </div>
               <div className="hidden max-w-[152px] rounded-xl bg-gray-50 px-3 py-2 text-right text-[11px] text-gray-500 lg:block">
                 <p>{messageCount} messages</p>
@@ -891,11 +923,22 @@ export default function Messages() {
       </h2>
 
       {activeConv ? (
-        <div className="space-y-4">
-          <div className="rounded-3xl bg-gradient-to-br from-teal-50 to-cyan-50 p-4 text-center">
-            <Avatar name={contactName} size="lg" />
+          <div className="space-y-4">
+            <div className="rounded-3xl bg-gradient-to-br from-teal-50 to-cyan-50 p-4 text-center">
+            <div className="relative mx-auto w-fit">
+              <Avatar name={contactName} size="lg" />
+              <span
+                className={`absolute bottom-1 right-1 h-4 w-4 rounded-full border-2 border-white ${
+                  contactOnline ? "bg-teal-500" : "bg-gray-300"
+                }`}
+                aria-label={contactOnline ? "Online" : "Offline"}
+              />
+            </div>
             <p className="mt-3 break-words text-lg font-semibold text-gray-900">{contactName}</p>
             <p className="mt-1 break-words text-sm text-gray-500">
+              {contactOnline ? "Online" : "Offline"}
+            </p>
+            <p className="mt-1 break-words text-xs text-gray-400">
               {user?.role === "PATIENT" ? (activeDoctor?.specialty || "Doctor") : "Patient"}
             </p>
           </div>

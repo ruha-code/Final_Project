@@ -940,7 +940,7 @@ function MainLayout({ children }) {
 
         {/* CONTENT */}
         <div className="flex-1 overflow-hidden">
-          <div className="h-full overflow-auto p-4 md:p-8">{children}</div>
+          <div key={location.pathname} className="page-motion h-full overflow-auto p-4 md:p-8">{children}</div>
         </div>
       </div>
 
@@ -1001,3 +1001,4 @@ function MainLayout({ children }) {
 }
 
 export default MainLayout;
+  
