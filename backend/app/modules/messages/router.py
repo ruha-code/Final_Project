@@ -49,6 +49,8 @@ def _build_conv(conv: Conversation, current_user_id: int) -> ConversationRespons
         id=conv.id,
         patient_id=conv.patient_id,
         doctor_id=conv.doctor_id,
+        patient_user_id=conv.patient.user_id if conv.patient else 0,
+        doctor_user_id=conv.doctor.user_id if conv.doctor else 0,
         created_at=conv.created_at,
         updated_at=conv.updated_at,
         patient_name=conv.patient.user.full_name if conv.patient else "",
@@ -145,7 +147,7 @@ async def create_conversation(
             Appointment.patient_id == patient.id,
             Appointment.doctor_id == dto.doctor_id,
             Appointment.status != AppointmentStatus.CANCELLED,
-        )
+        ).limit(1)
     )
     if result.scalar_one_or_none() is None:
         raise ForbiddenException(
@@ -449,6 +451,15 @@ async def chat_websocket(
         return
 
     await manager.connect(conv_id, user.id, websocket)
+    await websocket.send_json({
+        "event": "presence_state",
+        "online_user_ids": manager.online_user_ids(conv_id),
+    })
+    await manager.broadcast(
+        conv_id,
+        {"event": "presence_changed", "user_id": user.id, "is_online": True},
+        exclude_user_id=user.id,
+    )
 
     await db.execute(
         update(Message)
@@ -576,8 +587,20 @@ async def chat_websocket(
             )
 
     except WebSocketDisconnect:
-        manager.disconnect(conv_id, user.id)
+        manager.disconnect(conv_id, user.id, websocket)
+        if not manager.is_online(conv_id, user.id):
+            await manager.broadcast(
+                conv_id,
+                {"event": "presence_changed", "user_id": user.id, "is_online": False},
+                exclude_user_id=user.id,
+            )
         logger.info(f"[WS] user={user.id} disconnected from conv={conv_id}")
     except Exception as exc:
         logger.error(f"[WS] Unexpected error conv={conv_id} user={user.id}: {exc}")
-        manager.disconnect(conv_id, user.id)
+        manager.disconnect(conv_id, user.id, websocket)
+        if not manager.is_online(conv_id, user.id):
+            await manager.broadcast(
+                conv_id,
+                {"event": "presence_changed", "user_id": user.id, "is_online": False},
+                exclude_user_id=user.id,
+            )

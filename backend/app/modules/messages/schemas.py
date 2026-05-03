@@ -29,6 +29,8 @@ class ConversationResponse(BaseModel):
     id: int
     patient_id: int
     doctor_id: int
+    patient_user_id: int
+    doctor_user_id: int
     created_at: datetime
     updated_at: Optional[datetime] = None
     patient_name: str = ""
