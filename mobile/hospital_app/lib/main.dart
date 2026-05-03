@@ -6,6 +6,7 @@ import 'package:hospital_app/features/data/repositories/auth_repository.dart';
 import 'package:hospital_app/features/data/repositories/chat_repository.dart';
 import 'package:hospital_app/features/data/repositories/doctor_repository.dart';
 import 'package:hospital_app/features/data/repositories/patient_repository.dart';
+import 'package:hospital_app/features/data/services/notification_service.dart';
 import 'package:hospital_app/features/presentation/bloc/appointment/my_appointments_bloc.dart';
 import 'package:hospital_app/features/presentation/bloc/auth/auth_bloc.dart';
 import 'package:hospital_app/features/presentation/bloc/calendar/calendar_bloc.dart';
@@ -15,7 +16,7 @@ import 'package:hospital_app/features/presentation/bloc/notifications/notificati
 import 'package:hospital_app/features/presentation/bloc/patient/patient_bloc.dart';
 import 'package:hospital_app/features/presentation/bloc/privacy/privacy_bloc.dart';
 import 'package:hospital_app/features/presentation/screens/auth_wrapper.dart';
-import 'package:hospital_app/features/presentation/screens/main_part/profile_screen.dart';
+import 'package:hospital_app/features/presentation/screens/patient_part/my_card_screen.dart';
 import 'package:hospital_app/firebase_options.dart';
 
 Future<void> main() async {
@@ -23,6 +24,10 @@ Future<void> main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  // Локальные нотификации — инициализируем один раз. Запросим permission
+  // на Android 13+ автоматически.
+  await NotificationService.instance.init();
+
   runApp(MyApp(
     authRepository: AuthRepository(),
     doctorRepository: DoctorRepository(),
@@ -69,10 +74,6 @@ class MyApp extends StatelessWidget {
               create: (_) => DoctorBloc(repository: doctorRepository)),
           BlocProvider(
               create: (_) => PatientBloc(repository: patientRepository)),
-
-          // MyAppointmentsBloc нужен AuthBloc — берём из контекста.
-          // lazy: false чтобы подписка стартовала с приложения, не с
-          // первого открытия экрана.
           BlocProvider(
             lazy: false,
             create: (ctx) => MyAppointmentsBloc(
@@ -89,7 +90,7 @@ class MyApp extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           home: const AuthWrapper(),
           routes: {
-            '/profile': (_) => const ProfileScreen(),
+            '/profile': (_) => const MyCardScreen(),
           },
         ),
       ),

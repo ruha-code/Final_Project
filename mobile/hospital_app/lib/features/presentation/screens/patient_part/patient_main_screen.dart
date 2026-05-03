@@ -1,17 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:hospital_app/features/presentation/screens/chat_part/chat_list_screen.dart';
-import 'package:hospital_app/features/presentation/screens/main_part/widgets/app_constant.dart';
+import 'package:hospital_app/features/presentation/screens/widgets/app_constant.dart';
 import 'package:hospital_app/features/presentation/screens/patient_part/my_card_screen.dart';
 import 'package:hospital_app/features/presentation/screens/patient_part/patient_appointments_screen.dart';
 import 'package:hospital_app/features/presentation/screens/patient_part/patient_dashboard_screen.dart';
 import 'package:hospital_app/features/presentation/screens/patient_part/patient_doctors_screen.dart';
 
-/// 5 табов:
-///   1. Home   — Patient Dashboard со статистикой
-///   2. Appts  — список своих записей + Book
-///   3. Doctors — список врачей
-///   4. Chats  — диалоги
-///   5. Profile — своя медкарта (бывший таб My Card)
 class PatientMainScreen extends StatefulWidget {
   const PatientMainScreen({super.key});
 

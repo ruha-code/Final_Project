@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:hospital_app/features/presentation/screens/main_part/search_screen.dart';
-import 'package:hospital_app/features/presentation/screens/main_part/widgets/app_constant.dart';
+import 'package:hospital_app/features/presentation/screens/widgets/app_constant.dart';
 
 class TopNavBar extends StatelessWidget {
   final List<Widget> actions;
   final String? subtitle;
   final VoidCallback? onBack;
-  /// Если actions пуст и showSearch=true (по умолчанию) — показываем лупу
-  /// и переход на SearchScreen. Для пациентского UI обычно false.
   final bool showSearch;
 
   const TopNavBar({
@@ -67,37 +64,7 @@ class TopNavBar extends StatelessWidget {
             ),
           ],
         ),
-        Row(
-          children: [
-            ...actions,
-            if (actions.isEmpty && showSearch)
-              _CircleIconButton(
-                icon: Icons.search,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const SearchScreen()),
-                ),
-              ),
-          ],
-        ),
       ],
-    );
-  }
-}
-
-class MedlinkSearchButton extends StatelessWidget {
-  final VoidCallback? onTap;
-  const MedlinkSearchButton({super.key, this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return _CircleIconButton(
-      icon: Icons.search,
-      onTap: onTap ??
-          () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const SearchScreen()),
-              ),
     );
   }
 }

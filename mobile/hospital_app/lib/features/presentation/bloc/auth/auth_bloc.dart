@@ -8,15 +8,6 @@ import 'package:meta/meta.dart';
 
 part 'auth_event.dart';
 part 'auth_state.dart';
-
-/// Глобальный auth-стейт.
-///
-/// Слушает два стрима:
-///  1. FirebaseAuth.userChanges — кто залогинен
-///  2. users/{uid} в Firestore — какая роль (только когда есть user)
-///
-/// Стейт говорит: unknown / unauthenticated / authenticatedNoProfile
-/// (юзер есть, но профиль ещё грузится) / authenticated (юзер + профиль).
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   AuthBloc({required AuthRepository authRepository})
       : _authRepository = authRepository,
@@ -35,6 +26,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   StreamSubscription<UserProfile?>? _profileSubscription;
   Timer? _profileTimeoutTimer;
   String? _currentProfileUid;
+  bool _didBackfillSlots = false;
 
   Future<void> _onUserChanged(
       AuthUserChanged event, Emitter<AuthState> emit) async {
@@ -111,6 +103,19 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       user: user,
       profile: profile,
     ));
+
+    // Один раз за сессию — фоновый backfill слотов для всех докторов.
+    // Идемпотентно: если у доктора уже есть слоты в окне — не дублируется.
+    // Запускаем после .emit, чтобы UI не подвисал.
+    if (!_didBackfillSlots && profile != null) {
+      _didBackfillSlots = true;
+      _authRepository.backfillSlotsForAllDoctors().catchError((_) {
+        // Если правила Firestore не пускают пациента писать слоты —
+        // молча игнорируем. Слоты должны генерироваться при создании
+        // доктора через signUpWithEmail; backfill это страховка для
+        // ранее существующих данных.
+      });
+    }
   }
 
   Future<void> _onSignOutRequested(

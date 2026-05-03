@@ -4,7 +4,7 @@ import 'package:hospital_app/features/data/models/user_profile.dart';
 import 'package:hospital_app/features/data/repositories/auth_repository.dart';
 import 'package:hospital_app/features/presentation/bloc/auth/auth_bloc.dart';
 import 'package:hospital_app/features/presentation/screens/chat_part/chat_room_screen.dart';
-import 'package:hospital_app/features/presentation/screens/main_part/widgets/app_constant.dart';
+import 'package:hospital_app/features/presentation/screens/widgets/app_constant.dart';
 
 class NewChatScreen extends StatelessWidget {
   const NewChatScreen({super.key});

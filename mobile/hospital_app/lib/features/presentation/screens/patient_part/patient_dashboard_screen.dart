@@ -4,15 +4,11 @@ import 'package:hospital_app/features/data/models/appointment.dart';
 import 'package:hospital_app/features/presentation/bloc/appointment/my_appointments_bloc.dart';
 import 'package:hospital_app/features/presentation/bloc/auth/auth_bloc.dart';
 import 'package:hospital_app/features/presentation/bloc/doctor/doctor_bloc.dart';
-import 'package:hospital_app/features/presentation/screens/main_part/widgets/app_constant.dart';
-import 'package:hospital_app/features/presentation/screens/main_part/widgets/section_header.dart';
-import 'package:hospital_app/features/presentation/screens/main_part/widgets/stat_card.dart';
-import 'package:hospital_app/features/presentation/screens/main_part/widgets/top_nav_bar.dart';
+import 'package:hospital_app/features/presentation/screens/widgets/app_constant.dart';
+import 'package:hospital_app/features/presentation/screens/widgets/section_header.dart';
+import 'package:hospital_app/features/presentation/screens/widgets/stat_card.dart';
+import 'package:hospital_app/features/presentation/screens/widgets/top_nav_bar.dart';
 import 'package:hospital_app/features/presentation/screens/patient_part/patient_booking_screen.dart';
-
-/// Главный экран пациента — счётчики + ближайший приём + список upcoming.
-/// Все данные — из MyAppointmentsBloc (он сам подписан на свои записи)
-/// и DoctorBloc (для подсчёта доступных докторов).
 class PatientDashboardScreen extends StatelessWidget {
   const PatientDashboardScreen({super.key});
 
@@ -107,7 +103,6 @@ class _StatsRow extends StatelessWidget {
   }
 }
 
-/// Большая карточка ближайшего приёма + кнопка "Book new", если ничего нет.
 class _NextAppointmentCard extends StatelessWidget {
   const _NextAppointmentCard();
 
@@ -139,7 +134,6 @@ class _NextAppointmentCard extends StatelessWidget {
         (b) => _findNext(b.state.appointments));
 
     if (next == null) {
-      // Пусто — приглашаем забронировать.
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.all(20),
@@ -184,7 +178,6 @@ class _NextAppointmentCard extends StatelessWidget {
       );
     }
 
-    // Показываем ближайший приём.
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: AppDecorations.card,
@@ -291,7 +284,6 @@ class _UpcomingAppointmentsCard extends StatelessWidget {
                 a.status != AppointmentStatus.cancelled)
             .toList()
           ..sort((a, b) => a.startsAt.compareTo(b.startsAt));
-        // Первый — уже показан в _NextAppointmentCard, дальше идут эти.
         return list.length > 1 ? list.sublist(1) : const <Appointment>[];
       },
     );

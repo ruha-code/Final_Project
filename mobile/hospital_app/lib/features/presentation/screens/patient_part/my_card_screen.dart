@@ -3,14 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hospital_app/features/data/models/patient.dart';
 import 'package:hospital_app/features/presentation/bloc/auth/auth_bloc.dart';
-import 'package:hospital_app/features/presentation/screens/main_part/patient_edit_screen.dart';
-import 'package:hospital_app/features/presentation/screens/main_part/widgets/app_constant.dart';
+import 'package:hospital_app/features/presentation/screens/patient_part/settings/patient_settings_screen.dart';
+import 'package:hospital_app/features/presentation/screens/widgets/app_constant.dart';
 
-/// Своя медицинская карточка пациента. Берётся из patients/{uid}.
-///
-/// Пациент видит всё, что заполнил доктор (или он сам), и может нажать
-/// "Edit" чтобы поправить телефон/email/адрес. Удалить нельзя — это сделать
-/// может только доктор.
 class MyCardScreen extends StatelessWidget {
   const MyCardScreen({super.key});
 
@@ -24,8 +19,6 @@ class MyCardScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        // StreamBuilder — карточка обновляется в реальном времени, если
-        // доктор изменит её со своей стороны.
         child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
           stream: FirebaseFirestore.instance
               .collection('patients')
@@ -35,8 +28,6 @@ class MyCardScreen extends StatelessWidget {
             if (snap.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
-            // При логауте стрим может бросить PERMISSION_DENIED — показываем
-            // пустой экран вместо красного "Error: ...".
             final doc = snap.hasError ? null : snap.data;
             if (doc == null || !doc.exists) {
               return const _EmptyCard();
@@ -65,24 +56,28 @@ class _EmptyCard extends StatelessWidget {
             const Icon(Icons.folder_open,
                 size: 56, color: AppColors.textTertiary),
             const SizedBox(height: 16),
-            const Text(
-              'No medical card yet',
-              style:
-                  TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-            ),
+            const Text('No medical card yet',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
             const Text(
               'Your medical card will appear here once a doctor sets it up.',
               textAlign: TextAlign.center,
-              style:
-                  TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 24),
-            OutlinedButton.icon(
-              onPressed: () =>
-                  context.read<AuthBloc>().add(const AuthSignOutRequested()),
-              icon: const Icon(Icons.logout, size: 16),
-              label: const Text('Sign out'),
+            ElevatedButton.icon(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const PatientSettingsScreen()),
+              ),
+              icon: const Icon(Icons.settings, size: 18),
+              label: const Text('Open settings'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                elevation: 0,
+              ),
             ),
           ],
         ),
@@ -110,16 +105,18 @@ class _CardBody extends StatelessWidget {
                   style: TextStyle(
                       fontSize: 22, fontWeight: FontWeight.w700)),
               IconButton(
-                icon: const Icon(Icons.logout, color: AppColors.textPrimary),
-                onPressed: () => context
-                    .read<AuthBloc>()
-                    .add(const AuthSignOutRequested()),
-                tooltip: 'Sign out',
+                icon: const Icon(Icons.settings, color: AppColors.textPrimary),
+                tooltip: 'Settings',
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const PatientSettingsScreen()),
+                ),
               ),
             ],
           ),
           const SizedBox(height: 16),
-          // Аватар + имя + статус
+          // Avatar + имя + статус.
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(20),
@@ -165,7 +162,6 @@ class _CardBody extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          // Поля
           _InfoRow(label: 'Age', value: '${patient.age}'),
           _InfoRow(label: 'Gender', value: patient.gender),
           _InfoRow(
@@ -187,7 +183,21 @@ class _CardBody extends StatelessWidget {
           _InfoRow(
               label: 'Address',
               value: patient.address.isEmpty ? '—' : patient.address),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.bgGrey,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Text(
+              'Your medical info is managed by your doctor. Contact them to update diagnosis, ward, or other clinical details.',
+              style: TextStyle(
+                  fontSize: 12, color: AppColors.textSecondary),
+            ),
+          ),
+          const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
             height: 48,
@@ -195,11 +205,10 @@ class _CardBody extends StatelessWidget {
               onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => PatientEditScreen(patient: patient),
-                ),
+                    builder: (_) => const PatientSettingsScreen()),
               ),
-              icon: const Icon(Icons.edit, size: 18),
-              label: const Text('Edit my card'),
+              icon: const Icon(Icons.settings, size: 18),
+              label: const Text('Settings'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
@@ -229,20 +238,16 @@ class _InfoRow extends StatelessWidget {
         children: [
           SizedBox(
             width: 100,
-            child: Text(
-              label,
-              style: const TextStyle(
-                  fontSize: 13, color: AppColors.textTertiary),
-            ),
+            child: Text(label,
+                style: const TextStyle(
+                    fontSize: 13, color: AppColors.textTertiary)),
           ),
           Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.textPrimary),
-            ),
+            child: Text(value,
+                style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textPrimary)),
           ),
         ],
       ),
