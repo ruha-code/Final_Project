@@ -22,7 +22,7 @@ fi
 # Start services
 echo ""
 echo "Starting services..."
-docker compose up -d
+docker compose up -d --build
 
 # Wait for database
 echo "Waiting for database to be ready..."

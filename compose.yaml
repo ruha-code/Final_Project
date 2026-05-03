@@ -5,7 +5,6 @@ services:
       context: ./frontend
       args:
         VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
-    container_name: clinic_frontend
     ports:
       - "5173:80"
     depends_on:
@@ -15,7 +14,6 @@ services:
   # Backend (FastAPI)
   api:
     build: ./backend
-    container_name: clinic_api
     ports:
       - "8000:8000"
     env_file:
@@ -33,7 +31,6 @@ services:
   # PostgreSQL
   db:
     image: postgres:16-alpine
-    container_name: clinic_db
     ports:
       - "5432:5432"
     environment:
@@ -51,7 +48,6 @@ services:
   # Redis
   redis:
     image: redis:7-alpine
-    container_name: clinic_redis
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -61,7 +57,6 @@ services:
   # pgAdmin (development only — do not expose in production)
   pgadmin:
     image: dpage/pgadmin4:latest
-    container_name: clinic_pgadmin
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@example.com}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:?pgAdmin password required}

@@ -31,12 +31,14 @@ export default function MyPatients() {
   const [patients, setPatients] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [pageError, setPageError] = useState("");
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("");
 
   useEffect(() => {
     const fetchPatients = async () => {
       try {
+        setPageError("");
         const myAppointments = await api.get("/appointments/my");
         setAppointments(Array.isArray(myAppointments) ? myAppointments : []);
 
@@ -52,6 +54,7 @@ export default function MyPatients() {
           )
         );
       } catch (err) {
+        setPageError(err.message || "Failed to load your patients.");
         console.error("Failed to fetch patients:", err);
       } finally {
         setLoading(false);
@@ -105,6 +108,12 @@ export default function MyPatients() {
           Patients connected to your appointments.
         </p>
       </div>
+
+      {pageError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {pageError}
+        </div>
+      )}
 
       {/* FILTERS */}
       <div className="flex flex-col sm:flex-row gap-3">

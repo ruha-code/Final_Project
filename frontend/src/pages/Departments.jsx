@@ -151,6 +151,14 @@ export default function Departments() {
   const handleDelete = async () => {
     if (!showDeleteModal) return;
 
+    if (getDoctorCount(showDeleteModal) > 0) {
+      setFeedback({
+        tone: "error",
+        message: "This department has doctors assigned. Delete or reassign those doctors first.",
+      });
+      return;
+    }
+
     setSaving(true);
     setFeedback(null);
 
@@ -437,6 +445,11 @@ export default function Departments() {
 
       {/* Delete Confirm Modal */}
       {showDeleteModal && (
+        (() => {
+          const assignedDoctors = getDoctorCount(showDeleteModal);
+          const hasAssignedDoctors = assignedDoctors > 0;
+
+          return (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4 pb-0 sm:pb-4 backdrop-blur-sm">
           <div className="w-full max-w-md overflow-hidden rounded-t-3xl sm:rounded-3xl bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b bg-red-50 px-4 sm:px-6 py-4">
@@ -460,9 +473,15 @@ export default function Departments() {
               <div className="rounded-2xl bg-gray-50 p-4 text-sm">
                 <p className="font-medium text-gray-800">{showDeleteModal.name}</p>
                 <p className="mt-1 text-gray-500">
-                  {getDoctorCount(showDeleteModal)} doctor(s) assigned
+                  {assignedDoctors} doctor(s) assigned
                 </p>
               </div>
+
+              {hasAssignedDoctors && (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  There are doctors in this department. Delete or reassign them first, then you can delete the department.
+                </div>
+              )}
 
               <div className="flex gap-3">
                 <button
@@ -473,15 +492,17 @@ export default function Departments() {
                 </button>
                 <button
                   onClick={handleDelete}
-                  disabled={saving}
+                  disabled={saving || hasAssignedDoctors}
                   className="flex-1 rounded-xl bg-red-500 px-4 py-2.5 text-sm text-white hover:bg-red-600 disabled:opacity-60"
                 >
-                  {saving ? "Deleting..." : "Delete"}
+                  {hasAssignedDoctors ? "Doctors Assigned" : saving ? "Deleting..." : "Delete"}
                 </button>
               </div>
             </div>
           </div>
         </div>
+          );
+        })()
       )}
     </div>
   );

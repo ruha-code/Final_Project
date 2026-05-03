@@ -857,14 +857,6 @@ function MainLayout({ children }) {
                       My Health
                     </p>
                   )}
-                  {isAdmin() && (
-                    <p
-                      onClick={() => { navigate("/admin/users"); setOpen(null); }}
-                      className="px-3 py-2 hover:bg-gray-100 rounded-lg cursor-pointer text-sm"
-                    >
-                      Settings
-                    </p>
-                  )}
                   <p
                     onClick={() => { navigate("/settings/notifications"); setOpen(null); }}
                     className="px-3 py-2 hover:bg-gray-100 rounded-lg cursor-pointer text-sm"

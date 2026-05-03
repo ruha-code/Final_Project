@@ -6,6 +6,9 @@ import Badge from "../components/Badge";
 import { api } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
+const PHONE_REGEX = /^\+[1-9]\d{7,14}$/;
+const NAME_ALLOWED_CHARS = new Set(" -'.");
+
 function calcAge(dateOfBirth) {
   if (!dateOfBirth) return "-";
   return Math.floor((Date.now() - new Date(dateOfBirth).getTime()) / (1000 * 60 * 60 * 24 * 365.25));
@@ -29,6 +32,84 @@ function formatPatientType(value) {
 function toInputDate(value) {
   if (!value) return "";
   return typeof value === "string" ? value.slice(0, 10) : new Date(value).toISOString().slice(0, 10);
+}
+
+function normalizePhone(raw) {
+  const cleaned = String(raw || "").trim().replace(/[^\d+]/g, "");
+  return cleaned.startsWith("00") ? `+${cleaned.slice(2)}` : cleaned;
+}
+
+function containsLetters(value) {
+  return Array.from(String(value || "")).some((char) => /[^\W\d_]/u.test(char));
+}
+
+function isValidName(value) {
+  return Array.from(String(value || "")).every(
+    (char) => /[^\W\d_]/u.test(char) || NAME_ALLOWED_CHARS.has(char),
+  );
+}
+
+function parseFieldErrors(err) {
+  const detail = err?.data?.detail;
+  if (!Array.isArray(detail)) return {};
+
+  return detail.reduce((acc, item) => {
+    const fieldName = Array.isArray(item?.loc)
+      ? item.loc
+          .filter(
+            (segment) =>
+              typeof segment === "string" &&
+              !["body", "query", "path", "response"].includes(segment),
+          )
+          .at(-1)
+      : null;
+
+    if (!fieldName || !item?.msg) return acc;
+
+    acc[fieldName] = item.msg
+      .replace(/^Value error,\s*/i, "")
+      .replace(/^Assertion failed,\s*/i, "")
+      .trim();
+    return acc;
+  }, {});
+}
+
+function validatePatientEditForm(form) {
+  const errors = {};
+  const normalizedPhone = normalizePhone(form.phone);
+  const trimmedAddress = form.address.trim();
+  const trimmedCondition = form.condition.trim();
+  const trimmedEmergencyName = (form.emergency_contact_name || "").trim();
+  const normalizedEmergencyPhone = normalizePhone(form.emergency_contact_phone || "");
+
+  if (form.phone.trim() && !PHONE_REGEX.test(normalizedPhone)) {
+    errors.phone = "Use a valid international phone number, e.g. +15550101";
+  }
+
+  if (trimmedAddress && !containsLetters(trimmedAddress)) {
+    errors.address = "Address must include letters, not only numbers";
+  }
+
+  if (trimmedCondition && !containsLetters(trimmedCondition)) {
+    errors.condition = "Condition contains invalid symbols or only numbers";
+  }
+
+  if (trimmedEmergencyName) {
+    if (!isValidName(trimmedEmergencyName) || !containsLetters(trimmedEmergencyName)) {
+      errors.emergency_contact_name = "Emergency contact name must contain letters only";
+    }
+  }
+
+  if (form.emergency_contact_phone.trim() && !PHONE_REGEX.test(normalizedEmergencyPhone)) {
+    errors.emergency_contact_phone =
+      "Use a valid emergency contact phone number, e.g. +15550101";
+  }
+
+  if (form.patient_type === "INPATIENT" && !form.admission_date) {
+    errors.admission_date = "Admission date is required for inpatients";
+  }
+
+  return errors;
 }
 
 function formatAdmissionCell(patient) {
@@ -71,8 +152,23 @@ function Status({ status }) {
   );
 }
 
-function EditModal({ patient, form, setForm, onClose, onSave, saving }) {
+function fieldClass(hasError) {
+  return `w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 ${
+    hasError ? "ring-2 ring-red-300 focus:ring-red-400" : "focus:ring-teal-400"
+  }`;
+}
+
+function FieldError({ message }) {
+  if (!message) return null;
+  return <p className="mt-1 text-xs text-red-500">{message}</p>;
+}
+
+function EditModal({ patient, form, setForm, fieldErrors, formError, onClose, onSave, saving }) {
   const isInpatient = form.patient_type === "INPATIENT";
+  const handleChange = (name, value) => {
+    setForm((current) => ({ ...current, [name]: value }));
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
       <div className="w-full max-w-[540px] overflow-hidden rounded-2xl bg-white shadow-xl mx-4">
@@ -81,35 +177,97 @@ function EditModal({ patient, form, setForm, onClose, onSave, saving }) {
           <button onClick={onClose} className="rounded-lg p-1 hover:bg-gray-200"><X size={18} /></button>
         </div>
         <div className="space-y-4 p-4 sm:p-6">
-          <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Phone" className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400" />
-          <input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Address" className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400" />
-          <input value={form.condition} onChange={(e) => setForm({ ...form, condition: e.target.value })} placeholder="Condition" className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400" />
+          {formError && (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {formError}
+            </div>
+          )}
+
+          <div>
+            <input
+              value={form.phone}
+              onChange={(e) => handleChange("phone", e.target.value)}
+              placeholder="Phone"
+              className={fieldClass(Boolean(fieldErrors.phone))}
+            />
+            <FieldError message={fieldErrors.phone} />
+          </div>
+          <div>
+            <input
+              value={form.address}
+              onChange={(e) => handleChange("address", e.target.value)}
+              placeholder="Address"
+              className={fieldClass(Boolean(fieldErrors.address))}
+            />
+            <FieldError message={fieldErrors.address} />
+          </div>
+          <div>
+            <input
+              value={form.condition}
+              onChange={(e) => handleChange("condition", e.target.value)}
+              placeholder="Condition"
+              className={fieldClass(Boolean(fieldErrors.condition))}
+            />
+            <FieldError message={fieldErrors.condition} />
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <select value={form.patient_type} onChange={(e) => {
               const nextType = e.target.value;
-              setForm({
-                ...form,
+              setForm((current) => ({
+                ...current,
                 patient_type: nextType,
-                patient_status: nextType === "OUTPATIENT" && form.patient_status === "ADMITTED" ? "IN_TREATMENT" : form.patient_status,
-                admission_date: nextType === "OUTPATIENT" ? "" : form.admission_date,
-                room_location: nextType === "OUTPATIENT" ? "" : form.room_location,
-              });
+                patient_status:
+                  nextType === "OUTPATIENT" && current.patient_status === "ADMITTED"
+                    ? "IN_TREATMENT"
+                    : current.patient_status,
+                admission_date: nextType === "OUTPATIENT" ? "" : current.admission_date,
+                room_location: nextType === "OUTPATIENT" ? "" : current.room_location,
+              }));
             }} className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400">
               <option value="OUTPATIENT">Outpatient</option>
               <option value="INPATIENT">Inpatient</option>
             </select>
-            <select value={form.patient_status} onChange={(e) => setForm({ ...form, patient_status: e.target.value })} className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400">
+            <select value={form.patient_status} onChange={(e) => handleChange("patient_status", e.target.value)} className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400">
               <option value="IN_TREATMENT">In Treatment</option>
               {isInpatient && <option value="ADMITTED">Admitted</option>}
               <option value="DISCHARGED">Discharged</option>
             </select>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <input type="date" value={form.admission_date} onChange={(e) => setForm({ ...form, admission_date: e.target.value })} disabled={!isInpatient} className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400 disabled:cursor-not-allowed disabled:opacity-60" />
-            <input value={form.room_location} onChange={(e) => setForm({ ...form, room_location: e.target.value })} placeholder="Room location" disabled={!isInpatient} className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400 disabled:cursor-not-allowed disabled:opacity-60" />
+            <div>
+              <input
+                type="date"
+                value={form.admission_date}
+                onChange={(e) => handleChange("admission_date", e.target.value)}
+                disabled={!isInpatient}
+                className={`${fieldClass(Boolean(fieldErrors.admission_date))} disabled:cursor-not-allowed disabled:opacity-60`}
+              />
+              <FieldError message={fieldErrors.admission_date} />
+            </div>
+            <input value={form.room_location} onChange={(e) => handleChange("room_location", e.target.value)} placeholder="Room location" disabled={!isInpatient} className="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400 disabled:cursor-not-allowed disabled:opacity-60" />
           </div>
           {!isInpatient && <p className="text-xs text-gray-400">Outpatients do not require admission date or room.</p>}
-          <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={3} placeholder="Notes" className="w-full resize-none rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <input
+                value={form.emergency_contact_name}
+                onChange={(e) => handleChange("emergency_contact_name", e.target.value)}
+                placeholder="Emergency contact name"
+                className={fieldClass(Boolean(fieldErrors.emergency_contact_name))}
+              />
+              <FieldError message={fieldErrors.emergency_contact_name} />
+            </div>
+            <div>
+              <input
+                value={form.emergency_contact_phone}
+                onChange={(e) => handleChange("emergency_contact_phone", e.target.value)}
+                placeholder="Emergency contact phone"
+                className={fieldClass(Boolean(fieldErrors.emergency_contact_phone))}
+              />
+              <FieldError message={fieldErrors.emergency_contact_phone} />
+            </div>
+          </div>
+          <textarea value={form.notes} onChange={(e) => handleChange("notes", e.target.value)} rows={3} placeholder="Notes" className="w-full resize-none rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400" />
           <div className="flex flex-col sm:flex-row gap-3">
             <button onClick={onClose} className="flex-1 rounded-xl bg-gray-100 py-2 text-sm order-2 sm:order-1">Cancel</button>
             <button onClick={onSave} disabled={saving} className="flex-1 rounded-xl bg-teal-500 py-2 text-sm text-white hover:bg-teal-600 disabled:opacity-50 order-1 sm:order-2">
@@ -163,6 +321,7 @@ export default function Patients() {
   const navigate = useNavigate();
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [pageFeedback, setPageFeedback] = useState(null);
   const [selected, setSelected] = useState([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
@@ -170,15 +329,22 @@ export default function Patients() {
   const [sortBy, setSortBy] = useState("name_asc");
   const [editPatient, setEditPatient] = useState(null);
   const [editForm, setEditForm] = useState({});
+  const [editFieldErrors, setEditFieldErrors] = useState({});
+  const [editFormError, setEditFormError] = useState("");
   const [saving, setSaving] = useState(false);
   const [bulkSaving, setBulkSaving] = useState(false);
 
   const fetchPatients = async () => {
     try {
       setLoading(true);
+      setPageFeedback(null);
       const data = await api.get("/patients");
       setPatients(Array.isArray(data) ? data : []);
     } catch (err) {
+      setPageFeedback({
+        tone: "error",
+        message: err.message || "Failed to load patients.",
+      });
       console.error("Failed to fetch patients:", err);
     } finally {
       setLoading(false);
@@ -190,6 +356,8 @@ export default function Patients() {
   const openEdit = (patient, e) => {
     e.stopPropagation();
     setEditPatient(patient);
+    setEditFieldErrors({});
+    setEditFormError("");
     setEditForm({
       phone: patient.phone || "",
       address: patient.address || "",
@@ -199,26 +367,46 @@ export default function Patients() {
       patient_status: patient.patient_status || "IN_TREATMENT",
       admission_date: toInputDate(patient.admission_date),
       room_location: patient.room_location || "",
+      emergency_contact_name: patient.emergency_contact_name || "",
+      emergency_contact_phone: patient.emergency_contact_phone || "",
     });
   };
 
   const saveEdit = async () => {
+    const clientErrors = validatePatientEditForm(editForm);
+    if (Object.keys(clientErrors).length > 0) {
+      setEditFieldErrors(clientErrors);
+      setEditFormError("Please correct the highlighted fields.");
+      return;
+    }
+
     try {
       setSaving(true);
+      setEditFieldErrors({});
+      setEditFormError("");
       const isInpatient = editForm.patient_type === "INPATIENT";
       await api.put(`/patients/${editPatient.id}`, {
-        phone: editForm.phone || null,
-        address: editForm.address || null,
-        condition: editForm.condition || null,
-        notes: editForm.notes || null,
+        phone: normalizePhone(editForm.phone) || null,
+        address: editForm.address.trim() || null,
+        condition: editForm.condition.trim() || null,
+        notes: editForm.notes.trim() || null,
         patient_type: editForm.patient_type,
         patient_status: editForm.patient_type === "OUTPATIENT" && editForm.patient_status === "ADMITTED" ? "IN_TREATMENT" : editForm.patient_status,
         admission_date: isInpatient ? (editForm.admission_date || null) : null,
-        room_location: isInpatient ? (editForm.room_location || null) : null,
+        room_location: isInpatient ? (editForm.room_location.trim() || null) : null,
+        emergency_contact_name: editForm.emergency_contact_name.trim() || null,
+        emergency_contact_phone: normalizePhone(editForm.emergency_contact_phone) || null,
       });
       setEditPatient(null);
       void fetchPatients();
     } catch (err) {
+      const parsedFieldErrors = parseFieldErrors(err);
+      if (Object.keys(parsedFieldErrors).length > 0) {
+        setEditFieldErrors(parsedFieldErrors);
+        setEditFormError("Please correct the highlighted fields.");
+      } else {
+        setEditFormError(err.message || "Failed to update patient.");
+      }
       console.error("Failed to update patient:", err);
     } finally {
       setSaving(false);
@@ -260,8 +448,16 @@ export default function Patients() {
       setBulkSaving(true);
       await Promise.all(targets.map(p => api.put(`/patients/${p.id}`, { patient_status: "DISCHARGED" })));
       setSelected([]);
+      setPageFeedback({
+        tone: "success",
+        message: "Selected patients were discharged successfully.",
+      });
       void fetchPatients();
     } catch (err) {
+      setPageFeedback({
+        tone: "error",
+        message: err.message || "Failed to discharge selected patients.",
+      });
       console.error("Failed to discharge selected patients:", err);
     } finally {
       setBulkSaving(false);
@@ -286,6 +482,25 @@ export default function Patients() {
           </div>
         )}
       </div>
+
+      {pageFeedback && (
+        <div
+          className={`flex items-center justify-between rounded-xl border px-4 py-3 text-sm ${
+            pageFeedback.tone === "error"
+              ? "border-red-200 bg-red-50 text-red-700"
+              : "border-green-200 bg-green-50 text-green-700"
+          }`}
+        >
+          <span>{pageFeedback.message}</span>
+          <button
+            type="button"
+            onClick={() => setPageFeedback(null)}
+            className="ml-4 opacity-70 hover:opacity-100"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
 
       {isAdmin() && (
         <div className="grid gap-3 rounded-2xl border bg-white p-3 sm:p-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
@@ -318,8 +533,19 @@ export default function Patients() {
               onToggleSelect={() => toggleSelect(p.id)} onView={() => navigate(`/patients/${p.id}`)} 
               onEdit={(e) => openEdit(p, e)} onDischarge={async (e) => {
                 e.stopPropagation();
-                await api.put(`/patients/${p.id}`, { patient_status: "DISCHARGED" });
-                void fetchPatients();
+                try {
+                  await api.put(`/patients/${p.id}`, { patient_status: "DISCHARGED" });
+                  setPageFeedback({
+                    tone: "success",
+                    message: "Patient discharged successfully.",
+                  });
+                  void fetchPatients();
+                } catch (err) {
+                  setPageFeedback({
+                    tone: "error",
+                    message: err.message || "Failed to discharge patient.",
+                  });
+                }
               }} />
           ))}
         </div>
@@ -370,7 +596,22 @@ export default function Patients() {
                       <button onClick={() => navigate(`/patients/${p.id}`)} className={`${ACTION_BUTTON_CLASS} bg-gray-100 text-gray-700 hover:bg-gray-200`}><Eye size={13} /><span>View</span></button>
                       <button onClick={e => openEdit(p, e)} className={`${ACTION_BUTTON_CLASS} bg-teal-50 text-teal-700 hover:bg-teal-100`}><Edit size={13} /><span>Edit</span></button>
                       {p.patient_status !== "DISCHARGED" && (
-                        <button onClick={async e => { e.stopPropagation(); await api.put(`/patients/${p.id}`, { patient_status: "DISCHARGED" }); void fetchPatients(); }} className={`${ACTION_BUTTON_CLASS} bg-amber-50 text-amber-700 hover:bg-amber-100`}><span>Discharge</span></button>
+                        <button onClick={async e => {
+                          e.stopPropagation();
+                          try {
+                            await api.put(`/patients/${p.id}`, { patient_status: "DISCHARGED" });
+                            setPageFeedback({
+                              tone: "success",
+                              message: "Patient discharged successfully.",
+                            });
+                            void fetchPatients();
+                          } catch (err) {
+                            setPageFeedback({
+                              tone: "error",
+                              message: err.message || "Failed to discharge patient.",
+                            });
+                          }
+                        }} className={`${ACTION_BUTTON_CLASS} bg-amber-50 text-amber-700 hover:bg-amber-100`}><span>Discharge</span></button>
                       )}
                     </div>
                   </div>
@@ -381,7 +622,22 @@ export default function Patients() {
         </div>
       </div>
 
-      {editPatient && <EditModal patient={editPatient} form={editForm} setForm={setEditForm} onClose={() => setEditPatient(null)} onSave={saveEdit} saving={saving} />}
+      {editPatient && (
+        <EditModal
+          patient={editPatient}
+          form={editForm}
+          setForm={setEditForm}
+          fieldErrors={editFieldErrors}
+          formError={editFormError}
+          onClose={() => {
+            setEditPatient(null);
+            setEditFieldErrors({});
+            setEditFormError("");
+          }}
+          onSave={saveEdit}
+          saving={saving}
+        />
+      )}
     </div>
   );
 }

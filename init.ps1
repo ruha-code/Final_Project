@@ -1,6 +1,13 @@
 # MedLinks Clinic Setup Script (PowerShell)
 $ErrorActionPreference = "Stop"
 
+function Assert-LastExitCode {
+    param([string]$Step)
+    if ($LASTEXITCODE -ne 0) {
+        throw "$Step failed with exit code $LASTEXITCODE."
+    }
+}
+
 Write-Host "=========================================" -ForegroundColor Cyan
 Write-Host "MedLinks Clinic — Setup Script" -ForegroundColor Cyan
 Write-Host "=========================================" -ForegroundColor Cyan
@@ -22,7 +29,8 @@ if (-not (Test-Path backend\.env)) {
 # Start services
 Write-Host ""
 Write-Host "Starting services..." -ForegroundColor Green
-docker compose up -d
+docker compose up -d --build
+Assert-LastExitCode "docker compose up"
 
 # Wait for database
 Write-Host "Waiting for database to be ready..." -ForegroundColor Yellow
@@ -32,6 +40,7 @@ Start-Sleep -Seconds 10
 Write-Host ""
 Write-Host "Running seed script..." -ForegroundColor Green
 docker compose exec api python seed.py
+Assert-LastExitCode "docker compose exec api python seed.py"
 
 Write-Host ""
 Write-Host "=========================================" -ForegroundColor Cyan
