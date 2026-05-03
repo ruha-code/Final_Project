@@ -45,7 +45,7 @@ function ForgotPassword() {
               Medlink
             </div>
 
-            <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-6 md:p-8 shadow-lg w-full max-w-md">
+          <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 md:p-8 shadow-lg border border-white/60 w-full max-w-md">
 
               <div className="w-14 h-14 md:w-16 md:h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <svg className="w-7 h-7 md:w-8 md:h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -61,6 +61,18 @@ function ForgotPassword() {
                 We've sent a reset link to <strong>{email}</strong>
               </p>
 
+              <div className="mb-6 space-y-2 text-left">
+                <div className="rounded-xl border bg-white px-4 py-3 text-sm text-gray-600">
+                  Check your inbox and spam folder.
+                </div>
+                <div className="rounded-xl border bg-white px-4 py-3 text-sm text-gray-600">
+                  The reset link remains active for 30 minutes.
+                </div>
+                <div className="rounded-xl border bg-white px-4 py-3 text-sm text-gray-600">
+                  Use the most recent email if you request another link.
+                </div>
+              </div>
+
               <button
                 onClick={() => navigate("/")}
                 className="text-teal-600 hover:text-teal-700 font-medium"
@@ -74,10 +86,13 @@ function ForgotPassword() {
 
         {/* RIGHT */}
         <div className="hidden md:flex w-1/2 items-center justify-center bg-gray-50 px-8 text-center">
-          <div className="max-w-sm">
-            <h3 className="text-xl font-bold mb-3">Secure Reset</h3>
-            <p className="text-gray-500">
-              Your reset link is valid for 30 minutes.
+          <div className="max-w-sm text-left space-y-3">
+            <h3 className="text-xl font-bold">Password Recovery</h3>
+            <p className="rounded-xl border bg-white px-4 py-3 text-gray-500">
+              A secure reset link is sent only after a valid request.
+            </p>
+            <p className="rounded-xl border bg-white px-4 py-3 text-gray-500">
+              For your security, the link expires automatically after 30 minutes.
             </p>
           </div>
         </div>
@@ -91,7 +106,7 @@ function ForgotPassword() {
     <div className="flex min-h-[100dvh] flex-col md:flex-row">
 
       {/* LEFT */}
-      <div className="w-full md:w-1/2 bg-[#e6f4f1] flex flex-col items-center justify-center px-4 md:px-10 py-10 text-center">
+      <div className="w-full md:w-1/2 bg-[#e6f4f1] flex flex-col items-center justify-center px-4 md:px-10 py-8 md:py-10 text-center">
 
         <div className="flex flex-col items-center w-full">
 
@@ -108,7 +123,7 @@ function ForgotPassword() {
           </p>
 
           {/* CARD */}
-          <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-4 md:p-8 shadow-lg w-full max-w-md">
+          <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-4 sm:p-5 md:p-8 shadow-lg border border-white/60 w-full max-w-md">
 
             <form onSubmit={handleSubmit}>
 
@@ -160,10 +175,13 @@ function ForgotPassword() {
 
       {/* RIGHT */}
       <div className="hidden md:flex w-1/2 items-center justify-center bg-gray-50 px-8">
-        <div className="text-center max-w-sm">
-          <h3 className="text-xl font-bold mb-3">Forgot Password?</h3>
-          <p className="text-gray-500">
-            We’ll help you securely reset it in seconds.
+        <div className="text-left max-w-sm space-y-3">
+          <h3 className="text-xl font-bold">Need access again?</h3>
+          <p className="rounded-xl border bg-white px-4 py-3 text-gray-500">
+            Enter the email linked to your Medlink account and we'll send a secure reset link.
+          </p>
+          <p className="rounded-xl border bg-white px-4 py-3 text-gray-500">
+            If the account exists, the instructions arrive by email within a few moments.
           </p>
         </div>
       </div>

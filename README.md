@@ -1,130 +1,205 @@
 # Clinic Management System
 
-A web and mobile platform for managing patients, doctors, and appointments in a clinic environment.
+A web and mobile platform for managing patients, doctors, appointments, and clinic communication in one system.
 
 ---
 
 ## Problem Statement
 
-Clinics often rely on paper-based or fragmented systems to manage patients, doctors, and appointments — leading to scheduling conflicts, lost records, and inefficient workflows. This system provides a centralized digital solution to streamline clinic operations for staff and patients.
+Many clinics still rely on paper files, scattered spreadsheets, or disconnected tools. That causes scheduling conflicts, slow coordination, missing records, and weak visibility into clinic activity. This project centralizes patient management, doctor scheduling, appointments, messaging, notifications, and analytics in a single system.
 
 ---
 
-## Features
+## How It Works
 
-- **Patient Management**: Create, view, update patient records with health vitals tracking
-- **Doctor Management**: Doctor profiles, specialties, schedules, and availability
-- **Appointment System**: Book, track, and manage appointments with status updates
-- **Department Management**: Organize clinic departments with statistics
-- **Messaging**: Real-time chat between patients and doctors
-- **Calendar Events**: Clinic-wide event scheduling and management
-- **Analytics Dashboard**: Visual statistics and insights for administrators
-- **Audit Logging**: Track all system actions for compliance
-- **Search**: Global search across patients, doctors, and appointments
-- **Notifications**: In-app notification system
-- **Smart Chatbot Assistant**: Automated patient support with FAQ and context-aware responses based on patient data
-- **Chatbot Assistant**: AI-powered patient support with FAQ and context-aware responses
-- **Role-Based Access**: Admin, Doctor, and Patient roles with different permissions
-- **Email Notifications**: Automated emails via Resend API
-- **Responsive UI**: Mobile-friendly interface built with React and Tailwind CSS
+- Admin users manage doctors, departments, appointments, users, and analytics from the web dashboard.
+- Patients can register, log in, book appointments, review their records, and communicate with doctors.
+- Doctors can manage schedules, review patient information, update appointments, and respond to messages.
+- The FastAPI backend handles authentication, business logic, database access, notifications, and chatbot-related features.
+- The Flutter mobile app extends the platform with a mobile client for clinic workflows.
+
+---
+
+## Project Scope
+
+This repository contains three connected parts:
+
+- **Web frontend**: React + Vite dashboard for admins, doctors, and patients
+- **Backend API**: FastAPI service with PostgreSQL and Redis
+- **Mobile app**: Flutter client located in `mobile/hospital_app`
+
+---
+
+## Core Features
+
+- Patient management with health vitals tracking
+- Doctor profiles, schedules, and availability
+- Appointment booking and status management
+- Department management and clinic statistics
+- Real-time messaging between patients and doctors
+- Calendar events and clinic scheduling
+- Analytics dashboard for administrators
+- Audit logging for system actions
+- Global search across system entities
+- Notification preferences and in-app notifications
+- Chatbot assistant for patient support
+- Role-based access for admin, doctor, and patient accounts
+- Automated email notifications through Resend
+- Responsive web interface
 
 ---
 
 ## Tech Stack
 
-### Frontend
+### Web Frontend
 
-- React 18 with Vite
-- Tailwind CSS for styling
-- React Router for navigation
-- Axios for API requests
+- React
+- Vite
+- Tailwind CSS
+- React Router
+- Recharts
 
 ### Backend
 
-- FastAPI (Python 3.11+)
-- PostgreSQL 16 with asyncpg
-- Redis 7 for caching
-- Alembic for database migrations
-- Pydantic for data validation
+- FastAPI
+- SQLAlchemy
+- PostgreSQL
+- Redis
+- Alembic
 - JWT authentication
 
-### Email Service
+### Mobile
 
-- Resend API for transactional emails
+- Flutter
+- Firebase configuration for mobile client setup
 
 ### Infrastructure
 
-- Docker & Docker Compose for local development
-- Railway for backend hosting (PostgreSQL + Redis + API)
+- Docker and Docker Compose
+- Railway for backend hosting
 - Vercel for frontend hosting
-- Cloudflare for DNS management
+- Cloudflare for DNS
 
 ---
 
-## Installation
+## Repository Structure
+
+```text
+Final_Project/
+|-- backend/                # FastAPI backend
+|   |-- app/                # Core app and feature modules
+|   |-- migrations/         # Alembic migrations
+|   |-- tests/              # Backend tests
+|   |-- .env.example        # Backend environment template
+|   `-- seed.py             # Demo data seeding script
+|-- frontend/               # React frontend
+|   |-- src/
+|   |-- .env.example        # Frontend environment template
+|   `-- Dockerfile
+|-- mobile/
+|   `-- hospital_app/       # Flutter mobile application
+|-- assets/                 # Branding, diagrams, screenshots
+|-- docs/                   # Deployment and architecture notes
+|-- .env.example            # Root Docker Compose environment template
+|-- compose.yaml            # Local development stack
+`-- compose.prod.yaml       # Production-oriented compose file
+```
+
+---
+
+## Local Run
 
 ### Prerequisites
 
-- Docker and Docker Compose installed
-- Node.js 18+ (for local frontend development)
-- Python 3.11+ (for local backend development)
+- Docker Desktop with Docker Compose
+- Node.js 18+ if you want to run frontend outside Docker
+- Python 3.11+ if you want to run backend outside Docker
+- Flutter SDK if you want to run the mobile app
 
-### Run with Docker
+### Quick Start with Docker
+
+1. Copy the environment templates:
 
 ```bash
-git clone https://github.com/ruha-code/Final_Project.git
-cd Final_Project
-
-# Quick setup (creates .env files, starts services, runs seed)
-.\init.ps1        # Windows
-# or
-./init.sh         # Linux/Mac
-
-# Or manual setup:
-cp backend/.env.example backend/.env
 cp .env.example .env
-# Edit .env files with your settings
-docker compose up --build
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
 ```
 
-The app will be available at:
+2. Review the values before running:
 
-- **Frontend**: http://localhost:5173
-- **Backend API**: http://localhost:8000
-- **API Docs**: http://localhost:8000/docs
+- In root `.env`, keep local URLs:
+  - `FRONTEND_URL=http://localhost:5173`
+  - `VITE_API_URL=http://localhost:8000`
+- In `backend/.env`, keep local backend services:
+  - `DATABASE_URL=postgresql+asyncpg://clinic_user:clinic123@localhost:5432/clinic_db`
+  - `REDIS_URL=redis://localhost:6379`
+- Keep `ALLOW_SEED=true` for the first local setup if you want demo data.
 
-### Configure Email (Resend)
-
-1. Get API key from [resend.com](https://resend.com)
-2. Set in `backend/.env`:
-
-```env
-EMAILS_ENABLED=True
-RESEND_API_KEY=re_your_api_key_here
-EMAILS_FROM=noreply@yourdomain.com
-```
-
-3. Restart the API container:
+3. Start the stack:
 
 ```bash
-docker compose up -d --build api
+docker compose up -d --build
 ```
 
-### Run Locally (without Docker)
+4. Seed demo data:
 
-**Backend:**
+```bash
+docker compose exec api python seed.py
+```
+
+5. Open the project:
+
+- Frontend: `http://localhost:5173`
+- Backend API: `http://localhost:8000`
+- API docs: `http://localhost:8000/docs`
+- pgAdmin: `http://localhost:8080`
+
+### Setup Scripts
+
+You can also use:
+
+```bash
+./init.sh
+```
+
+or on Windows:
+
+```powershell
+.\init.ps1
+```
+
+These scripts copy missing `.env` files, start Docker services, and then run the seed script.
+
+---
+
+## Default Demo Access
+
+After seeding, use:
+
+- Admin email: `admin@clinic.com`
+- Admin password: value of `ADMIN_PASSWORD` from your local `.env`
+
+Doctor and patient demo accounts are created by the seed script as well.
+
+If `ADMIN_PASSWORD` is removed, the script generates random passwords and prints them in the terminal during seeding.
+
+---
+
+## Run Without Docker
+
+### Backend
 
 ```bash
 cd backend
 python -m venv .venv
-.venv\Scripts\activate   # Windows
-# source .venv/bin/activate  # Linux/Mac
+.venv\Scripts\activate
 pip install -r requirements.txt
 alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
-**Frontend:**
+### Frontend
 
 ```bash
 cd frontend
@@ -132,81 +207,63 @@ npm install
 npm run dev
 ```
 
----
-
-## Usage
-
-### Default Credentials (after seeding)
-
-Run seed script to populate test data:
+### Mobile
 
 ```bash
-# Via Docker (recommended)
-docker compose exec api python seed.py
-
-# Or via init script
-.\init.ps1        # Windows
-./init.sh         # Linux/Mac
+cd mobile/hospital_app
+flutter pub get
+flutter run
 ```
 
-**Admin:**
-
-- Email: `admin@clinic.com`
-- Password: Set `ADMIN_PASSWORD` in `.env` (default: `Admin123!`)
-
-**Doctors:**
-
-- `jwilson@clinic.com` (General Medicine)
-- `schen@clinic.com` (Pediatrics)
-- `mtorres@clinic.com` (Cardiology)
-- `epark@clinic.com` (Orthopedics)
-- `arivera@clinic.com` (Dermatology)
-- `lnguyen@clinic.com` (Neurology)
-- `rkim@clinic.com` (Radiology)
-- `msantos@clinic.com` (Maternity)
-
-**Patients:**
-
-- `sjohnson@email.com`, `jdoe@email.com`, `ewilliams@email.com`, etc.
-
-⚠️ If `ADMIN_PASSWORD` is not set in `.env`, passwords are generated randomly during seeding. Check the seed script output for generated passwords.
-
-### Workflow
-
-1. Open the web app at http://localhost:5173
-2. Log in with your credentials
-3. **Admin**: Manage users, view analytics, audit logs
-4. **Doctor**: View schedule, manage appointments, chat with patients
-5. **Patient**: Book appointments, view medical records, message doctors
+The mobile app is in `mobile/hospital_app` and is documented as a companion client for the clinic system.
 
 ---
 
-## Project Structure
+## Mobile App Notes
 
-```
-Final_Project/
-├── backend/              # FastAPI backend
-│   ├── app/
-│   │   ├── core/        # Config, database, security, middleware
-│   │   └── modules/     # Feature modules (auth, patients, doctors, etc.)
-│   ├── migrations/      # Alembic migrations
-│   ├── Dockerfile
-│   ├── requirements.txt
-│   └── seed.py          # Test data seeder
-├── frontend/            # React frontend
-│   ├── src/
-│   │   ├── components/  # Reusable UI components
-│   │   ├── pages/       # Page components
-│   │   ├── layouts/     # Layout components
-│   │   └── services/    # API services
-│   ├── Dockerfile
-│   ── package.json
-├── mobile/              # Flutter mobile app
-├── Dockerfile           # Root Dockerfile for Railway
-├── railway.json         # Railway configuration
-├── compose.yaml         # Docker Compose for local dev
-└── compose.prod.yaml    # Docker Compose for production
-```
+- The mobile application is built with Flutter.
+- Firebase client configuration files are present for app setup.
+- To run it successfully, use the Flutter SDK and a configured Android emulator or physical device.
+- The mobile app folder currently has its own starter README, but the main project documentation should be treated as the primary guide for this repository.
+
+---
+
+## Environment Files
+
+### Root `.env`
+
+Used by Docker Compose for local orchestration:
+
+- PostgreSQL container credentials
+- frontend build API URL
+- local frontend URL
+- pgAdmin credentials
+
+### `backend/.env`
+
+Used by the FastAPI application:
+
+- JWT secret and auth settings
+- database connection string
+- Redis connection string
+- Resend email settings
+- frontend origin for CORS and reset links
+- seed configuration
+
+### `frontend/.env`
+
+Used by the Vite frontend:
+
+- `VITE_API_URL`
+
+---
+
+## Security Notes
+
+- Do **not** commit real `.env` files to Git.
+- Do **not** commit private API keys or server secrets.
+- If the lecturer needs your `.env`, share it privately, not through the repository.
+- Before publishing the repository, rotate any sensitive keys that were ever exposed during development.
 
 ---
 
@@ -214,58 +271,60 @@ Final_Project/
 
 ### Production URLs
 
-- **Frontend**: https://medlinks.uk
-- **Backend API**: https://api.medlinks.uk
-- **API Docs**: https://api.medlinks.uk/docs
+- Frontend: [https://medlinks.uk](https://medlinks.uk)
+- Backend API: [https://api.medlinks.uk](https://api.medlinks.uk)
+- API docs: [https://api.medlinks.uk/docs](https://api.medlinks.uk/docs)
 
-### Railway (Backend + Database)
+### Backend Deployment
 
-1. Connect GitHub repository to Railway
-2. Add services: PostgreSQL, Redis
-3. Set environment variables (see `backend/.env.example`)
-4. Deploy backend service with root Dockerfile
-5. Add custom domain `api.medlinks.uk` in Railway settings
-6. Run seed script once via Railway Console: `python seed.py` (set `ALLOW_SEED=true` temporarily, then set back to `false`)
+Backend is intended for Railway with PostgreSQL and Redis.
 
-**Required Environment Variables:**
+Required production variables include:
 
 ```env
-SECRET_KEY=<generate-with-openssl-rand-hex-32>
+SECRET_KEY=<secure-random-value>
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+REFRESH_TOKEN_EXPIRE_DAYS=7
 DATABASE_URL=postgresql+asyncpg://postgres:<password>@postgres.railway.internal:5432/railway
 REDIS_URL=redis://redis.railway.internal:6379
-RESEND_API_KEY=re_your_api_key_here
-EMAILS_FROM=noreply@medlinks.uk
 FRONTEND_URL=https://medlinks.uk
+EMAILS_ENABLED=True
+RESEND_API_KEY=<resend-api-key>
+EMAILS_FROM=noreply@medlinks.uk
 ALLOW_SEED=false
 ```
 
-### Vercel (Frontend)
+Set `ALLOW_SEED=true` only temporarily when first populating production demo data, then set it back to `false`.
 
-1. Connect GitHub repository to Vercel
-2. Set environment variable: `VITE_API_URL=https://api.medlinks.uk`
-3. Deploy and add custom domain `medlinks.uk`
+### Frontend Deployment
 
-### DNS Configuration (Cloudflare)
+Frontend is intended for Vercel.
 
-| Type  | Name                 | Content                    | Proxy    |
-| ----- | -------------------- | -------------------------- | -------- |
-| A     | @                    | 76.76.21.21                | DNS only |
-| CNAME | api                  | `<railway-backend-domain>` | DNS only |
-| TXT   | \_railway-verify.api | `railway-verify=...`       | DNS only |
+Required production frontend variable:
 
-️ **Important**: CNAME record for `api` must be set to "DNS only" (gray cloud) for Railway verification.
+```env
+VITE_API_URL=https://api.medlinks.uk
+```
+
+---
+
+## Documentation
+
+- Deployment notes: [docs/deployment.md](docs/deployment.md)
+- Architecture notes: [docs/architecture.md](docs/architecture.md)
 
 ---
 
 ## Team Members
 
-- **Seiitkhan Zhannur** – Backend Developer
-- **Ruslan Usen** – Frontend Developer
-- **Askhat Yeleubay** – Frontend Developer
-- **Margulan Baizhigit** – Mobile Developer
+- ID: 230109009 Seiitkhan Zhannur - Backend Developer
+- ID: 230103026 Ruslan Usen - Frontend Developer
+- ID: 230103304 Askhat Yeleubay - Frontend Developer
+- ID: 230103065 Margulan Baizhigit - Mobile Developer
 
 ---
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License. See [LICENSE](LICENSE).

@@ -2,6 +2,8 @@ import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 
+const VERIFY_EMAIL_STORAGE_KEY = "pending_verification_email";
+
 function Register() {
   const navigate = useNavigate();
   const { register } = useAuth();
@@ -28,13 +30,16 @@ function Register() {
   const validateEmail = (value) =>
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
   const validateUsername = (value) =>
-    /^(?=.{3,30}$)(?=.*[A-Za-z])[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$/.test(
+    /^(?=.{3,15}$)(?=.*[A-Za-z])[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$/.test(
       value.trim(),
     );
 
   const handleEmailBlur = () => {
     if (form.email && !validateEmail(form.email)) {
-      setFieldErrors((c) => ({ ...c, email: "Please enter a valid email address" }));
+      setFieldErrors((c) => ({
+        ...c,
+        email: "Please enter a valid email address",
+      }));
     }
   };
 
@@ -49,7 +54,7 @@ function Register() {
 
     if (!validateUsername(form.username))
       nextErrors.username =
-        "Username must be 3-30 characters, include a letter, and start/end with a letter or number";
+        "Username must be 3-15 characters, include a letter, and start/end with a letter or number";
 
     if (!validateEmail(form.email))
       nextErrors.email = "Please enter a valid email address";
@@ -70,18 +75,24 @@ function Register() {
     setLoading(true);
 
     try {
+      const normalizedEmail = form.email.trim().toLowerCase();
       await register({
         name: form.name.trim(),
         username: form.username.trim(),
-        email: form.email.trim(),
+        email: normalizedEmail,
         password: form.password,
       });
 
-      navigate("/verify", { state: { email: form.email.trim() } });
+      sessionStorage.setItem(VERIFY_EMAIL_STORAGE_KEY, normalizedEmail);
+      navigate(`/verify?email=${encodeURIComponent(normalizedEmail)}`, {
+        state: { email: normalizedEmail },
+      });
     } catch (err) {
       const msg = err.message || "Failed to create account";
       if (msg.toLowerCase().includes("email already")) {
-        setFieldErrors({ email: "This email is already registered. Try logging in." });
+        setFieldErrors({
+          email: "This email is already registered. Try logging in.",
+        });
       } else if (msg.toLowerCase().includes("username already")) {
         setFieldErrors({ username: "This username is already taken." });
       } else {
@@ -110,8 +121,8 @@ function Register() {
               Stay on Top of Every Detail
             </h2>
             <p className="text-gray-600 max-w-sm mx-auto">
-              From appointments to patient records, Medlink gives you a clear view of
-              daily hospital operations.
+              From appointments to patient records, Medlink gives you a clear
+              view of daily hospital operations.
             </p>
           </div>
 
@@ -136,7 +147,7 @@ function Register() {
           <span className="text-lg font-bold">Medlink</span>
         </div>
 
-        <div className="w-full max-w-[460px] bg-white p-6 sm:p-10 rounded-2xl shadow-lg border border-gray-100">
+        <div className="w-full max-w-[460px] bg-white p-5 sm:p-8 lg:p-10 rounded-2xl shadow-lg border border-gray-100">
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1">
             Create Your Account
           </h2>
@@ -164,7 +175,9 @@ function Register() {
                 className={`w-full p-2.5 sm:p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent transition text-sm ${fieldErrors.name ? "border-red-300 bg-red-50" : "border-gray-200"}`}
                 autoComplete="name"
               />
-              {fieldErrors.name && <p className="mt-1 text-xs text-red-500">{fieldErrors.name}</p>}
+              {fieldErrors.name && (
+                <p className="mt-1 text-xs text-red-500">{fieldErrors.name}</p>
+              )}
             </div>
 
             <div>
@@ -179,11 +192,22 @@ function Register() {
                 onChange={handleChange}
                 className={`w-full p-2.5 sm:p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent transition text-sm ${fieldErrors.username ? "border-red-300 bg-red-50" : "border-gray-200"}`}
                 autoComplete="username"
+                minLength={3}
+                maxLength={15}
+                pattern="^(?=.{3,15}$)(?=.*[A-Za-z])[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$"
+                title="3-15 characters, include a letter, and start/end with a letter or number"
+                autoCapitalize="none"
+                spellCheck={false}
               />
-              {fieldErrors.username
-                ? <p className="mt-1 text-xs text-red-500">{fieldErrors.username}</p>
-        : <p className="text-xs text-gray-400 mt-1">3-30 chars with at least one letter</p>
-              }
+              {fieldErrors.username ? (
+                <p className="mt-1 text-xs text-red-500">
+                  {fieldErrors.username}
+                </p>
+              ) : (
+                <p className="text-xs text-gray-400 mt-1">
+                  3-15 chars with at least one letter
+                </p>
+              )}
             </div>
 
             <div>
@@ -200,7 +224,9 @@ function Register() {
                 className={`w-full p-2.5 sm:p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent transition text-sm ${fieldErrors.email ? "border-red-300 bg-red-50" : "border-gray-200"}`}
                 autoComplete="email"
               />
-              {fieldErrors.email && <p className="mt-1 text-xs text-red-500">{fieldErrors.email}</p>}
+              {fieldErrors.email && (
+                <p className="mt-1 text-xs text-red-500">{fieldErrors.email}</p>
+              )}
             </div>
 
             <div>
@@ -223,21 +249,51 @@ function Register() {
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
                   {showPassword ? (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+                      />
                     </svg>
                   ) : (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                      />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                      />
                     </svg>
                   )}
                 </button>
               </div>
-              {fieldErrors.password
-                ? <p className="mt-1 text-xs text-red-500">{fieldErrors.password}</p>
-                : <p className="text-xs text-gray-400 mt-1">Minimum 8 characters, include a digit</p>
-              }
+              {fieldErrors.password ? (
+                <p className="mt-1 text-xs text-red-500">
+                  {fieldErrors.password}
+                </p>
+              ) : (
+                <p className="text-xs text-gray-400 mt-1">
+                  Minimum 8 characters, include a digit
+                </p>
+              )}
             </div>
 
             <div>
@@ -253,7 +309,11 @@ function Register() {
                 className={`w-full p-2.5 sm:p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent transition text-sm ${fieldErrors.confirmPassword ? "border-red-300 bg-red-50" : "border-gray-200"}`}
                 autoComplete="new-password"
               />
-              {fieldErrors.confirmPassword && <p className="mt-1 text-xs text-red-500">{fieldErrors.confirmPassword}</p>}
+              {fieldErrors.confirmPassword && (
+                <p className="mt-1 text-xs text-red-500">
+                  {fieldErrors.confirmPassword}
+                </p>
+              )}
             </div>
 
             <button

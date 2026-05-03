@@ -21,7 +21,7 @@ function parseIntegerInput(value, fallback) {
 
 const FULL_NAME_REGEX = /^(?=.{2,100}$)\p{L}+(?:[ .'-]\p{L}+)*$/u;
 const USERNAME_REGEX =
-  /^(?=.{3,30}$)(?=.*[A-Za-z])[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$/;
+  /^(?=.{3,15}$)(?=.*[A-Za-z])[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const STRONG_PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,128}$/;
 
@@ -57,7 +57,8 @@ function AddDoctorModal({ onClose, onCreated }) {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    api.get("/departments")
+    api
+      .get("/departments")
       .then((data) => setDepartments(Array.isArray(data) ? data : []))
       .catch(() => setDepartments([]));
   }, []);
@@ -84,13 +85,11 @@ function AddDoctorModal({ onClose, onCreated }) {
       return setError("Name, username, email and password are required");
     }
     if (!FULL_NAME_REGEX.test(normalizedName)) {
-      return setError(
-        "Full name must contain letters and may include spaces.",
-      );
+      return setError("Full name must contain letters and may include spaces.");
     }
     if (!USERNAME_REGEX.test(normalizedUsername)) {
       return setError(
-        "Username must be 3-30 characters, include a letter, and start/end with a letter or number.",
+        "Username must be 3-15 characters, include a letter, and start/end with a letter or number.",
       );
     }
     if (!EMAIL_REGEX.test(normalizedEmail)) {
@@ -107,9 +106,7 @@ function AddDoctorModal({ onClose, onCreated }) {
       );
     }
     if (!STRONG_PASSWORD_REGEX.test(form.password)) {
-      return setError(
-        "Password must be at least 8 characters.",
-      );
+      return setError("Password must be at least 8 characters.");
     }
 
     setLoading(true);
@@ -181,6 +178,12 @@ function AddDoctorModal({ onClose, onCreated }) {
               onChange={handleChange}
               placeholder="jsmith"
               className="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-teal-400"
+              minLength={3}
+              maxLength={15}
+              pattern="^(?=.{3,15}$)(?=.*[A-Za-z])[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$"
+              title="3-15 characters, include a letter, and start/end with a letter or number"
+              autoCapitalize="none"
+              spellCheck={false}
             />
           </div>
 
@@ -222,7 +225,9 @@ function AddDoctorModal({ onClose, onCreated }) {
           </div>
 
           <div>
-            <label className="text-sm text-gray-500 mb-1 block">Department</label>
+            <label className="text-sm text-gray-500 mb-1 block">
+              Department
+            </label>
             <select
               name="department_id"
               value={form.department_id}
@@ -239,7 +244,9 @@ function AddDoctorModal({ onClose, onCreated }) {
           </div>
 
           <div>
-            <label className="text-sm text-gray-500 mb-1 block">Specialty</label>
+            <label className="text-sm text-gray-500 mb-1 block">
+              Specialty
+            </label>
             <input
               name="specialty"
               value={form.specialty}
@@ -250,7 +257,9 @@ function AddDoctorModal({ onClose, onCreated }) {
           </div>
 
           <div>
-            <label className="text-sm text-gray-500 mb-1 block">License Number</label>
+            <label className="text-sm text-gray-500 mb-1 block">
+              License Number
+            </label>
             <input
               name="license_number"
               value={form.license_number}
@@ -262,7 +271,9 @@ function AddDoctorModal({ onClose, onCreated }) {
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <label className="text-sm text-gray-500 mb-1 block">License Status</label>
+              <label className="text-sm text-gray-500 mb-1 block">
+                License Status
+              </label>
               <select
                 name="license_status"
                 value={form.license_status}
@@ -292,7 +303,9 @@ function AddDoctorModal({ onClose, onCreated }) {
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <label className="text-sm text-gray-500 mb-1 block">Experience</label>
+              <label className="text-sm text-gray-500 mb-1 block">
+                Experience
+              </label>
               <input
                 name="years_of_experience"
                 type="number"
@@ -305,7 +318,9 @@ function AddDoctorModal({ onClose, onCreated }) {
               />
             </div>
             <div>
-              <label className="text-sm text-gray-500 mb-1 block">Consultation</label>
+              <label className="text-sm text-gray-500 mb-1 block">
+                Consultation
+              </label>
               <input
                 name="consultation_duration_minutes"
                 type="number"
@@ -350,7 +365,7 @@ export default function Doctors() {
   const [departmentOptions, setDepartmentOptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeDepartmentId, setActiveDepartmentId] = useState(
-    selectedDepartmentId || "All"
+    selectedDepartmentId || "All",
   );
   const [statusFilter, setStatusFilter] = useState("All");
   const [openMenu, setOpenMenu] = useState(null);
@@ -417,7 +432,8 @@ export default function Doctors() {
   }, [selectedDepartmentId]);
 
   useEffect(() => {
-    api.get("/departments")
+    api
+      .get("/departments")
       .then((data) => setDepartmentOptions(Array.isArray(data) ? data : []))
       .catch(() => setDepartmentOptions([]));
   }, []);
@@ -469,12 +485,19 @@ export default function Doctors() {
   const handleSaveEdit = async () => {
     const normalizedSpecialty = normalizeWhitespace(editForm.specialty || "");
     const normalizedBio = normalizeWhitespace(editForm.bio || "");
-    const normalizedLicenseNumber = normalizeWhitespace(editForm.license_number || "");
+    const normalizedLicenseNumber = normalizeWhitespace(
+      editForm.license_number || "",
+    );
     const rating =
-      editForm.rating === "" || editForm.rating === null || editForm.rating === undefined
+      editForm.rating === "" ||
+      editForm.rating === null ||
+      editForm.rating === undefined
         ? 0
         : Number.parseFloat(editForm.rating);
-    const yearsOfExperience = parseIntegerInput(editForm.years_of_experience, 0);
+    const yearsOfExperience = parseIntegerInput(
+      editForm.years_of_experience,
+      0,
+    );
     const consultationDuration = parseIntegerInput(
       editForm.consultation_duration_minutes,
       30,
@@ -483,7 +506,9 @@ export default function Doctors() {
     setEditError("");
 
     if (normalizedSpecialty && !isValidDoctorSpecialty(normalizedSpecialty)) {
-      setEditError("Specialty must contain meaningful text, e.g. Cardiologist.");
+      setEditError(
+        "Specialty must contain meaningful text, e.g. Cardiologist.",
+      );
       return;
     }
     if (!Number.isFinite(rating) || rating < 0 || rating > 5) {
@@ -502,7 +527,9 @@ export default function Doctors() {
     setSaving(true);
     try {
       const updatedDoctor = await api.put(`/doctors/${editDoctor.id}`, {
-        department_id: editForm.department_id ? Number(editForm.department_id) : null,
+        department_id: editForm.department_id
+          ? Number(editForm.department_id)
+          : null,
         specialty: normalizedSpecialty || null,
         license_number: normalizedLicenseNumber || null,
         license_status: editForm.license_status || "PENDING",
@@ -513,7 +540,9 @@ export default function Doctors() {
         is_available: Boolean(editForm.is_available),
       });
       setDoctors((current) =>
-        current.map((doctor) => (doctor.id === updatedDoctor.id ? updatedDoctor : doctor)),
+        current.map((doctor) =>
+          doctor.id === updatedDoctor.id ? updatedDoctor : doctor,
+        ),
       );
       setEditDoctor(null);
       await fetchDoctors();
@@ -528,8 +557,11 @@ export default function Doctors() {
     new Map(
       doctors
         .filter((doctor) => doctor.department_id && doctor.department_name)
-        .map((doctor) => [String(doctor.department_id), doctor.department_name])
-    ).entries()
+        .map((doctor) => [
+          String(doctor.department_id),
+          doctor.department_name,
+        ]),
+    ).entries(),
   ).map(([id, name]) => ({ id, name }));
 
   const departmentTabs = [
@@ -595,7 +627,10 @@ export default function Doctors() {
         {pageError && (
           <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 flex items-center justify-between">
             <span>{pageError}</span>
-            <button onClick={() => setPageError("")} className="ml-4 opacity-70 hover:opacity-100">
+            <button
+              onClick={() => setPageError("")}
+              className="ml-4 opacity-70 hover:opacity-100"
+            >
               <X size={16} />
             </button>
           </div>
@@ -706,7 +741,9 @@ export default function Doctors() {
                 </div>
 
                 {/* NAME */}
-                <h3 className="text-sm font-semibold text-gray-900 mb-1">{doc.full_name}</h3>
+                <h3 className="text-sm font-semibold text-gray-900 mb-1">
+                  {doc.full_name}
+                </h3>
 
                 {/* INFO BOX */}
                 <div className="w-full mb-4 flex-1">
@@ -830,7 +867,10 @@ export default function Doctors() {
                   <select
                     value={editForm.license_status}
                     onChange={(e) =>
-                      setEditForm({ ...editForm, license_status: e.target.value })
+                      setEditForm({
+                        ...editForm,
+                        license_status: e.target.value,
+                      })
                     }
                     className="w-full px-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400"
                   >

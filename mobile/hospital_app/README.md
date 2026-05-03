@@ -1,17 +1,26 @@
-# hospital_app
+# MedLinks Mobile App
 
-A new Flutter project.
+This is the Flutter mobile client for the Clinic Management System.
 
-## Getting Started
+## Purpose
 
-This project is a starting point for a Flutter application.
+The mobile app is intended to complement the main web platform by providing a mobile interface for clinic-related workflows.
 
-A few resources to get you started if this is your first Flutter project:
+## Stack
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+- Flutter
+- Dart
+- Firebase client configuration
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Run
+
+```bash
+flutter pub get
+flutter run
+```
+
+## Notes
+
+- Make sure Flutter SDK is installed.
+- Run on an Android emulator, iOS simulator, or physical device.
+- Main project setup and backend/frontend documentation are described in the root repository `README.md`.

@@ -1,15 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  CalendarDays,
-  ClipboardList,
-} from "lucide-react";
+import { CalendarDays, ClipboardList } from "lucide-react";
 import {
   Bar,
   BarChart,
   CartesianGrid,
-  Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -285,7 +280,9 @@ function MiniCalendarWidget({ appointments, nowTimestamp }) {
       <div className="mt-2 grid grid-cols-7 gap-1">
         {calendarDays.map((date, index) => {
           if (!date) {
-            return <span key={`empty-${index}`} className="h-9" aria-hidden="true" />;
+            return (
+              <span key={`empty-${index}`} className="h-9" aria-hidden="true" />
+            );
           }
 
           const dateKey = getLocalDateKey(date);
@@ -309,9 +306,15 @@ function MiniCalendarWidget({ appointments, nowTimestamp }) {
               <span>{date.getDate()}</span>
               {hasAppointments && (
                 <span className="mt-0.5 flex gap-0.5">
-                  {meta.scheduled > 0 && <span className="h-1 w-1 rounded-full bg-blue-500" />}
-                  {meta.ongoing > 0 && <span className="h-1 w-1 rounded-full bg-teal-500" />}
-                  {meta.cancelled > 0 && <span className="h-1 w-1 rounded-full bg-red-500" />}
+                  {meta.scheduled > 0 && (
+                    <span className="h-1 w-1 rounded-full bg-blue-500" />
+                  )}
+                  {meta.ongoing > 0 && (
+                    <span className="h-1 w-1 rounded-full bg-teal-500" />
+                  )}
+                  {meta.cancelled > 0 && (
+                    <span className="h-1 w-1 rounded-full bg-red-500" />
+                  )}
                 </span>
               )}
             </button>
@@ -340,9 +343,15 @@ function DoctorDashboard({ appointments, patients, nowTimestamp }) {
   const todayKey = now.toDateString();
 
   const todayAppointments = [...appointments]
-    .filter((item) => item.status !== "CANCELLED" && item.status !== "COMPLETED")
-    .filter((item) => new Date(item.appointment_time).toDateString() === todayKey)
-    .sort((a, b) => new Date(a.appointment_time) - new Date(b.appointment_time));
+    .filter(
+      (item) => item.status !== "CANCELLED" && item.status !== "COMPLETED",
+    )
+    .filter(
+      (item) => new Date(item.appointment_time).toDateString() === todayKey,
+    )
+    .sort(
+      (a, b) => new Date(a.appointment_time) - new Date(b.appointment_time),
+    );
 
   const ongoingToday = appointments.find(
     (item) =>
@@ -355,19 +364,24 @@ function DoctorDashboard({ appointments, patients, nowTimestamp }) {
         item.status === "SCHEDULED" &&
         new Date(item.appointment_time).getTime() >= now.getTime(),
     )
-    .sort((a, b) => new Date(a.appointment_time) - new Date(b.appointment_time))[0];
+    .sort(
+      (a, b) => new Date(a.appointment_time) - new Date(b.appointment_time),
+    )[0];
 
   const featured = ongoingToday || nextScheduled;
   const featuredInfo = formatDateTime(featured?.appointment_time);
-  const ongoingCount = appointments.filter((item) => item.status === "ONGOING").length;
+  const ongoingCount = appointments.filter(
+    (item) => item.status === "ONGOING",
+  ).length;
 
   return (
     <div className="space-y-4">
-
       {/* Stats strip */}
       <div className="grid grid-cols-3 gap-4">
         <div className="rounded-2xl border bg-white p-4 shadow-sm text-center">
-          <p className="text-2xl font-bold text-gray-900">{todayAppointments.length}</p>
+          <p className="text-2xl font-bold text-gray-900">
+            {todayAppointments.length}
+          </p>
           <p className="mt-0.5 text-xs text-gray-400">Today's queue</p>
         </div>
         <div className="rounded-2xl border bg-white p-4 shadow-sm text-center">
@@ -389,23 +403,43 @@ function DoctorDashboard({ appointments, patients, nowTimestamp }) {
         {!featured ? (
           <div className="flex items-center gap-3 py-2">
             <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gray-100">
-              <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              <svg
+                className="h-5 w-5 text-gray-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                />
               </svg>
             </div>
             <div>
-              <p className="font-semibold text-gray-700">No upcoming patients</p>
-              <p className="text-xs text-gray-400">Your schedule is clear for now.</p>
+              <p className="font-semibold text-gray-700">
+                No upcoming patients
+              </p>
+              <p className="text-xs text-gray-400">
+                Your schedule is clear for now.
+              </p>
             </div>
           </div>
         ) : (
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <PatientAvatar name={featured.patient_name} size="lg" />
             <div className="flex-1 min-w-0">
-              <p className="text-lg font-bold text-gray-900">{toTitleCase(featured.patient_name)}</p>
+              <p className="text-lg font-bold text-gray-900">
+                {toTitleCase(featured.patient_name)}
+              </p>
               <div className="mt-1 flex flex-wrap items-center gap-2">
-                <span className="text-sm text-gray-500">{featuredInfo.date} · {featuredInfo.time}</span>
-                <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${getStatusClass(featured.status)}`}>
+                <span className="text-sm text-gray-500">
+                  {featuredInfo.date} · {featuredInfo.time}
+                </span>
+                <span
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${getStatusClass(featured.status)}`}
+                >
                   {featured.status}
                 </span>
               </div>
@@ -434,7 +468,9 @@ function DoctorDashboard({ appointments, patients, nowTimestamp }) {
       {/* Today's Appointments */}
       <div className="rounded-2xl border bg-white p-5 shadow-sm">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-gray-900">Today's Appointments</h2>
+          <h2 className="text-sm font-semibold text-gray-900">
+            Today's Appointments
+          </h2>
           <button
             onClick={() => navigate("/appointments")}
             className="text-xs font-medium text-teal-600 hover:text-teal-700"
@@ -445,8 +481,18 @@ function DoctorDashboard({ appointments, patients, nowTimestamp }) {
 
         {todayAppointments.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 text-gray-300">
-            <svg className="h-10 w-10 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            <svg
+              className="h-10 w-10 mb-2"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1}
+                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+              />
             </svg>
             <p className="text-sm text-gray-400">No appointments today.</p>
           </div>
@@ -461,7 +507,9 @@ function DoctorDashboard({ appointments, patients, nowTimestamp }) {
                   className="grid grid-cols-[2.25rem_1fr_4rem_7rem_5.5rem] items-center gap-x-3 py-3 first:pt-0 last:pb-0"
                 >
                   {/* Avatar */}
-                  <button onClick={() => navigate(`/patients/${item.patient_id}`)}>
+                  <button
+                    onClick={() => navigate(`/patients/${item.patient_id}`)}
+                  >
                     <PatientAvatar name={item.patient_name} />
                   </button>
 
@@ -480,7 +528,9 @@ function DoctorDashboard({ appointments, patients, nowTimestamp }) {
 
                   {/* Time */}
                   <div className="text-right">
-                    <p className="text-sm font-medium text-gray-700">{info.time}</p>
+                    <p className="text-sm font-medium text-gray-700">
+                      {info.time}
+                    </p>
                     <p className="text-xs text-gray-400">{info.date}</p>
                   </div>
 
@@ -510,7 +560,6 @@ function DoctorDashboard({ appointments, patients, nowTimestamp }) {
           </div>
         )}
       </div>
-
     </div>
   );
 }
@@ -538,7 +587,9 @@ function AdminDashboard({
   const todayOngoing = todayAppointments.filter(
     (item) => item.status === "ONGOING",
   ).length;
-  const availableDoctors = doctors.filter((doctor) => doctor.is_available).length;
+  const availableDoctors = doctors.filter(
+    (doctor) => doctor.is_available,
+  ).length;
 
   return (
     <div className="flex flex-col gap-4 sm:gap-6 xl:flex-row xl:gap-6">
@@ -588,11 +639,15 @@ function AdminDashboard({
               <p className="mt-0.5 text-xs text-gray-400">Total today</p>
             </div>
             <div className="rounded-xl bg-blue-50 p-3">
-              <p className="text-lg font-semibold text-blue-700">{todayScheduled}</p>
+              <p className="text-lg font-semibold text-blue-700">
+                {todayScheduled}
+              </p>
               <p className="mt-0.5 text-xs text-gray-400">Scheduled</p>
             </div>
             <div className="rounded-xl bg-teal-50 p-3">
-              <p className="text-lg font-semibold text-teal-700">{todayOngoing}</p>
+              <p className="text-lg font-semibold text-teal-700">
+                {todayOngoing}
+              </p>
               <p className="mt-0.5 text-xs text-gray-400">Ongoing</p>
             </div>
             <div className="rounded-xl bg-green-50 p-3">
@@ -629,22 +684,40 @@ function AdminDashboard({
           </div>
           <div className="rounded-2xl border border-gray-100 bg-white p-4 sm:p-6 shadow-sm">
             <h2 className="mb-3 sm:mb-4 text-xs sm:text-sm font-semibold">
-              Appointments by Month
+              Appointments by Day
             </h2>
+            <p className="mb-4 text-xs text-gray-400">Last 7 days</p>
             <div className="h-48 sm:h-56">
               <ResponsiveContainer>
-                <LineChart data={lineData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip />
-                  <Line
+                <BarChart data={lineData} barCategoryGap="28%">
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis
+                    dataKey="name"
+                    tick={{ fontSize: 11 }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    allowDecimals={false}
+                    tick={{ fontSize: 11 }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={28}
+                  />
+                  <Tooltip
+                    cursor={{ fill: "rgba(15, 118, 110, 0.08)" }}
+                    formatter={(value) => [`${value} appointments`, "Volume"]}
+                    labelFormatter={(label, payload) =>
+                      payload?.[0]?.payload?.label || label
+                    }
+                  />
+                  <Bar
                     dataKey="count"
-                    stroke="#0f766e"
-                    strokeWidth={3}
+                    fill="#14b8a6"
+                    radius={[8, 8, 0, 0]}
                     name="Appointments"
                   />
-                </LineChart>
+                </BarChart>
               </ResponsiveContainer>
             </div>
           </div>
@@ -673,12 +746,12 @@ function AdminDashboard({
               recentAppointments.map((item) => {
                 const info = formatDateTime(item.appointment_time);
                 return (
-                <button
-                  type="button"
-                  onClick={() => navigate("/appointments")}
-                  key={item.id}
-                  className="grid w-full grid-cols-5 items-center rounded-xl bg-gray-50 px-4 py-3 mb-2 text-left transition hover:bg-teal-50 last:mb-0"
-                >
+                  <button
+                    type="button"
+                    onClick={() => navigate("/appointments")}
+                    key={item.id}
+                    className="grid w-full grid-cols-5 items-center rounded-xl bg-gray-50 px-4 py-3 mb-2 text-left transition hover:bg-teal-50 last:mb-0"
+                  >
                     <span className="font-medium text-gray-700 text-sm hover:text-teal-700">
                       {item.patient_name}
                     </span>
@@ -741,7 +814,10 @@ function AdminDashboard({
 
       {/* Right sidebar */}
       <div className="xl:w-80 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-4 sm:gap-6 xl:space-y-0">
-        <MiniCalendarWidget appointments={appointments} nowTimestamp={nowTimestamp} />
+        <MiniCalendarWidget
+          appointments={appointments}
+          nowTimestamp={nowTimestamp}
+        />
 
         {/* Action Queue */}
         <div className="rounded-2xl border border-gray-100 bg-white p-4 sm:p-5 shadow-sm">
@@ -765,7 +841,9 @@ function AdminDashboard({
                     <p className="text-xs sm:text-sm font-medium text-gray-800">
                       {event.title}
                     </p>
-                    <Badge className={`rounded-full px-2 py-0.5 text-[11px] ${getStatusClass(event.category)}`}>
+                    <Badge
+                      className={`rounded-full px-2 py-0.5 text-[11px] ${getStatusClass(event.category)}`}
+                    >
                       {event.category}
                     </Badge>
                   </div>
@@ -838,28 +916,47 @@ function groupPatientsByAge(patients) {
   return Object.entries(groups).map(([name, count]) => ({ name, count }));
 }
 
-function groupAppointmentsByMonth(appointments) {
-  const months = new Map();
+function groupAppointmentsByDay(appointments, nowTimestamp = Date.now()) {
+  const dayCounts = new Map();
   appointments.forEach((appointment) => {
     if (!appointment.appointment_time) return;
     const date = new Date(appointment.appointment_time);
     if (Number.isNaN(date.getTime())) return;
-    const key = `${date.getUTCFullYear()}-${date.getUTCMonth()}`;
-    months.set(key, {
-      count: (months.get(key)?.count || 0) + 1,
-      date: new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1)),
-    });
+    const key = getLocalDateKey(date);
+    dayCounts.set(key, (dayCounts.get(key) || 0) + 1);
   });
-  return [...months.values()]
-    .sort((a, b) => a.date - b.date)
-    .map((entry) => ({
-      name: entry.date.toLocaleDateString("en-US", {
+
+  const anchorDate = new Date(nowTimestamp);
+  const currentDay = new Date(
+    anchorDate.getFullYear(),
+    anchorDate.getMonth(),
+    anchorDate.getDate(),
+  );
+  const result = [];
+
+  for (let offset = 6; offset >= 0; offset -= 1) {
+    const dayDate = new Date(
+      currentDay.getFullYear(),
+      currentDay.getMonth(),
+      currentDay.getDate() - offset,
+    );
+    const key = getLocalDateKey(dayDate);
+    result.push({
+      name: dayDate.toLocaleDateString("en-US", {
+        day: "numeric",
         month: "short",
-        year: "2-digit",
-        timeZone: "UTC",
       }),
-      count: entry.count,
-    }));
+      label: dayDate.toLocaleDateString("en-US", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      }),
+      count: dayCounts.get(key) || 0,
+    });
+  }
+
+  return result;
 }
 
 function buildActionQueue(appointments) {
@@ -1037,7 +1134,7 @@ export default function Dashboard() {
             buildDoctorScheduleSummary(doctorList, sortedAppointments),
           );
           setBarData(groupPatientsByAge(patientList));
-          setLineData(groupAppointmentsByMonth(sortedAppointments));
+          setLineData(groupAppointmentsByDay(sortedAppointments, Date.now()));
           setAgendaItems(buildActionQueue(sortedAppointments));
           setDoctorPatients([]);
         } else if (role === ROLES.DOCTOR) {

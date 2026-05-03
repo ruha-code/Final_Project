@@ -31,7 +31,7 @@ const ROLE_STYLES = {
 
 const FULL_NAME_REGEX = /^(?=.{2,100}$)\p{L}+(?:[ .'-]\p{L}+)*$/u;
 const USERNAME_REGEX =
-  /^(?=.{3,30}$)(?=.*[A-Za-z])[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$/;
+  /^(?=.{3,15}$)(?=.*[A-Za-z])[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const STRONG_PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,128}$/;
 
@@ -54,7 +54,7 @@ function validateCreateUserForm(form) {
   }
 
   if (!USERNAME_REGEX.test(username)) {
-    return "Username must be 3-30 characters, include a letter, and start/end with a letter or number.";
+    return "Username must be 3-15 characters, include a letter, and start/end with a letter or number.";
   }
 
   if (!EMAIL_REGEX.test(email)) {
@@ -84,7 +84,7 @@ function validateEditUserForm(form) {
   }
 
   if (!USERNAME_REGEX.test(username)) {
-    return "Username must be 3-30 characters, include a letter, and start/end with a letter or number.";
+    return "Username must be 3-15 characters, include a letter, and start/end with a letter or number.";
   }
 
   if (!EMAIL_REGEX.test(email)) {
@@ -139,7 +139,9 @@ function ConfirmationModal({
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm px-4 pb-4 sm:pb-0">
       <div className="w-full max-w-md rounded-2xl bg-white shadow-xl">
         <div className="flex items-center justify-between border-b bg-red-50 px-4 sm:px-6 py-4">
-          <h2 className="font-semibold text-sm sm:text-base text-gray-800">{title}</h2>
+          <h2 className="font-semibold text-sm sm:text-base text-gray-800">
+            {title}
+          </h2>
           <button
             type="button"
             onClick={onClose}
@@ -152,7 +154,10 @@ function ConfirmationModal({
 
         <div className="space-y-4 sm:space-y-5 p-4 sm:p-6">
           <div className="flex items-start gap-3 rounded-xl bg-gray-50 p-3 sm:p-4">
-            <TriangleAlert size={18} className="mt-0.5 shrink-0 text-amber-600" />
+            <TriangleAlert
+              size={18}
+              className="mt-0.5 shrink-0 text-amber-600"
+            />
             <p className="text-xs sm:text-sm text-gray-600">{message}</p>
           </div>
 
@@ -201,7 +206,8 @@ function CreateUserModal({ onClose, onCreated, role }) {
 
   useEffect(() => {
     if (role !== "DOCTOR") return;
-    api.get("/departments")
+    api
+      .get("/departments")
       .then((data) => setDepartments(Array.isArray(data) ? data : []))
       .catch(() => setDepartments([]));
   }, [role]);
@@ -242,7 +248,9 @@ function CreateUserModal({ onClose, onCreated, role }) {
         phone: normalizedPhone || null,
         ...(role === "DOCTOR"
           ? {
-              department_id: form.department_id ? Number(form.department_id) : null,
+              department_id: form.department_id
+                ? Number(form.department_id)
+                : null,
               specialty: normalizedSpecialty || null,
               license_number: form.license_number.trim() || null,
               license_status: form.license_status,
@@ -285,11 +293,15 @@ function CreateUserModal({ onClose, onCreated, role }) {
 
         <div className="space-y-4 p-4 sm:p-6">
           {error && (
-            <div className="rounded-lg bg-red-50 p-3 text-xs sm:text-sm text-red-600">{error}</div>
+            <div className="rounded-lg bg-red-50 p-3 text-xs sm:text-sm text-red-600">
+              {error}
+            </div>
           )}
 
           <div>
-            <label className="mb-1 block text-xs sm:text-sm text-gray-500">Full Name</label>
+            <label className="mb-1 block text-xs sm:text-sm text-gray-500">
+              Full Name
+            </label>
             <input
               name="full_name"
               value={form.full_name}
@@ -300,21 +312,32 @@ function CreateUserModal({ onClose, onCreated, role }) {
           </div>
 
           <div>
-            <label className="mb-1 block text-xs sm:text-sm text-gray-500">Username</label>
+            <label className="mb-1 block text-xs sm:text-sm text-gray-500">
+              Username
+            </label>
             <input
               name="username"
               value={form.username}
               onChange={handleChange}
               placeholder="john.doe"
               className="w-full rounded-xl bg-gray-100 px-3 sm:px-4 py-2 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-teal-400"
+              minLength={3}
+              maxLength={15}
+              pattern="^(?=.{3,15}$)(?=.*[A-Za-z])[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$"
+              title="3-15 characters, include a letter, and start/end with a letter or number"
+              autoCapitalize="none"
+              spellCheck={false}
             />
             <p className="mt-1 text-xs text-gray-400">
-              3-30 chars with at least one letter. Use letters, numbers, dot, underscore, or hyphen.
+              3-15 chars with at least one letter. Use letters, numbers, dot,
+              underscore, or hyphen.
             </p>
           </div>
 
           <div>
-            <label className="mb-1 block text-xs sm:text-sm text-gray-500">Email</label>
+            <label className="mb-1 block text-xs sm:text-sm text-gray-500">
+              Email
+            </label>
             <input
               name="email"
               type="email"
@@ -326,7 +349,9 @@ function CreateUserModal({ onClose, onCreated, role }) {
           </div>
 
           <div>
-            <label className="mb-1 block text-xs sm:text-sm text-gray-500">Password</label>
+            <label className="mb-1 block text-xs sm:text-sm text-gray-500">
+              Password
+            </label>
             <input
               name="password"
               type="password"
@@ -343,7 +368,9 @@ function CreateUserModal({ onClose, onCreated, role }) {
           {role === "DOCTOR" && (
             <>
               <div>
-                <label className="mb-1 block text-xs sm:text-sm text-gray-500">Phone</label>
+                <label className="mb-1 block text-xs sm:text-sm text-gray-500">
+                  Phone
+                </label>
                 <input
                   name="phone"
                   value={form.phone}
@@ -354,7 +381,9 @@ function CreateUserModal({ onClose, onCreated, role }) {
               </div>
 
               <div>
-                <label className="mb-1 block text-xs sm:text-sm text-gray-500">Department</label>
+                <label className="mb-1 block text-xs sm:text-sm text-gray-500">
+                  Department
+                </label>
                 <select
                   name="department_id"
                   value={form.department_id}
@@ -371,7 +400,9 @@ function CreateUserModal({ onClose, onCreated, role }) {
               </div>
 
               <div>
-                <label className="mb-1 block text-xs sm:text-sm text-gray-500">Specialty</label>
+                <label className="mb-1 block text-xs sm:text-sm text-gray-500">
+                  Specialty
+                </label>
                 <input
                   name="specialty"
                   value={form.specialty}
@@ -382,7 +413,9 @@ function CreateUserModal({ onClose, onCreated, role }) {
               </div>
 
               <div>
-                <label className="mb-1 block text-xs sm:text-sm text-gray-500">License Number</label>
+                <label className="mb-1 block text-xs sm:text-sm text-gray-500">
+                  License Number
+                </label>
                 <input
                   name="license_number"
                   value={form.license_number}
@@ -394,7 +427,9 @@ function CreateUserModal({ onClose, onCreated, role }) {
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-xs sm:text-sm text-gray-500">License Status</label>
+                  <label className="mb-1 block text-xs sm:text-sm text-gray-500">
+                    License Status
+                  </label>
                   <select
                     name="license_status"
                     value={form.license_status}
@@ -409,7 +444,9 @@ function CreateUserModal({ onClose, onCreated, role }) {
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-xs sm:text-sm text-gray-500">Rating</label>
+                  <label className="mb-1 block text-xs sm:text-sm text-gray-500">
+                    Rating
+                  </label>
                   <input
                     name="rating"
                     type="number"
@@ -425,7 +462,9 @@ function CreateUserModal({ onClose, onCreated, role }) {
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-xs sm:text-sm text-gray-500">Experience</label>
+                  <label className="mb-1 block text-xs sm:text-sm text-gray-500">
+                    Experience
+                  </label>
                   <input
                     name="years_of_experience"
                     type="number"
@@ -439,7 +478,9 @@ function CreateUserModal({ onClose, onCreated, role }) {
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-xs sm:text-sm text-gray-500">Consultation</label>
+                  <label className="mb-1 block text-xs sm:text-sm text-gray-500">
+                    Consultation
+                  </label>
                   <input
                     name="consultation_duration_minutes"
                     type="number"
@@ -527,7 +568,9 @@ function EditUserModal({ user, onClose, onSaved, canChangeRole }) {
         <div className="sticky top-0 flex items-center justify-between border-b bg-blue-50 px-4 sm:px-6 py-4">
           <div>
             <h2 className="font-semibold text-sm sm:text-base">Edit User</h2>
-            <p className="text-xs text-gray-400">{getUsernameLabel(user.username)}</p>
+            <p className="text-xs text-gray-400">
+              {getUsernameLabel(user.username)}
+            </p>
           </div>
           <button
             type="button"
@@ -540,11 +583,15 @@ function EditUserModal({ user, onClose, onSaved, canChangeRole }) {
 
         <div className="space-y-4 p-4 sm:p-6">
           {error && (
-            <div className="rounded-lg bg-red-50 p-3 text-xs sm:text-sm text-red-600">{error}</div>
+            <div className="rounded-lg bg-red-50 p-3 text-xs sm:text-sm text-red-600">
+              {error}
+            </div>
           )}
 
           <div>
-            <label className="mb-1 block text-xs sm:text-sm text-gray-500">Full Name</label>
+            <label className="mb-1 block text-xs sm:text-sm text-gray-500">
+              Full Name
+            </label>
             <input
               name="full_name"
               value={form.full_name}
@@ -554,17 +601,27 @@ function EditUserModal({ user, onClose, onSaved, canChangeRole }) {
           </div>
 
           <div>
-            <label className="mb-1 block text-xs sm:text-sm text-gray-500">Username</label>
+            <label className="mb-1 block text-xs sm:text-sm text-gray-500">
+              Username
+            </label>
             <input
               name="username"
               value={form.username}
               onChange={handleChange}
               className="w-full rounded-xl bg-gray-100 px-3 sm:px-4 py-2 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-teal-400"
+              minLength={3}
+              maxLength={15}
+              pattern="^(?=.{3,15}$)(?=.*[A-Za-z])[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$"
+              title="3-15 characters, include a letter, and start/end with a letter or number"
+              autoCapitalize="none"
+              spellCheck={false}
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-xs sm:text-sm text-gray-500">Email</label>
+            <label className="mb-1 block text-xs sm:text-sm text-gray-500">
+              Email
+            </label>
             <input
               name="email"
               type="email"
@@ -575,7 +632,9 @@ function EditUserModal({ user, onClose, onSaved, canChangeRole }) {
           </div>
 
           <div>
-            <label className="mb-1 block text-xs sm:text-sm text-gray-500">Phone</label>
+            <label className="mb-1 block text-xs sm:text-sm text-gray-500">
+              Phone
+            </label>
             <input
               name="phone"
               value={form.phone}
@@ -586,7 +645,9 @@ function EditUserModal({ user, onClose, onSaved, canChangeRole }) {
           </div>
 
           <div>
-            <label className="mb-1 block text-xs sm:text-sm text-gray-500">Role</label>
+            <label className="mb-1 block text-xs sm:text-sm text-gray-500">
+              Role
+            </label>
             <select
               name="role"
               value={form.role}
@@ -628,8 +689,15 @@ function EditUserModal({ user, onClose, onSaved, canChangeRole }) {
   );
 }
 
-  // Mobile user card
-function UserCard({ u, isCurrentUser, actionLoading, onEdit, onToggle, onDelete }) {
+// Mobile user card
+function UserCard({
+  u,
+  isCurrentUser,
+  actionLoading,
+  onEdit,
+  onToggle,
+  onDelete,
+}) {
   return (
     <div className="flex flex-col gap-3 border-b p-4 last:border-none hover:bg-gray-50">
       <div className="flex items-center justify-between gap-2">
@@ -643,7 +711,10 @@ function UserCard({ u, isCurrentUser, actionLoading, onEdit, onToggle, onDelete 
           </div>
           <div className="min-w-0">
             <p className="text-sm font-medium truncate">{u.full_name}</p>
-            <p className="truncate text-xs text-gray-400" title={getUsernameLabel(u.username)}>
+            <p
+              className="truncate text-xs text-gray-400"
+              title={getUsernameLabel(u.username)}
+            >
               {getUsernameLabel(u.username)}
             </p>
             {isCurrentUser && (
@@ -660,12 +731,16 @@ function UserCard({ u, isCurrentUser, actionLoading, onEdit, onToggle, onDelete 
         </span>
       </div>
 
-      <p className="truncate text-xs text-gray-500" title={u.email}>{u.email}</p>
+      <p className="truncate text-xs text-gray-500" title={u.email}>
+        {u.email}
+      </p>
 
       <div className="flex flex-wrap gap-1">
         <span
           className={`rounded-md px-2.5 py-1 text-xs font-medium ${
-            u.is_active ? "bg-green-50 text-green-600" : "bg-red-50 text-red-500"
+            u.is_active
+              ? "bg-green-50 text-green-600"
+              : "bg-red-50 text-red-500"
           }`}
         >
           {u.is_active ? "Active" : "Inactive"}
@@ -706,9 +781,13 @@ function UserCard({ u, isCurrentUser, actionLoading, onEdit, onToggle, onDelete 
               aria-label={u.is_active ? "Deactivate user" : "Activate user"}
             >
               {u.is_active ? (
-                <><UserX size={12} /> Deactivate</>
+                <>
+                  <UserX size={12} /> Deactivate
+                </>
               ) : (
-                <><UserCheck size={12} /> Activate</>
+                <>
+                  <UserCheck size={12} /> Activate
+                </>
               )}
             </button>
 
@@ -832,10 +911,16 @@ export default function AdminUsers() {
         : await api.put(`/auth/admin/users/${userId}/activate`);
       if (currentlyActive) {
         triggerReload();
-        showToast("success", response?.message || "User deactivated successfully.");
+        showToast(
+          "success",
+          response?.message || "User deactivated successfully.",
+        );
       } else {
         triggerReload();
-        showToast("success", response?.message || "User activated successfully.");
+        showToast(
+          "success",
+          response?.message || "User activated successfully.",
+        );
       }
     } catch (err) {
       showToast("error", err.message || "Failed to update user status.");
@@ -935,8 +1020,12 @@ export default function AdminUsers() {
       {/* Header and actions */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-xl sm:text-2xl font-semibold">User Management</h2>
-            <p className="text-xs sm:text-sm text-gray-400">Manage system users and accounts</p>
+            <h2 className="text-xl sm:text-2xl font-semibold">
+              User Management
+            </h2>
+            <p className="text-xs sm:text-sm text-gray-400">
+              Manage system users and accounts
+            </p>
           </div>
 
           <div className="flex gap-2">
@@ -960,7 +1049,10 @@ export default function AdminUsers() {
       {/* Search and filter */}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <div className="relative flex-1 sm:max-w-xs md:max-w-sm">
-            <Search size={16} className="absolute left-3 top-2.5 text-gray-400" />
+            <Search
+              size={16}
+              className="absolute left-3 top-2.5 text-gray-400"
+            />
             <input
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
@@ -1014,7 +1106,9 @@ export default function AdminUsers() {
                 </div>
 
                 {users.length === 0 ? (
-                  <div className="py-10 text-center text-sm text-gray-400">No users found</div>
+                  <div className="py-10 text-center text-sm text-gray-400">
+                    No users found
+                  </div>
                 ) : (
                   users.map((u) => {
                     const isCurrentUser = currentUser?.id === u.id;
@@ -1033,11 +1127,16 @@ export default function AdminUsers() {
                               .slice(0, 2)}
                           </div>
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-medium" title={u.full_name}>
+                            <p
+                              className="truncate text-sm font-medium"
+                              title={u.full_name}
+                            >
                               {u.full_name}
                             </p>
                             {isCurrentUser && (
-                              <p className="text-xs text-gray-400">Current account</p>
+                              <p className="text-xs text-gray-400">
+                                Current account
+                              </p>
                             )}
                           </div>
                         </div>
@@ -1048,7 +1147,10 @@ export default function AdminUsers() {
                         >
                           {getUsernameLabel(u.username)}
                         </span>
-                        <span className="min-w-0 truncate text-sm text-gray-500" title={u.email}>
+                        <span
+                          className="min-w-0 truncate text-sm text-gray-500"
+                          title={u.email}
+                        >
                           {u.email}
                         </span>
 
@@ -1103,12 +1205,20 @@ export default function AdminUsers() {
                                     ? "bg-red-50 text-red-500 hover:bg-red-100"
                                     : "bg-green-50 text-green-600 hover:bg-green-100"
                                 }`}
-                                aria-label={u.is_active ? "Deactivate user" : "Activate user"}
+                                aria-label={
+                                  u.is_active
+                                    ? "Deactivate user"
+                                    : "Activate user"
+                                }
                               >
                                 {u.is_active ? (
-                                  <><UserX size={12} /> Deactivate</>
+                                  <>
+                                    <UserX size={12} /> Deactivate
+                                  </>
                                 ) : (
-                                  <><UserCheck size={12} /> Activate</>
+                                  <>
+                                    <UserCheck size={12} /> Activate
+                                  </>
                                 )}
                               </button>
 
@@ -1134,7 +1244,9 @@ export default function AdminUsers() {
         {/* Card view below */}
             <div className="md:hidden">
               {users.length === 0 ? (
-                <div className="py-10 text-center text-sm text-gray-400">No users found</div>
+                <div className="py-10 text-center text-sm text-gray-400">
+                  No users found
+                </div>
               ) : (
                 users.map((u) => (
                   <UserCard
