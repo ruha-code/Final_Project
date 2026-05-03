@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:hospital_app/features/presentation/screens/main_part/widgets/app_constant.dart';
+import 'package:hospital_app/features/presentation/screens/widgets/app_constant.dart';
 
 class DoctorCard extends StatelessWidget {
   final String name;

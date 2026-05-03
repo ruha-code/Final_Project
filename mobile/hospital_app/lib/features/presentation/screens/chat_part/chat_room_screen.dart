@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hospital_app/features/data/repositories/chat_repository.dart';
 import 'package:hospital_app/features/presentation/bloc/auth/auth_bloc.dart';
-import 'package:hospital_app/features/presentation/screens/main_part/widgets/app_constant.dart';
+import 'package:hospital_app/features/presentation/screens/widgets/app_constant.dart';
 
-/// Один диалог 1-на-1. Знает uid и имя собеседника — этого достаточно,
-/// chatId считается на лету из обоих uid.
 class ChatRoomScreen extends StatefulWidget {
   final String otherUid;
   final String otherName;
@@ -103,7 +101,6 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
                   if (snap.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
                   }
-                  // Игнорируем ошибки стрима (PERMISSION_DENIED при логауте).
                   final messages = snap.hasError
                       ? const <ChatMessage>[]
                       : (snap.data ?? const []);

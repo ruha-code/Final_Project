@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:hospital_app/features/presentation/screens/main_part/widgets/app_constant.dart';
+import 'package:hospital_app/features/presentation/screens/widgets/app_constant.dart';
 
 /// Статус записи. pending → confirmed либо cancelled.
 enum AppointmentStatus {

@@ -4,10 +4,8 @@ import 'package:hospital_app/features/data/repositories/chat_repository.dart';
 import 'package:hospital_app/features/presentation/bloc/auth/auth_bloc.dart';
 import 'package:hospital_app/features/presentation/screens/chat_part/chat_room_screen.dart';
 import 'package:hospital_app/features/presentation/screens/chat_part/new_chat_screen.dart';
-import 'package:hospital_app/features/presentation/screens/main_part/widgets/app_constant.dart';
+import 'package:hospital_app/features/presentation/screens/widgets/app_constant.dart';
 
-/// Список диалогов текущего юзера. Тап → открывается конкретный чат.
-/// FAB "+" → выбор нового собеседника.
 class ChatListScreen extends StatelessWidget {
   const ChatListScreen({super.key});
 
@@ -34,8 +32,6 @@ class ChatListScreen extends StatelessWidget {
                 if (snap.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                // Молча игнорируем ошибки стрима (PERMISSION_DENIED при
-                // логауте) — пользователь не должен видеть красный экран.
                 final threads =
                     snap.hasError ? const <ChatThread>[] : (snap.data ?? const []);
                 if (threads.isEmpty) {
@@ -140,7 +136,6 @@ class _ThreadTile extends StatelessWidget {
     );
   }
 
-  /// Если сегодня — HH:mm, иначе — Mon, dd, иначе — yyyy-mm-dd.
   String _formatTime(DateTime t) {
     final now = DateTime.now();
     final isToday =

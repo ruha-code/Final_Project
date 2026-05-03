@@ -2,18 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hospital_app/features/data/models/user_profile.dart';
 import 'package:hospital_app/features/presentation/bloc/auth/auth_bloc.dart';
-import 'package:hospital_app/features/presentation/screens/main_part/main_screen.dart';
-import 'package:hospital_app/features/presentation/screens/main_part/widgets/app_constant.dart';
+import 'package:hospital_app/features/presentation/screens/widgets/app_constant.dart';
 import 'package:hospital_app/features/presentation/screens/patient_part/patient_main_screen.dart';
-import 'package:hospital_app/features/presentation/screens/register_part/login_screen.dart';
+import 'package:hospital_app/features/presentation/screens/auth_part/login_screen.dart';
 
-/// Корневой роут.
-///
-///  unauthenticated         → LoginScreen
-///  unknown / no profile    → splash
-///  authenticated, doctor   → MainScreen (полный набор табов)
-///  authenticated, patient  → PatientMainScreen (My Card / Doctors / Chat)
-///  authenticated, unknown  → ошибка (профиль есть, но роль не определена)
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
 
@@ -27,8 +19,6 @@ class AuthWrapper extends StatelessWidget {
           navigator.popUntil((route) => route.isFirst);
         }
       },
-      // Перерисовываемся не на любое изменение, а только когда меняется
-      // что-то, влияющее на выбор корневого экрана.
       buildWhen: (prev, curr) =>
           prev.status != curr.status || prev.role != curr.role,
       builder: (context, state) {
@@ -42,7 +32,7 @@ class AuthWrapper extends StatelessWidget {
           case AuthStatus.authenticated:
             switch (state.role) {
               case UserRole.doctor:
-                return const MainScreen();
+                return const PatientMainScreen();
               case UserRole.patient:
                 return const PatientMainScreen();
               case UserRole.unknown:
@@ -64,16 +54,14 @@ class _SplashScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Scaffold(
-      backgroundColor: AppColors.accent,
+      backgroundColor: Color(0xFFD0FEF0),
       body: Center(
-        child: CircularProgressIndicator(color: Colors.white),
+        child: CircularProgressIndicator(color: AppColors.primary),
       ),
     );
   }
 }
 
-/// Юзер залогинен, но в Firestore нет users/{uid} с валидной ролью.
-/// Случается, если документ удалили вручную или регистрация была старая.
 class _RoleErrorScreen extends StatelessWidget {
   const _RoleErrorScreen();
 
@@ -119,10 +107,6 @@ class _RoleErrorScreen extends StatelessWidget {
   }
 }
 
-/// Юзер залогинен, но email не подтверждён по ссылке из письма.
-/// Сценарий: после регистрации Firebase сразу даёт user-объект, но
-/// emailVerified=false. Юзер должен открыть почту, кликнуть на ссылку
-/// и потом снова войти в app.
 class _EmailNotVerifiedScreen extends StatelessWidget {
   const _EmailNotVerifiedScreen();
 

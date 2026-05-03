@@ -3,11 +3,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hospital_app/features/data/models/appointment.dart';
 import 'package:hospital_app/features/data/repositories/appointment_repository.dart';
 import 'package:hospital_app/features/presentation/bloc/appointment/my_appointments_bloc.dart';
-import 'package:hospital_app/features/presentation/screens/main_part/widgets/app_constant.dart';
-import 'package:hospital_app/features/presentation/screens/main_part/widgets/filter_tabs.dart';
+import 'package:hospital_app/features/presentation/screens/widgets/app_constant.dart';
+import 'package:hospital_app/features/presentation/screens/widgets/filter_tabs.dart';
 import 'package:hospital_app/features/presentation/screens/patient_part/patient_booking_screen.dart';
 
-/// Записи пациента: список + фильтр + кнопка "Book new".
 class PatientAppointmentsScreen extends StatelessWidget {
   const PatientAppointmentsScreen({super.key});
 

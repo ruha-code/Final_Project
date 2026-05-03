@@ -14,6 +14,8 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
+        // Включаем core library desugaring — нужно для flutter_local_notifications.
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -27,6 +29,7 @@ android {
         applicationId = "com.example.hospital_app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
+        // Поднимаем minSdk до 23: требование desugaring и firebase_auth.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -44,4 +47,11 @@ android {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // Десугаринг JDK API для Android — нужен для flutter_local_notifications
+    // (он использует современные классы java.time, которые недоступны на
+    // старых Android без этой библиотеки).
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
